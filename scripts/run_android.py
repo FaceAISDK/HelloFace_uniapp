@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -52,12 +53,24 @@ def inspect_apk(apk, appid):
     return abis
 
 
+def exported_resources(project, appid):
+    directory = project / 'unpackage/resources' / appid / 'www'
+    required = ['manifest.json', '__uniappview.html', 'app-service.js']
+    if not all((directory / name).is_file() for name in required):
+        raise RuntimeError('The exported uni-app page resources are incomplete.')
+    if json.loads((directory / 'manifest.json').read_text()).get('id') != appid:
+        raise RuntimeError('The exported page resources belong to another AppID.')
+    return directory
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--project', type=Path, default=ROOT, help='Root Vue or independent uvue example')
     parser.add_argument('--device', help='ADB device serial; required when multiple devices are connected')
     parser.add_argument('--check', action='store_true', help='Check only; do not install or launch')
     parser.add_argument('--skip-install', action='store_true', help='Use the custom base already installed')
+    parser.add_argument('--sync-resources', action='store_true',
+                        help='Export and sync Vue page resources with ADB if HBuilderX launch stalls')
     args = parser.parse_args()
     project = args.project.resolve()
     manifest = json.loads((project / 'manifest.json').read_text())
@@ -69,6 +82,12 @@ def main():
     package = android.get('packagename')
     if not package:
         raise RuntimeError('Set the Android packagename in manifest.json first.')
+    if args.sync_resources:
+        if (project / 'App.uvue').exists():
+            raise RuntimeError('--sync-resources supports the uni-app Vue example only; use HBuilderX for uvue.')
+        if not re.fullmatch(r'[A-Za-z0-9_-]+', appid) or not re.fullmatch(
+                r'[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)+', package, re.ASCII):
+            raise RuntimeError('Invalid AppID or Android package for resource synchronization.')
 
     hbuilder = Path(os.environ.get('HBUILDERX_PATH', '/Applications/HBuilderX.app/Contents/HBuilderX'))
     cli = executable([hbuilder / 'cli', hbuilder / 'cli.exe', hbuilder.parent / 'MacOS/cli'], 'HBuilderX CLI')
@@ -126,6 +145,20 @@ def main():
     else:
         print('Installing the custom base. Confirm the system installation prompt on the phone.', flush=True)
         command(target + ['install', '-r', '-t', apk], timeout=180)
+    if args.sync_resources:
+        # A custom base contains native code but needs the compiled page resources as well.
+        command([cli, 'publish', 'app-android', '--type', 'appResource', '--project', project])
+        resources = exported_resources(project, appid)
+        destination = f'/storage/emulated/0/Android/data/{package}/apps/{appid}/www/'
+        command(target + ['shell', 'am', 'force-stop', package])
+        command(target + ['shell', 'mkdir', '-p', destination])
+        command(target + ['push', str(resources) + '/.', destination])
+        output = command(target + ['shell', 'am', 'start', '-W',
+                                   '-n', f'{package}/io.dcloud.PandoraEntry'], capture=True)
+        print(output, flush=True)
+        if 'Status: ok' not in output:
+            raise RuntimeError('Android did not confirm that the example started.')
+        return
     # This uses the documented installed-base path; it never falls back to the standard base.
     command([cli, 'launch', 'app-android', '--project', project, '--deviceId', serial,
              '--playground', 'custom', '--customType', 'device', '--packageName', package])

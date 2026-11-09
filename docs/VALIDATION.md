@@ -13,8 +13,9 @@
 | 示例页面 | Vue 示例通过 HBuilderX 5.34 的 H5 构建；uvue 脚本与 Kotlin/Swift 模板编译、三端 CSS 检查通过。浏览器预览只检查布局与交互，不代表真机识别验收 |
 | SDK 文件校验 | 37 个文件均通过锁定的 SHA-256 和长度校验 |
 | 官方 UTS 转换 | HBuilderX 5.34 的 UTS 编译器成功生成 Kotlin、Swift、ArkTS；不是最终 App 链接验证 |
-| Android 完整自定义基座 | HBuilderX 5.34 云端构建成功，APK 约 30.8 MB；相机 Activity、ARM64/ARMv7 动态库和 6 个未压缩模型均已确认，签名通过 API 23 校验。尚未完成手机端安装确认与识别验收 |
+| Android 完整自定义基座 | HBuilderX 5.34 云端构建成功，APK 约 30.8 MB；相机 Activity、ARM64/ARMv7 动态库和 6 个未压缩模型均已确认，签名通过 API 23 校验，并已安装到华为 GRA-UL00 / Android 6.0 |
 | Android 运行入口 | `npm run android:check` 在已授权的 Android 6.0 / API 23、ARM64 设备上通过；检查真实 AppID、包名、基座版本、SDK 与模型打包，错误 AppID、不完整基座和压缩模型均被拦截 |
+| Android Vue3 真机运行 | HBuilderX 5.34 导出当前页面资源成功，`android:run -- --skip-install --sync-resources` 完成同步并启动（`Status: ok`）。首页显示正常；未录入时验证正确返回 `NOT_FOUND`，相机权限授权后成功打开原生录入 Activity 与前置相机预览，取消正确回调并返回示例。观察期间未见插件崩溃或 JS 异常；真人确认录入、持久化和 1:1 比对尚未验收 |
 | Android 原生编译 | 将插件原生 Kotlin 源码直接加入临时 Android Library，`compileDebugKotlin` 成功；AGP 8.13.1、Kotlin 1.9.22、JDK 17、compileSdk 36、CameraX 1.5.2、真实 0.8.8 AAR |
 | 鸿蒙原生构建 | 将原生 ArkTS 源码加入临时 HAR 模块，DevEco Studio 26 / Hvigor 的 `assembleHar` 成功，使用真实 0.8.8 HAR，未签名 |
 | iOS Swift 语法 | `swiftc -frontend -parse` 检查所有原生 Swift 文件通过；不代表类型检查或链接通过 |
@@ -29,9 +30,9 @@ API 测试执行实际 UTS 入口及共享校验/回调代码，使用轻量的 
 
 本机 Xcode 为 15.2，无法完整编译 Swift 6.1.2 构建的上游 iOS SDK。需使用兼容新版 Xcode，或在满足 SDK 工具链要求的云打包环境中完成 iOS 编译和链接。
 
-本机 HBuilderX 的 Android/iOS 模块编译命令提示安装原生运行扩展，未产出最终可运行基座。Android 和鸿蒙的原生编译已在独立原生工程完成；Vue2、Vue3、uvue 与完整基座的联合运行仍需 HBuilderX 环境验收。
+本机已安装 Android 原生运行扩展并生成 Android 自定义基座。HBuilderX 5.34 的“已安装基座”CLI 在本次环境停在启动阶段，使用 `appResource` 导出和 ADB 同步页面后，完成上述 Vue3 页面与录入相机检查。Vue2、uvue 的完整基座联合运行仍待验收。
 
-未连接并操作三端真机，因此当前记录不声称权限弹窗、摄像头行为、识别效果、加密存储硬件能力和跨设备特征互通已通过真机验收。
+本次仅连接并操作 Android 真机；相机首次授权和录入预览已检查，尚不能据此声称真人识别效果、加密存储持久化和跨设备特征互通已通过验收。iOS、HarmonyOS 的真机流程仍待验证。
 
 ## 复查命令
 

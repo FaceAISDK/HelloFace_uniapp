@@ -50,7 +50,7 @@ python3 scripts/install_sdk.py --platform harmony
 | Vue2 | 仓库根目录 | 将 `vueVersion` 改为 `"2"`，使用已有 `main.js` 条件编译入口 |
 | uvue | 执行 `npm run demo:prepare` 后，导入 `examples/uni-app-x` | 使用其独立 `App.uvue`、`main.uts` 和 `manifest.json` |
 
-两个示例的 AppID 是占位配置，包名和签名需根据实际应用填写。插件唯一源码位于 `uni_modules/HelloFace-Verify`；修改后重新执行 `npm run demo:prepare`，把插件与已安装的原生依赖同步到 uvue 示例。
+根目录示例已配置本仓库演示用 AppID；独立 uvue 示例仍使用占位 AppID。集成到自己的应用时需配置自己的 AppID、包名和签名。插件唯一源码位于 `uni_modules/HelloFace-Verify`；修改后重新执行 `npm run demo:prepare`，把插件与已安装的原生依赖同步到 uvue 示例。
 
 ## Android
 
@@ -74,6 +74,14 @@ npm run android:check -- --project examples/uni-app-x
 ```
 
 检查失败时不会退回标准基座。`android:check` 只读取配置、APK 和设备信息；`android:run` 安装完整 APK，并通过 HBuilderX 的“已安装基座”入口同步页面和启动。部分设备会显示系统安装确认，需要在手机上允许；取消或超时后脚本会结束，不会重复触发安装。
+
+如果“已安装基座”启动命令停住，或者直接打开基座提示 `__uniappview.html` 无法打开，说明需要检查页面资源是否同步。根目录 Vue 示例提供备用命令：
+
+```sh
+npm run android:run -- --skip-install --sync-resources
+```
+
+此命令使用 HBuilderX 的 `appResource` 导出入口重新编译，核对资源 AppID 后，通过 ADB 同步到该示例包名的外部应用目录，再启动示例。已在华为 GRA-UL00 / Android 6.0 上验证页面资源同步；若设备拒绝写入该目录，需使用 HBuilderX 常规真机运行。此入口仅适用于 uni-app Vue2/Vue3，uvue 仍走其原生编译与运行流程。原生代码、SDK 或权限有变化时，仍须重建并安装自定义基座。
 
 脚本使用 PATH 中的 `adb`，也可通过 `ANDROID_HOME` / `ANDROID_SDK_ROOT` 指定 Android SDK。`HBUILDERX_PATH` 使用与 UTS 检查相同的 HBuilderX 根目录；macOS 默认识别 `/Applications/HBuilderX.app`。
 
