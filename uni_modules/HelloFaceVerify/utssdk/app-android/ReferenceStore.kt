@@ -1,4 +1,4 @@
-package uts.sdk.modules.helloFace
+package uts.sdk.modules.HelloFaceVerify
 
 import android.content.Context
 import android.security.keystore.KeyGenParameterSpec

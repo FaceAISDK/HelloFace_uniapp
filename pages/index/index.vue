@@ -1,6 +1,6 @@
 <template>
   <view class="page">
-    <text class="title">HelloFace</text>
+    <text class="title">HelloFaceVerify</text>
     <text class="subtitle">离线 1:1 人脸录入与识别</text>
     <view class="card">
       <text>用户标识</text>
@@ -17,7 +17,7 @@
 </template>
 <script>
 // #ifdef APP
-import { enrollFace, verifyFace, deleteFace, cancel } from '@/uni_modules/HelloFace'
+import { enrollFace, verifyFace, deleteFace, cancel } from '@/uni_modules/HelloFaceVerify'
 // #endif
 export default {
   data() { return { faceID: 'demo-user', silentLiveness: true, useActions: false, busy: false, message: '请输入用户标识，然后录入人脸。' } },

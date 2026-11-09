@@ -1,5 +1,6 @@
 import { FaceProgressCallback, EnrollFace, VerifyFace, GetFaceFeature, SetFaceFeature, DeleteFace, Cancel, EnrollFaceOptions, VerifyFaceOptions, FaceIDOptions, SetFaceFeatureOptions, CancelOptions } from '../interface.uts'
 import { deliver, validateParams } from '../shared.uts'
+import { HelloFaceVerifyNative } from 'uts.sdk.modules.HelloFaceVerify'
 
 export const enrollFace: EnrollFace = function (options: EnrollFaceOptions) {
   const params = { faceID: options.faceID.trim() } as UTSJSONObject
@@ -10,7 +11,9 @@ export const enrollFace: EnrollFace = function (options: EnrollFaceOptions) {
   }
   const error = validateParams('enrollFace', params)
   if (error != null) { handle(error); return }
-  HelloFaceNative.invoke('enrollFace', JSON.stringify(params), handle)
+  const context = UTSAndroid.getAppContext()
+  if (context == null) { handle('{"event":"error","code":"NO_CONTEXT","message":"App context is unavailable"}'); return }
+  HelloFaceVerifyNative.invoke(context, 'enrollFace', JSON.stringify(params), handle)
 }
 
 export const verifyFace: VerifyFace = function (options: VerifyFaceOptions) {
@@ -26,7 +29,9 @@ export const verifyFace: VerifyFace = function (options: VerifyFaceOptions) {
   }
   const error = validateParams('verifyFace', params)
   if (error != null) { handle(error); return }
-  HelloFaceNative.invoke('verifyFace', JSON.stringify(params), handle)
+  const context = UTSAndroid.getAppContext()
+  if (context == null) { handle('{"event":"error","code":"NO_CONTEXT","message":"App context is unavailable"}'); return }
+  HelloFaceVerifyNative.invoke(context, 'verifyFace', JSON.stringify(params), handle)
 }
 
 export const getFaceFeature: GetFaceFeature = function (options: FaceIDOptions) {
@@ -36,7 +41,9 @@ export const getFaceFeature: GetFaceFeature = function (options: FaceIDOptions) 
   }
   const error = validateParams('getFaceFeature', params)
   if (error != null) { handle(error); return }
-  HelloFaceNative.invoke('getFaceFeature', JSON.stringify(params), handle)
+  const context = UTSAndroid.getAppContext()
+  if (context == null) { handle('{"event":"error","code":"NO_CONTEXT","message":"App context is unavailable"}'); return }
+  HelloFaceVerifyNative.invoke(context, 'getFaceFeature', JSON.stringify(params), handle)
 }
 
 export const setFaceFeature: SetFaceFeature = function (options: SetFaceFeatureOptions) {
@@ -49,7 +56,9 @@ export const setFaceFeature: SetFaceFeature = function (options: SetFaceFeatureO
   }
   const error = validateParams('setFaceFeature', params)
   if (error != null) { handle(error); return }
-  HelloFaceNative.invoke('setFaceFeature', JSON.stringify(params), handle)
+  const context = UTSAndroid.getAppContext()
+  if (context == null) { handle('{"event":"error","code":"NO_CONTEXT","message":"App context is unavailable"}'); return }
+  HelloFaceVerifyNative.invoke(context, 'setFaceFeature', JSON.stringify(params), handle)
 }
 
 export const deleteFace: DeleteFace = function (options: FaceIDOptions) {
@@ -59,7 +68,9 @@ export const deleteFace: DeleteFace = function (options: FaceIDOptions) {
   }
   const error = validateParams('deleteFace', params)
   if (error != null) { handle(error); return }
-  HelloFaceNative.invoke('deleteFace', JSON.stringify(params), handle)
+  const context = UTSAndroid.getAppContext()
+  if (context == null) { handle('{"event":"error","code":"NO_CONTEXT","message":"App context is unavailable"}'); return }
+  HelloFaceVerifyNative.invoke(context, 'deleteFace', JSON.stringify(params), handle)
 }
 
 export const cancel: Cancel = function (options: CancelOptions) {
@@ -69,5 +80,7 @@ export const cancel: Cancel = function (options: CancelOptions) {
   }
   const error = validateParams('cancel', params)
   if (error != null) { handle(error); return }
-  HelloFaceNative.invoke('cancel', JSON.stringify(params), handle)
+  const context = UTSAndroid.getAppContext()
+  if (context == null) { handle('{"event":"error","code":"NO_CONTEXT","message":"App context is unavailable"}'); return }
+  HelloFaceVerifyNative.invoke(context, 'cancel', JSON.stringify(params), handle)
 }

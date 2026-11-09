@@ -1,4 +1,4 @@
-package uts.sdk.modules.helloFace
+package uts.sdk.modules.HelloFaceVerify
 
 import android.app.Activity
 import android.content.Context
@@ -13,11 +13,11 @@ import java.util.concurrent.Executors
 internal class CameraJob(val id: String, val method: String, val params: JSONObject,
     val callback: (String) -> Unit, var reference: String? = null, var committing: Boolean = false)
 
-object HelloFaceNative {
+object HelloFaceVerifyNative {
     internal val main = Handler(Looper.getMainLooper())
     internal val worker = Executors.newSingleThreadExecutor()
     @Volatile internal var job: CameraJob? = null
-    internal var camera = WeakReference<HelloFaceCameraActivity>(null)
+    internal var camera = WeakReference<HelloFaceVerifyCameraActivity>(null)
 
     internal fun envelope(event: String = "result", code: String = "OK", message: String = "",
         data: JSONObject = JSONObject()): String = JSONObject().put("event", event).put("code", code)
@@ -91,7 +91,7 @@ object HelloFaceNative {
                                 main.post {
                                     if (job?.id == current.id) {
                                         try {
-                                            context.startActivity(Intent(context, HelloFaceCameraActivity::class.java)
+                                            context.startActivity(Intent(context, HelloFaceVerifyCameraActivity::class.java)
                                                 .putExtra("requestID", current.id).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                                         } catch (error: Exception) {
                                             finish(current.id, envelope("error", "CAMERA_ERROR", error.message ?: "Unable to launch camera"))

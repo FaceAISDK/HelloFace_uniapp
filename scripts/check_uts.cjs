@@ -9,13 +9,13 @@ const output = fs.mkdtempSync(path.join(os.tmpdir(), 'helloface-uts-check-'))
 
 async function main() {
   for (const [target, platform, extension, packageName] of [
-    ['Kotlin', 'app-android', 'kt', 'uts.sdk.modules.HelloFace'],
-    ['Swift', 'app-ios', 'swift', 'HelloFace'],
-    ['ArkTS', 'app-harmony', 'ets', 'HelloFace']
+    ['Kotlin', 'app-android', 'kt', 'uts.sdk.modules.HelloFaceVerify'],
+    ['Swift', 'app-ios', 'swift', 'HelloFaceVerify'],
+    ['ArkTS', 'app-harmony', 'ets', 'HelloFaceVerify']
   ]) {
     const result = await compiler['bundle' + target]({ hbxVersion: '5.34',
-      input: { root, filename: path.join(root, 'uni_modules/HelloFace/utssdk', platform, 'index.uts'),
-        paths: {}, externals: ['./HelloFaceNative.ets'] },
+      input: { root, filename: path.join(root, 'uni_modules/HelloFaceVerify/utssdk', platform, 'index.uts'),
+        paths: {}, externals: ['./HelloFaceVerifyNative.ets'] },
       output: { outDir: path.join(output, platform), package: packageName, extname: extension,
         isPlugin: true, isApp: true } })
     if (result.error) throw result.error

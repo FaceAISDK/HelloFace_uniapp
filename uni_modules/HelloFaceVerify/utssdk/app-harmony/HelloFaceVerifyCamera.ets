@@ -33,7 +33,7 @@ struct FaceCameraDialog {
     Column({ space: 20 }) {
       Text(this.guidance).fontSize(20).fontColor(Color.White).textAlign(TextAlign.Center).margin({ top: 30 })
       Stack() {
-        XComponent({ id: 'helloface-camera', type: XComponentType.SURFACE, controller: this.controller })
+        XComponent({ id: 'hellofaceverify-camera', type: XComponentType.SURFACE, controller: this.controller })
           .width('100%').height('100%')
           .onLoad((): void => { this.flow?.start(this.controller.getXComponentSurfaceId()); })
         if (this.captured) {

@@ -1,4 +1,4 @@
-package uts.sdk.modules.helloFace
+package uts.sdk.modules.HelloFaceVerify
 
 import android.Manifest
 import android.content.pm.PackageManager
@@ -41,7 +41,7 @@ import org.json.JSONObject
 import java.lang.ref.WeakReference
 import java.util.concurrent.Executors
 
-class HelloFaceCameraActivity : ComponentActivity() {
+class HelloFaceVerifyCameraActivity : ComponentActivity() {
     internal var jobID = ""
     private lateinit var current: CameraJob
     private lateinit var preview: PreviewView
@@ -64,10 +64,10 @@ class HelloFaceCameraActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         jobID = intent.getStringExtra("requestID") ?: ""
-        val pending = HelloFaceNative.job
+        val pending = HelloFaceVerifyNative.job
         if (pending == null || pending.id != jobID || savedInstanceState != null) { finish(); return }
         current = pending
-        HelloFaceNative.camera = WeakReference(this)
+        HelloFaceVerifyNative.camera = WeakReference(this)
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 if (!current.committing) fail("CANCELLED", "Face operation cancelled")
@@ -91,7 +91,7 @@ class HelloFaceCameraActivity : ComponentActivity() {
         else permission.launch(Manifest.permission.CAMERA)
     }
 
-    private fun active() = HelloFaceNative.job?.id == jobID && !stopping && !isFinishing
+    private fun active() = HelloFaceVerifyNative.job?.id == jobID && !stopping && !isFinishing
     private fun begin() {
         if (!active()) return
         try {
@@ -171,7 +171,7 @@ class HelloFaceCameraActivity : ComponentActivity() {
             "MULTIPLE_FACES" -> "请保持画面中只有一人"; "FACE_TOO_SMALL" -> "请靠近一些"
             "HOLD_STILL", "FACE_UNSTABLE" -> "请保持不动"; else -> "请正对镜头"
         }
-        HelloFaceNative.progress(jobID, JSONObject().put("stage", stage).put("action", action ?: JSONObject.NULL)
+        HelloFaceVerifyNative.progress(jobID, JSONObject().put("stage", stage).put("action", action ?: JSONObject.NULL)
             .put("stepNumber", progress.stepNumber).put("stepCount", progress.stepCount))
     }
 
@@ -187,13 +187,13 @@ class HelloFaceCameraActivity : ComponentActivity() {
             setOnClickListener {
                 if (!active() || current.committing) return@setOnClickListener
                 current.committing = true; isEnabled = false
-                HelloFaceNative.worker.execute {
+                HelloFaceVerifyNative.worker.execute {
                     try {
                         ReferenceStore(applicationContext).save(current.params.getString("faceID"), result.feature)
-                        HelloFaceNative.finish(jobID, HelloFaceNative.envelope(data = JSONObject()
+                        HelloFaceVerifyNative.finish(jobID, HelloFaceVerifyNative.envelope(data = JSONObject()
                             .put("feature", result.feature).put("passed", true).put("outcome", "PASSED")))
                     } catch (error: Exception) {
-                        HelloFaceNative.finish(jobID, HelloFaceNative.envelope("error", "STORAGE_ERROR", error.message ?: "Unable to save reference"))
+                        HelloFaceVerifyNative.finish(jobID, HelloFaceVerifyNative.envelope("error", "STORAGE_ERROR", error.message ?: "Unable to save reference"))
                     }
                 }
             }
@@ -205,13 +205,13 @@ class HelloFaceCameraActivity : ComponentActivity() {
     private fun finishResult(data: JSONObject) {
         if (!active()) return
         stopping = true
-        HelloFaceNative.finish(jobID, HelloFaceNative.envelope(data = data))
+        HelloFaceVerifyNative.finish(jobID, HelloFaceVerifyNative.envelope(data = data))
     }
     private fun fail(code: String, message: String) {
         if (!active()) return
         if (code == "CANCELLED" && current.committing) return
         stopping = true
-        HelloFaceNative.finish(jobID, HelloFaceNative.envelope("error", code, message))
+        HelloFaceVerifyNative.finish(jobID, HelloFaceVerifyNative.envelope("error", code, message))
     }
     override fun onStop() {
         super.onStop()
@@ -220,8 +220,8 @@ class HelloFaceCameraActivity : ComponentActivity() {
     override fun onDestroy() {
         shutdownCamera()
         aligned?.recycle(); aligned = null
-        if (::current.isInitialized && HelloFaceNative.job?.id == jobID && !current.committing) {
-            HelloFaceNative.finish(jobID, HelloFaceNative.envelope("error", "CANCELLED", "Camera closed"))
+        if (::current.isInitialized && HelloFaceVerifyNative.job?.id == jobID && !current.committing) {
+            HelloFaceVerifyNative.finish(jobID, HelloFaceVerifyNative.envelope("error", "CANCELLED", "Camera closed"))
         }
         super.onDestroy()
     }

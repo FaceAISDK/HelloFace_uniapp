@@ -1,7 +1,7 @@
 import Foundation
 import Security
 
-enum FaceBridgeError: Error {
+enum HelloFaceVerifyBridgeError: Error {
     case failure(String, String)
 }
 
@@ -22,7 +22,7 @@ enum ReferenceStore {
         if status == errSecItemNotFound { return nil }
         guard status == errSecSuccess, let data = value as? Data,
               let feature = String(data: data, encoding: .utf8) else {
-            throw FaceBridgeError.failure("STORAGE_ERROR", "Unable to read Keychain reference (\(status))")
+            throw HelloFaceVerifyBridgeError.failure("STORAGE_ERROR", "Unable to read Keychain reference (\(status))")
         }
         return feature
     }
@@ -37,13 +37,13 @@ enum ReferenceStore {
             status = SecItemAdd(item as CFDictionary, nil)
         }
         guard status == errSecSuccess else {
-            throw FaceBridgeError.failure("STORAGE_ERROR", "Unable to save Keychain reference (\(status))")
+            throw HelloFaceVerifyBridgeError.failure("STORAGE_ERROR", "Unable to save Keychain reference (\(status))")
         }
     }
     static func delete(_ faceID: String) throws {
         let status = SecItemDelete(query(faceID) as CFDictionary)
         guard status == errSecSuccess || status == errSecItemNotFound else {
-            throw FaceBridgeError.failure("STORAGE_ERROR", "Unable to delete Keychain reference (\(status))")
+            throw HelloFaceVerifyBridgeError.failure("STORAGE_ERROR", "Unable to delete Keychain reference (\(status))")
         }
     }
 }

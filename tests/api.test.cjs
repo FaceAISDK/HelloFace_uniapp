@@ -9,7 +9,7 @@ try { ts = require('typescript') } catch (_) {
   ts = require(path.join(process.env.HBUILDERX_PATH || '/Applications/HBuilderX.app/Contents/HBuilderX',
     'plugins/uniapp-uts-v1/node_modules/@dcloudio/uni-uts-v1/lib/typescript'))
 }
-const sdkRoot = path.resolve(__dirname, '../uni_modules/HelloFace/utssdk')
+const sdkRoot = path.resolve(__dirname, '../uni_modules/HelloFaceVerify/utssdk')
 function jsonObject(data) {
   const methods = {
     getString: key => typeof data[key] === 'string' ? data[key] : null,
@@ -46,11 +46,11 @@ function load(platform = 'app-ios') {
       }] } })
     const module = { exports: {} }
     cache.set(filename, module.exports)
-    const sandbox = { module, exports: module.exports, JSON: json, __utsObject: jsonObject, HelloFaceNative: native,
+    const sandbox = { module, exports: module.exports, JSON: json, __utsObject: jsonObject, HelloFaceVerifyNative: native,
       UTSAndroid: { getAppContext: () => ({}) }, UniError: class UniError extends Error {},
       UTSHarmony: { getUIAbilityContext: () => ({}) },
       require(name) {
-        if (name === 'uts.sdk.modules.helloFace' || name === './HelloFaceNative.ets') return { HelloFaceNative: native }
+        if (name === 'uts.sdk.modules.HelloFaceVerify' || name === './HelloFaceVerifyNative.ets') return { HelloFaceVerifyNative: native }
         return read(path.resolve(path.dirname(filename), name))
       } }
     vm.runInNewContext(result.outputText, sandbox, { filename })
@@ -83,7 +83,7 @@ for (const platform of ['app-android', 'app-ios', 'app-harmony']) {
       { faceID: 'u', actions: ['smile'] }, { faceID: 'u', actions: ['blink', 'blink', 'blink', 'blink', 'blink'] },
       { faceID: 'u', actionTimeoutMs: 1000.5 }]) {
       let failed = 0, completed = 0
-      api.verifyFace({ ...options, fail: error => { failed++; assert.equal(error.errCode, 9011001); assert.equal(error.errSubject, 'HelloFace') }, complete: () => completed++ })
+      api.verifyFace({ ...options, fail: error => { failed++; assert.equal(error.errCode, 9011001); assert.equal(error.errSubject, 'HelloFaceVerify') }, complete: () => completed++ })
       assert.equal(failed, 1); assert.equal(completed, 1)
     }
     assert.equal(calls.length, 0)

@@ -35,7 +35,7 @@ export function envelope(event: string = 'result', code: string = 'OK', message:
   return JSON.stringify(result);
 }
 export class BridgeError implements Error {
-  readonly name: string = 'HelloFaceError';
+  readonly name: string = 'HelloFaceVerifyError';
   readonly message: string;
   readonly code: string;
   constructor(code: string, message: string) { this.message = message; this.code = code; }

@@ -2,10 +2,10 @@ import AVFoundation
 import HiFace
 
 /** Camera configuration and borrowed pixel buffers stay on one serial queue. */
-final class FaceCameraPipeline: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, @unchecked Sendable {
+final class HelloFaceVerifyCameraPipeline: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, @unchecked Sendable {
     let sdk = HiFaceSDK()
     let session = AVCaptureSession()
-    private let queue = DispatchQueue(label: "HelloFace.camera")
+    private let queue = DispatchQueue(label: "HelloFaceVerify.camera")
     private let front: Bool
     private let onError: @MainActor @Sendable (String, String) -> Void
 
@@ -33,16 +33,16 @@ final class FaceCameraPipeline: NSObject, AVCaptureVideoDataOutputSampleBufferDe
             }
             session.sessionPreset = .vga640x480
             guard let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: front ? .front : .back) else {
-                throw FaceBridgeError.failure("CAMERA_ERROR", "Requested camera is unavailable")
+                throw HelloFaceVerifyBridgeError.failure("CAMERA_ERROR", "Requested camera is unavailable")
             }
             let input = try AVCaptureDeviceInput(device: device)
-            guard session.canAddInput(input) else { throw FaceBridgeError.failure("CAMERA_ERROR", "Unable to add camera input") }
+            guard session.canAddInput(input) else { throw HelloFaceVerifyBridgeError.failure("CAMERA_ERROR", "Unable to add camera input") }
             session.addInput(input)
             let output = AVCaptureVideoDataOutput()
             output.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange]
             output.alwaysDiscardsLateVideoFrames = true
             output.setSampleBufferDelegate(self, queue: queue)
-            guard session.canAddOutput(output) else { throw FaceBridgeError.failure("CAMERA_ERROR", "Unable to add camera output") }
+            guard session.canAddOutput(output) else { throw HelloFaceVerifyBridgeError.failure("CAMERA_ERROR", "Unable to add camera output") }
             session.addOutput(output)
             if let connection = output.connection(with: .video) {
                 if #available(iOS 17.0, *) {

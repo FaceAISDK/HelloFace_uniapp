@@ -1,5 +1,5 @@
-import { FaceResult, FaceProgress, FaceSuccess, FaceFailure, FaceComplete, FaceProgressCallback, HelloFaceErrorCode } from './interface.uts'
-import { HelloFaceFailImpl } from './unierror.uts'
+import { FaceResult, FaceProgress, FaceSuccess, FaceFailure, FaceComplete, FaceProgressCallback, HelloFaceVerifyErrorCode } from './interface.uts'
+import { HelloFaceVerifyFailImpl } from './unierror.uts'
 
 export function validateParams(method: string, params: UTSJSONObject): string | null {
   let message = ''
@@ -33,7 +33,7 @@ export function validateParams(method: string, params: UTSJSONObject): string | 
   return JSON.stringify({ event: 'error', code: 'INVALID_ARGUMENT', message: message })
 }
 
-function errorCode(code: string): HelloFaceErrorCode {
+function errorCode(code: string): HelloFaceVerifyErrorCode {
   if (code == 'INVALID_ARGUMENT') return 9011001
   if (code == 'PERMISSION_DENIED') return 9011002
   if (code == 'CANCELLED') return 9011003
@@ -59,7 +59,7 @@ export function deliver(raw: string, method: string, faceID: string,
     return
   }
   if (code != 'OK' || event?.getString('event') != 'result') {
-    const error = new HelloFaceFailImpl(errorCode(code), method + ':fail ' + (event?.getString('message') ?? 'Invalid native response'), code)
+    const error = new HelloFaceVerifyFailImpl(errorCode(code), method + ':fail ' + (event?.getString('message') ?? 'Invalid native response'), code)
     try { fail?.(error) } finally { complete?.(error) }
     return
   }

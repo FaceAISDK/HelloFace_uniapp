@@ -1,7 +1,7 @@
 <template>
   <scroll-view class="page" scroll-y>
     <view class="content">
-      <text class="title">HelloFace · uvue</text>
+      <text class="title">HelloFaceVerify · uvue</text>
       <text class="note">离线 1:1 人脸录入与识别</text>
       <input class="input" v-model="faceID" maxlength="64" placeholder="请输入 faceID" />
       <button type="primary" :disabled="busy" @click="enroll">录入人脸</button>
@@ -11,7 +11,7 @@
   </scroll-view>
 </template>
 <script lang="uts">
-import { enrollFace, verifyFace, cancel, EnrollFaceOptions, VerifyFaceOptions, FaceResult, FaceProgress } from '@/uni_modules/HelloFace'
+import { enrollFace, verifyFace, cancel, EnrollFaceOptions, VerifyFaceOptions, FaceResult, FaceProgress } from '@/uni_modules/HelloFaceVerify'
 export default {
   data() { return { faceID: 'demo-user', busy: false, message: '请输入用户标识，然后录入人脸。' } },
   onUnload() { cancel({}) },

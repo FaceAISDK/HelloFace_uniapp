@@ -3,9 +3,9 @@ import { window } from '@kit.ArkUI';
 import { HiFaceSdk } from 'hiface';
 import { BridgeError, FaceParams, envelope, errorEnvelope } from './BridgeTypes';
 import { ReferenceStore } from './ReferenceStore';
-import { CameraFlow } from './HelloFaceCamera';
+import { CameraFlow } from './HelloFaceVerifyCamera';
 
-export class HelloFaceNative {
+export class HelloFaceVerifyNative {
   private static busy: boolean = false;
   private static generation: number = 0;
   private static camera: CameraFlow | undefined = undefined;
@@ -13,34 +13,34 @@ export class HelloFaceNative {
 
   static invoke(context: common.UIAbilityContext, method: string, raw: string, callback: (value: string) => void): void {
     if (method === 'cancel') {
-      if (HelloFaceNative.camera !== undefined) {
-        if (HelloFaceNative.camera.committing) { callback(envelope('error', 'BUSY', 'Enrollment is being saved')); return; }
-        HelloFaceNative.camera.cancel();
-      } else if (HelloFaceNative.cameraCallback !== undefined) {
+      if (HelloFaceVerifyNative.camera !== undefined) {
+        if (HelloFaceVerifyNative.camera.committing) { callback(envelope('error', 'BUSY', 'Enrollment is being saved')); return; }
+        HelloFaceVerifyNative.camera.cancel();
+      } else if (HelloFaceVerifyNative.cameraCallback !== undefined) {
         // Permission/readiness may still be pending before a dialog exists.
-        const pending = HelloFaceNative.cameraCallback;
-        HelloFaceNative.cameraCallback = undefined;
-        HelloFaceNative.generation++;
-        HelloFaceNative.busy = false;
+        const pending = HelloFaceVerifyNative.cameraCallback;
+        HelloFaceVerifyNative.cameraCallback = undefined;
+        HelloFaceVerifyNative.generation++;
+        HelloFaceVerifyNative.busy = false;
         pending(envelope('error', 'CANCELLED', 'Face operation cancelled'));
       }
       callback(envelope());
       return;
     }
-    if (HelloFaceNative.busy) { callback(envelope('error', 'BUSY', 'A face operation is active')); return; }
-    HelloFaceNative.busy = true;
-    const token = ++HelloFaceNative.generation;
+    if (HelloFaceVerifyNative.busy) { callback(envelope('error', 'BUSY', 'A face operation is active')); return; }
+    HelloFaceVerifyNative.busy = true;
+    const token = ++HelloFaceVerifyNative.generation;
     let completed: boolean = false;
     const finish = (result: string): void => {
-      if (completed || token !== HelloFaceNative.generation) return;
+      if (completed || token !== HelloFaceVerifyNative.generation) return;
       completed = true;
-      HelloFaceNative.busy = false;
-      HelloFaceNative.camera = undefined;
-      HelloFaceNative.cameraCallback = undefined;
+      HelloFaceVerifyNative.busy = false;
+      HelloFaceVerifyNative.camera = undefined;
+      HelloFaceVerifyNative.cameraCallback = undefined;
       callback(result);
     };
-    if (method === 'enrollFace' || method === 'verifyFace') HelloFaceNative.cameraCallback = callback;
-    HelloFaceNative.execute(context, method, raw, token, callback, finish).catch((error: Error): void => {
+    if (method === 'enrollFace' || method === 'verifyFace') HelloFaceVerifyNative.cameraCallback = callback;
+    HelloFaceVerifyNative.execute(context, method, raw, token, callback, finish).catch((error: Error): void => {
       finish(errorEnvelope(error));
     });
   }
@@ -50,7 +50,7 @@ export class HelloFaceNative {
     const params = JSON.parse(raw) as FaceParams;
     const store = new ReferenceStore(context);
     const feature = method === 'deleteFace' ? undefined : await store.get(params.faceID);
-    if (token !== HelloFaceNative.generation) return;
+    if (token !== HelloFaceVerifyNative.generation) return;
     if (method === 'getFaceFeature') {
       if (feature === undefined) throw new BridgeError('NOT_FOUND', 'No enrolled face for faceID');
       finish(envelope('result', 'OK', '', { feature: feature }));
@@ -67,16 +67,16 @@ export class HelloFaceNative {
       if (method === 'verifyFace' && feature === undefined) throw new BridgeError('NOT_FOUND', 'Enroll this faceID first');
       const access = abilityAccessCtrl.createAtManager();
       const permission = await access.requestPermissionsFromUser(context, ['ohos.permission.CAMERA']);
-      if (token !== HelloFaceNative.generation) return;
+      if (token !== HelloFaceVerifyNative.generation) return;
       if (permission.authResults.length !== 1 || permission.authResults[0] !== 0) {
         throw new BridgeError('PERMISSION_DENIED', 'Camera permission denied');
       }
       const mainWindow = await window.getLastWindow(context);
-      if (token !== HelloFaceNative.generation) return;
+      if (token !== HelloFaceVerifyNative.generation) return;
       const sdk: HiFaceSdk = HiFaceSdk.create(context);
       const flow = new CameraFlow(context, mainWindow, sdk, method, params, feature,
-        (value: string): void => { if (token === HelloFaceNative.generation) callback(value); }, finish);
-      HelloFaceNative.camera = flow;
+        (value: string): void => { if (token === HelloFaceVerifyNative.generation) callback(value); }, finish);
+      HelloFaceVerifyNative.camera = flow;
       flow.open();
     } else { throw new BridgeError('INVALID_ARGUMENT', 'Unknown operation'); }
   }

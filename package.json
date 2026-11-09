@@ -1,6 +1,6 @@
 {
-  "name": "helloface-uniapp",
-  "version": "0.1.0",
+  "name": "hellofaceverify-uniapp",
+  "version": "0.1.1",
   "private": true,
   "scripts": {
     "sdk:install": "python3 scripts/install_sdk.py",

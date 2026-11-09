@@ -1,6 +1,10 @@
-# HelloFace uni-app UTS 插件
+# HelloFaceVerify · uni-app / uni-app x 离线人脸识别 UTS 插件
 
-基于 [FaceSDKPro/HelloFace](https://github.com/FaceSDKPro/HelloFace) 原生 SDK 0.8.8，实现离线 **1:1 人脸录入**和 **1:1 人脸识别**。使用 UTS API 插件与原生混编，供 Vue2、Vue3 和 uni-app x 的 uvue 页面调用。
+**HelloFaceVerify** 面向 uni-app Vue2 / Vue3 和 uni-app x uvue，提供**人脸录入、1:1 人脸比对、静默活体检测和动作活体检测**。Android、iOS、HarmonyOS 鸿蒙三端采用原生相机与统一 UTS API，可作为 App 登录确认、签到核验、设备端人员验证中的人脸识别模块。
+
+识别在设备端离线完成，无需调用云端人脸识别 API。用户确认录入后，基准特征加密保存在本机；业务可按 `faceID` 读取、同步和删除。底层使用 [FaceSDKPro/HelloFace](https://github.com/FaceSDKPro/HelloFace) 原生 SDK 0.8.8。
+
+插件目录与导入入口为 `uni_modules/HelloFaceVerify`，首个版本的 `HelloFace` 入口已迁移。接口方法名与参数保持一致；错误主题改为 `HelloFaceVerify`，升级时需同步修改导入路径及按错误主题进行过滤的业务代码。
 
 录入流程：打开原生相机 → 采集人脸 → 显示采集预览 → 用户确认 → 保存此 `faceID` 的基准特征。识别流程：读取此 `faceID` 的特征 → 原生相机连续送帧 → 可选静默/动作活体 → 1:1 比对 → 返回 SDK 业务结果。
 
@@ -41,7 +45,7 @@
 
    在 HBuilderX 中单独导入 `examples/uni-app-x`，配置自己的 AppID/签名后运行。该命令把根目录的插件与已安装的原生依赖复制到示例中，避免维护两份插件源码；修改插件后再次执行。
 
-集成到已有工程时，复制**安装完成后的** `uni_modules/HelloFace`。Android 宿主还需合并下面的模型打包配置：
+集成到已有工程时，复制**安装完成后的** `uni_modules/HelloFaceVerify`。Android 宿主还需合并下面的模型打包配置：
 
 ```json
 // uni-app：manifest.json -> app-plus -> distribute -> android
@@ -55,7 +59,7 @@
 ## 最小调用
 
 ```js
-import { enrollFace, verifyFace, cancel } from '@/uni_modules/HelloFace'
+import { enrollFace, verifyFace, cancel } from '@/uni_modules/HelloFaceVerify'
 
 enrollFace({
   faceID: 'user-001',
@@ -86,7 +90,7 @@ verifyFace({
 // 页面退出时：cancel({})
 ```
 
-uvue 从同一插件入口导入 `EnrollFaceOptions`、`VerifyFaceOptions`、`FaceResult` 等类型，示例见 `examples/uni-app-x/pages/index/index.uvue`。按官方要求，通过 `@/uni_modules/HelloFace` 引用插件，页面不直接导入 `utssdk` 内部文件。
+uvue 从同一插件入口导入 `EnrollFaceOptions`、`VerifyFaceOptions`、`FaceResult` 等类型，示例见 `examples/uni-app-x/pages/index/index.uvue`。按官方要求，通过 `@/uni_modules/HelloFaceVerify` 引用插件，页面不直接导入 `utssdk` 内部文件。
 
 ## API
 
@@ -135,7 +139,7 @@ uvue 从同一插件入口导入 `EnrollFaceOptions`、`VerifyFaceOptions`、`Fa
 
 ### 错误
 
-`fail` 返回符合 UniError 约定的 `errSubject: "HelloFace"`、`errCode`、`errMsg`，另有 `sdkCode` 保留原始错误名称。
+`fail` 返回符合 UniError 约定的 `errSubject: "HelloFaceVerify"`、`errCode`、`errMsg`，另有 `sdkCode` 保留原始错误名称。
 
 | errCode | 含义 |
 | --- | --- |

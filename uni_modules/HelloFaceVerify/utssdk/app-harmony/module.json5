@@ -2,7 +2,7 @@
   "module": {
     "requestPermissions": [{
       "name": "ohos.permission.CAMERA",
-      "reason": "$string:helloface_camera_reason",
+      "reason": "$string:hellofaceverify_camera_reason",
       "usedScene": { "when": "inuse" }
     }]
   }

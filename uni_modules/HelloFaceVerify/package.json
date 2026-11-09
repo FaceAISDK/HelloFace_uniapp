@@ -1,12 +1,13 @@
 {
-  "id": "HelloFace",
-  "displayName": "HelloFace 离线人脸识别 UTS 插件",
-  "version": "0.1.0",
-  "description": "离线 1:1 人脸录入与识别 UTS 插件，支持 Vue2、Vue3、uvue，Android、iOS、HarmonyOS。",
+  "id": "HelloFaceVerify",
+  "displayName": "HelloFaceVerify 人脸识别·1:1比对·活体检测UTS（鸿蒙/iOS/Android）",
+  "version": "0.1.1",
+  "description": "HelloFaceVerify 离线人脸识别 UTS 插件：原生相机人脸采集与录入、1:1 人脸比对、静默活体和动作活体检测。适配 uni-app Vue2/Vue3、uni-app x uvue，提供 Android、iOS、HarmonyOS 鸿蒙三端实现；支持本机特征加密保存、读取、同步和删除，无需调用云端识别 API。",
   "keywords": [
     "人脸识别",
+    "人脸比对",
     "活体检测",
-    "UTS",
+    "离线人脸识别",
     "鸿蒙"
   ],
   "repository": "https://github.com/FaceAISDK/HelloFace_uniapp",
@@ -27,7 +28,7 @@
     },
     "declaration": {
       "ads": "无广告",
-      "data": "离线处理，不上传人脸图片或特征；由宿主决定是否保存到原生 SDK 人脸库。",
+      "data": "人脸识别在设备端离线处理，不主动上传人脸图片或特征；录入确认后基准特征加密保存在本机，可由业务读取、同步或删除；不保存采集图。",
       "permissions": "相机（仅在主动启动相机时申请）"
     }
   },

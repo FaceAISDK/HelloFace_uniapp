@@ -2,13 +2,13 @@ import UIKit
 import AVFoundation
 import HiFace
 
-final class HelloFaceCameraController: UIViewController {
+final class HelloFaceVerifyCameraController: UIViewController {
     private let method: String
     private let params: [String: Any]
     private let reference: String?
     private let onProgress: ([String: Any]) -> Void
     private let completion: (String) -> Void
-    private lazy var pipeline = FaceCameraPipeline(front: isFront) { [weak self] code, message in
+    private lazy var pipeline = HelloFaceVerifyCameraPipeline(front: isFront) { [weak self] code, message in
         self?.fail(code, message)
     }
     private var preview: AVCaptureVideoPreviewLayer?
@@ -91,7 +91,7 @@ final class HelloFaceCameraController: UIViewController {
                     case "openMouth": return .openMouth
                     case "shakeHead": return .shakeHead
                     case "nodHead": return .nodHead
-                    default: throw FaceBridgeError.failure("INVALID_ARGUMENT", "Unknown action")
+                    default: throw HelloFaceVerifyBridgeError.failure("INVALID_ARGUMENT", "Unknown action")
                     }
                 }
                 let configuration = try FaceVerificationConfiguration(referenceFeature: reference ?? "",
@@ -136,16 +136,16 @@ final class HelloFaceCameraController: UIViewController {
         } else {
             var data = Self.data(value)
             if method == "verifyFace" { data.removeValue(forKey: "feature") }
-            finish(FaceOperation.envelope("result", "OK", "", data))
+            finish(HelloFaceVerifyOperation.envelope("result", "OK", "", data))
         }
     }
     @objc private func confirm() {
         guard !ended, let value = captured, let feature = value.feature, let faceID = params["faceID"] as? String else { return }
-        do { try ReferenceStore.save(faceID, feature); finish(FaceOperation.envelope("result", "OK", "", Self.data(value))) }
+        do { try ReferenceStore.save(faceID, feature); finish(HelloFaceVerifyOperation.envelope("result", "OK", "", Self.data(value))) }
         catch { fail("STORAGE_ERROR", error.localizedDescription) }
     }
     @objc func cancel() { fail("CANCELLED", "Face operation cancelled") }
-    private func fail(_ code: String, _ message: String) { finish(FaceOperation.envelope("error", code, message)) }
+    private func fail(_ code: String, _ message: String) { finish(HelloFaceVerifyOperation.envelope("error", code, message)) }
     private func finish(_ response: String) {
         guard !ended else { return }; ended = true
         captured = nil; request?.cancel(); request = nil

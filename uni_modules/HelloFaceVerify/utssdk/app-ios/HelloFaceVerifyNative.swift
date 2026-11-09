@@ -2,17 +2,17 @@ import Foundation
 import UIKit
 import HiFace
 
-public final class HelloFaceNative {
+public final class HelloFaceVerifyNative {
     public static func invoke(_ method: String, _ raw: String, _ callback: @escaping (String) -> Void) {
-        Task { @MainActor in FaceOperation.shared.invoke(method, raw, callback) }
+        Task { @MainActor in HelloFaceVerifyOperation.shared.invoke(method, raw, callback) }
     }
 }
 
 @MainActor
-final class FaceOperation {
-    static let shared = FaceOperation()
+final class HelloFaceVerifyOperation {
+    static let shared = HelloFaceVerifyOperation()
     private var activeID: UUID?
-    private weak var camera: HelloFaceCameraController?
+    private weak var camera: HelloFaceVerifyCameraController?
 
     nonisolated static func envelope(_ event: String = "result", _ code: String = "OK", _ message: String = "",
                          _ data: [String: Any] = [:]) -> String {
@@ -49,25 +49,25 @@ final class FaceOperation {
             else { feature = try ReferenceStore.get(faceID) }
             switch method {
             case "getFaceFeature":
-                guard let feature = feature else { throw FaceBridgeError.failure("NOT_FOUND", "No enrolled face for faceID") }
+                guard let feature = feature else { throw HelloFaceVerifyBridgeError.failure("NOT_FOUND", "No enrolled face for faceID") }
                 finish(Self.envelope("result", "OK", "", ["feature": feature]))
             case "deleteFace":
                 try ReferenceStore.delete(faceID)
                 finish(Self.envelope())
             case "setFaceFeature":
-                if feature != nil && !(params["overwrite"] as? Bool ?? false) { throw FaceBridgeError.failure("ALREADY_EXISTS", "Face already enrolled") }
-                guard let incoming = params["feature"] as? String else { throw FaceBridgeError.failure("INVALID_ARGUMENT", "Missing feature") }
+                if feature != nil && !(params["overwrite"] as? Bool ?? false) { throw HelloFaceVerifyBridgeError.failure("ALREADY_EXISTS", "Face already enrolled") }
+                guard let incoming = params["feature"] as? String else { throw HelloFaceVerifyBridgeError.failure("INVALID_ARGUMENT", "Missing feature") }
                 try ReferenceStore.save(faceID, incoming)
                 finish(Self.envelope("result", "OK", "", ["feature": incoming]))
             case "enrollFace", "verifyFace":
                 if method == "enrollFace" && feature != nil && !(params["overwrite"] as? Bool ?? false) {
-                    throw FaceBridgeError.failure("ALREADY_EXISTS", "Face already enrolled")
+                    throw HelloFaceVerifyBridgeError.failure("ALREADY_EXISTS", "Face already enrolled")
                 }
-                if method == "verifyFace" && feature == nil { throw FaceBridgeError.failure("NOT_FOUND", "Enroll this faceID first") }
+                if method == "verifyFace" && feature == nil { throw HelloFaceVerifyBridgeError.failure("NOT_FOUND", "Enroll this faceID first") }
                 guard let presenter = Self.presenter(), presenter.viewIfLoaded?.window != nil else {
-                    throw FaceBridgeError.failure("NO_CONTEXT", "No foreground view controller")
+                    throw HelloFaceVerifyBridgeError.failure("NO_CONTEXT", "No foreground view controller")
                 }
-                let controller = HelloFaceCameraController(method: method, params: params,
+                let controller = HelloFaceVerifyCameraController(method: method, params: params,
                     reference: feature, progress: { data in
                         guard self.activeID == id else { return }
                         callback(Self.envelope("progress", "OK", "", data))
@@ -75,9 +75,9 @@ final class FaceOperation {
                 controller.modalPresentationStyle = .fullScreen
                 camera = controller
                 presenter.present(controller, animated: true)
-            default: throw FaceBridgeError.failure("INVALID_ARGUMENT", "Unknown operation")
+            default: throw HelloFaceVerifyBridgeError.failure("INVALID_ARGUMENT", "Unknown operation")
             }
-        } catch FaceBridgeError.failure(let code, let message) {
+        } catch HelloFaceVerifyBridgeError.failure(let code, let message) {
             finish(Self.envelope("error", code, message))
         } catch {
             finish(Self.envelope("error", "STORAGE_ERROR", error.localizedDescription))

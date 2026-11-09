@@ -22,4 +22,4 @@ SOFTWARE.
 
 This license covers the wrapper and example code in this repository. The
 upstream HelloFace SDK binaries, models, and resources retain their own license;
-see uni_modules/HelloFace/notices.
+see uni_modules/HelloFaceVerify/notices.
