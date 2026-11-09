@@ -147,4 +147,4 @@ API 测试使用 HBuilderX 自带 TypeScript（可设置 `HBUILDERX_PATH` 指向
 
 实现参考 DCloud 当前官方文档：[UTS API 插件](https://doc.dcloud.net.cn/uni-app-x/plugin/uts-plugin.html)、[原生混编](https://doc.dcloud.net.cn/uni-app-x/plugin/uts-plugin-hybrid.html)、[鸿蒙插件配置](https://doc.dcloud.net.cn/uni-app-x/plugin/uts-for-harmony.html)、[UTSHarmony](https://doc.dcloud.net.cn/uni-app-x/uts/utsharmony.html)。参考插件 [FaceAISDK-Core](https://ext.dcloud.net.cn/plugin?name=FaceAISDK-Core) 的 1:1 使用场景，API 并非旧版本的兼容替代。
 
-本仓库封装代码采用 MIT 许可。原生 SDK、模型和其资源继续使用上游许可（当前文件为 `Hello Face Test Only`），原文保留在插件的 `notices` 目录；上游说明当前模型不适用于 12 岁以下人群和金融场景。本仓库不改变原生 SDK 的授权条件。
+The wrapper and example code are provided for technical exchange and evaluation purposes only. See [LICENSE](LICENSE). The native SDK, models, and resources remain subject to the upstream `Hello Face Test Only` terms. Upstream currently states that its models are not intended for children under 12 or financial use.

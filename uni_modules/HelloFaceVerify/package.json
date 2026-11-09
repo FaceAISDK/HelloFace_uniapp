@@ -2,6 +2,7 @@
   "id": "HelloFaceVerify",
   "displayName": "HelloFaceVerify 人脸识别·1:1比对·活体检测UTS（鸿蒙/iOS/Android）",
   "version": "0.1.1",
+  "license": "SEE LICENSE IN license.md",
   "description": "HelloFaceVerify 离线人脸识别 UTS 插件：原生相机人脸采集与录入、1:1 人脸比对、静默活体和动作活体检测。适配 uni-app Vue2/Vue3、uni-app x uvue，提供 Android、iOS、HarmonyOS 鸿蒙三端实现；支持本机特征加密保存、读取、同步和删除，无需调用云端识别 API。",
   "keywords": [
     "人脸识别",

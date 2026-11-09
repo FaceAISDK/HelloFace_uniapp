@@ -140,6 +140,6 @@ uvue 可从同一入口导入 `EnrollFaceOptions`、`VerifyFaceOptions`、`FaceR
 
 从早期 `HelloFace` 目录升级时，将导入入口改为 `@/uni_modules/HelloFaceVerify`，错误主题改为 `HelloFaceVerify`。原有方法名和参数一致，特征存储键延续使用。
 
-封装代码采用 MIT 许可；原生 SDK 和模型保留上游 `Hello Face Test Only` 许可，原文位于 `notices`。上游当前说明模型不适用于 12 岁以下人群和金融场景。
+The wrapper and example code are provided for technical exchange and evaluation purposes only. See [license.md](license.md). The native SDK and models remain subject to the upstream `Hello Face Test Only` terms. Upstream currently states that its models are not intended for children under 12 or financial use.
 
 更多配置与参数见 [GitHub 工程说明](https://github.com/FaceAISDK/HelloFace_uniapp#readme)。

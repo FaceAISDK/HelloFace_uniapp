@@ -1,6 +1,7 @@
 {
   "name": "hellofaceverify-uniapp",
   "version": "0.1.1",
+  "license": "SEE LICENSE IN LICENSE",
   "private": true,
   "scripts": {
     "sdk:install": "python3 scripts/install_sdk.py",
