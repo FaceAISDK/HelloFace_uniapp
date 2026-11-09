@@ -19,12 +19,16 @@
       ],
       "aaptOptions": [
         "noCompress 'bphfm'"
-      ]
+      ],
+      "packagename": "dev.helloface.uniappx.demo"
     }
   },
   "app-ios": {
     "distribute": {
       "deploymentTarget": "15.0"
     }
+  },
+  "uniStatistics": {
+    "enable": false
   }
 }

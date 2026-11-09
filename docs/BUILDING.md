@@ -54,6 +54,31 @@ python3 scripts/install_sdk.py --platform harmony
 
 ## Android
 
+### 真机调试入口
+
+根目录示例的 Android 包名为 `dev.helloface.uniapp.demo`；独立 uvue 示例使用 `dev.helloface.uniappx.demo`，便于在同一手机安装两套示例。两套工程均关闭 uni统计；各自的 AppID、签名和原生基座按宿主工程配置。
+
+1. 在 HBuilderX 的 `manifest.json` 可视化界面获取自己的真实 AppID 并保存，不能使用占位值 `__UNI__HELLOFACE` 制作云端基座。
+2. 在 HBuilderX 的 Android 打包配置中选择制作自定义调试基座，包名与该工程的 `manifest.json` 一致，使用自己的调试证书或已配置的云端证书。新应用不支持旧公共测试证书；签名文件与密码不要提交 Git。
+3. 确认产物保存到该工程的 `unpackage/debug/android_debug.apk`。连接手机、授权 USB 调试，然后执行：
+
+```sh
+npm run android:check
+npm run android:run
+# 多台设备时指定序列号：
+npm run android:run -- --device 设备序列号
+# 基座已经安装时，只同步和启动：
+npm run android:run -- --skip-install
+# 检查独立 uvue 工程（需先配置其 AppID 并制作对应基座）：
+npm run android:check -- --project examples/uni-app-x
+```
+
+检查失败时不会退回标准基座。`android:check` 只读取配置、APK 和设备信息；`android:run` 安装完整 APK，并通过 HBuilderX 的“已安装基座”入口同步页面和启动。部分设备会显示系统安装确认，需要在手机上允许；取消或超时后脚本会结束，不会重复触发安装。
+
+脚本使用 PATH 中的 `adb`，也可通过 `ANDROID_HOME` / `ANDROID_SDK_ROOT` 指定 Android SDK。`HBUILDERX_PATH` 使用与 UTS 检查相同的 HBuilderX 根目录；macOS 默认识别 `/Applications/HBuilderX.app`。
+
+HBuilderX 的 Android UTS 开发配置还需要有效的 JDK、Android SDK 和 Gradle。当前 5.34 的依赖解析器支持 Gradle 7.5–8.x；配置的 Gradle 程序必须能正常执行 `--version`。文件存在但分发包缺少 JAR 时仍不能使用。修改路径可用 HBuilderX 设置界面或 CLI 的 `config set --key uts-development-android.gradleHome --value Gradle程序路径`。修改原生 SDK、依赖或权限后重新制作基座。
+
 ### 云端路径
 
 在 HBuilderX 中配置 AppID、Android 包名和签名，选择 Android 云打包。调试时按运行流程生成包含本插件的自定义基座；发行时生成正式 APK/AAB。
@@ -113,6 +138,6 @@ HBuilderX 官方鸿蒙流程在本机调用 DevEco 工具链完成构建，不�
 npm run check
 ```
 
-这条命令执行 18 项自动化测试、完整三端 SDK 文件校验和 UTS 转换。如果只安装了单端 SDK，可以单独执行 `python3 scripts/install_sdk.py --check --platform android` 等对应检查；完整 `npm run check` 需要三端 SDK 文件。
+这条命令执行 28 项自动化测试、完整三端 SDK 文件校验和 UTS 转换。如果只安装了单端 SDK，可以单独执行 `python3 scripts/install_sdk.py --check --platform android` 等对应检查；完整 `npm run check` 需要三端 SDK 文件。
 
 随后按所选平台实际构建安装包、安装到真机，验证录入、本人/他人识别、活体拒绝、权限拒绝、取消、后台释放和特征保存。已有结果及待验项见 [验证记录](VALIDATION.md)。

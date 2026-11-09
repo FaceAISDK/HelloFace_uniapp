@@ -79,6 +79,15 @@ HelloFace_uniapp/
 
    在 HBuilderX 中单独导入 `examples/uni-app-x`，配置自己的 AppID/签名后运行。该命令把根目录的插件与已安装的原生依赖复制到示例中，避免维护两份插件源码；修改插件后再次执行。
 
+Android 调试时，先制作包含本插件的自定义基座，再运行：
+
+```sh
+npm run android:check
+npm run android:run
+```
+
+多台手机连接时使用 `npm run android:run -- --device 设备序列号`。脚本检查真实 AppID、SDK 文件、基座版本与包名、原生相机类、动态库、未压缩模型，以及手机 API/ABI；安装后使用“已安装自定义基座”运行，不使用标准基座。手机弹出的安装确认仍需允许。完整步骤见 [Android 调试指南](docs/BUILDING.md#android)。
+
 集成到已有工程时，复制**安装完成后的** `uni_modules/HelloFace-Verify`。Android 宿主还需合并下面的模型打包配置：
 
 ```json
