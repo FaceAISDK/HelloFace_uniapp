@@ -1,8 +1,8 @@
-# HelloFaceVerify · 离线人脸识别与 1:1 人脸比对 UTS 插件
+# HelloFaceVerify · 离线人脸识别、1:1 人脸比对与活体检测 UTS 插件
 
-**HelloFaceVerify** 为 uni-app / uni-app x 提供**人脸采集、人脸录入、1:1 人脸识别和活体检测**。按 `faceID` 管理已录入用户，通过原生相机验证“当前操作人是否为该用户”，可作为 App 登录确认、签到核验、设备端人员验证中的人脸比对模块。
+**HelloFaceVerify** 是适用于 **uni-app / uni-app x** 的离线人脸识别 UTS 插件，专注**人脸录入、1:1 人脸比对、静默活体检测和动作活体检测**。使用同一 `faceID` 完成“先录入，再验证是否本人”的流程，便于评估 App 登录确认、签到核验与设备端人员验证等场景。
 
-提供 **Android、iOS、HarmonyOS 鸿蒙**原生实现，前端使用统一 UTS API，适配 **Vue2、Vue3、uvue**。识别在设备端离线完成，无需调用云端人脸识别 API；录入确认后，基准特征加密保存在本机。
+支持 **Android、iOS、HarmonyOS 鸿蒙**原生相机采集，适配 **Vue2、Vue3、uvue**，三端使用统一 UTS API。人脸识别在设备端离线完成，无需调用云端人脸识别 API；用户确认录入后，基准特征加密保存在本机，支持读取、同步、覆盖和删除。
 
 ## 核心功能
 
