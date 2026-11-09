@@ -108,7 +108,7 @@
 </template>
 <script lang="uts">
 // #ifdef APP
-import { enrollFace, verifyFace, deleteFace, cancel, FaceResult } from '@/uni_modules/HelloFaceVerify'
+import { enrollFace, verifyFace, deleteFace, cancel, FaceResult } from '@/uni_modules/HelloFace-Verify'
 // #endif
 export default {
   data() {

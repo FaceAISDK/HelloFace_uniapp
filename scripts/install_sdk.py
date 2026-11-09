@@ -12,7 +12,7 @@ import time
 import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
-PLUGIN = ROOT / 'uni_modules' / 'HelloFaceVerify' / 'utssdk'
+PLUGIN = ROOT / 'uni_modules' / 'HelloFace-Verify' / 'utssdk'
 
 
 def matches(path, artifact):

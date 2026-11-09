@@ -4,6 +4,8 @@
 
 支持 **Android、iOS、HarmonyOS 鸿蒙**原生相机采集，适配 **Vue2、Vue3、uvue**，三端使用统一 UTS API。人脸识别在设备端离线完成，无需调用云端人脸识别 API；用户确认录入后，基准特征加密保存在本机，支持读取、同步、覆盖和删除。
 
+插件 ID：`HelloFace-Verify`；作者前缀：`HelloFace`；展示名称：`HelloFaceVerify`。
+
 ## 核心功能
 
 | 能力 | 使用方式 |
@@ -32,10 +34,10 @@ Android 使用 CameraX，iOS 使用 AVFoundation，鸿蒙使用 CameraKit。相�
 
 ## 接入步骤
 
-1. 将包含原生依赖的完整 `HelloFaceVerify` 插件放入工程的 `uni_modules`。
+1. 将包含原生依赖的完整 `HelloFace-Verify` 插件放入工程的 `uni_modules`。
 2. 配置宿主 AppID、包名和签名，以及下面的 Android 模型打包选项。
 3. Android / iOS 选择云端制作自定义基座，或通过本地原生工程集成 SDK 与 UTS 插件后构建；鸿蒙在本机用 DevEco 工具链运行。用于调试的原生产物需包含本插件全部依赖。
-4. 从 `@/uni_modules/HelloFaceVerify` 导入 API，先录入用户，再按同一 `faceID` 验证。
+4. 从 `@/uni_modules/HelloFace-Verify` 导入 API，先录入用户，再按同一 `faceID` 验证。
 
 **从 GitHub 获取源码时**，先在工程根目录运行：
 
@@ -63,7 +65,7 @@ uni-app 放在 `app-plus -> distribute -> android`；uni-app x 放在 `app-andro
 ## 人脸录入
 
 ```js
-import { enrollFace } from '@/uni_modules/HelloFaceVerify'
+import { enrollFace } from '@/uni_modules/HelloFace-Verify'
 
 enrollFace({
   faceID: 'user-001',
@@ -84,7 +86,7 @@ enrollFace({
 ## 1:1 人脸识别与活体检测
 
 ```js
-import { verifyFace, cancel } from '@/uni_modules/HelloFaceVerify'
+import { verifyFace, cancel } from '@/uni_modules/HelloFace-Verify'
 
 verifyFace({
   faceID: 'user-001',
@@ -138,7 +140,7 @@ uvue 可从同一入口导入 `EnrollFaceOptions`、`VerifyFaceOptions`、`FaceR
 
 当前插件版本 **0.1.1**，底层为 HelloFace 原生 SDK **0.8.8**。Android 原生 Kotlin 编译、鸿蒙原生 HAR 构建及三端 UTS 转换已通过；iOS 当前仅完成 Swift 语法检查，完整编译和三端真机联合运行仍需按 [验证记录](https://github.com/FaceAISDK/HelloFace_uniapp/blob/main/docs/VALIDATION.md) 验收。
 
-从早期 `HelloFace` 目录升级时，将导入入口改为 `@/uni_modules/HelloFaceVerify`，错误主题改为 `HelloFaceVerify`。原有方法名和参数一致，特征存储键延续使用。
+从 `HelloFace` 或 `HelloFaceVerify` 目录升级时，改为 `HelloFace-Verify` 并更新导入入口，重新构建包含本插件的原生基座。当前错误主题为 `HelloFaceVerify`，原有接口方法、参数与本机特征存储键延续使用。
 
 The wrapper and example code are provided for technical exchange and evaluation purposes only. See [license.md](license.md). The native SDK and models remain subject to the upstream `Hello Face Test Only` terms. Upstream currently states that its models are not intended for children under 12 or financial use.
 

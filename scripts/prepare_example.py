@@ -4,6 +4,11 @@ from pathlib import Path
 import shutil
 
 root = Path(__file__).resolve().parents[1]
-destination = root / 'examples' / 'uni-app-x' / 'uni_modules' / 'HelloFaceVerify'
-shutil.copytree(root / 'uni_modules' / 'HelloFaceVerify', destination, dirs_exist_ok=True)
+plugin_id = 'HelloFace-Verify'
+destination = root / 'examples' / 'uni-app-x' / 'uni_modules' / plugin_id
+# This example directory is generated; remove the former ID to avoid duplicate modules.
+legacy = destination.parent / 'HelloFaceVerify'
+if legacy.is_dir():
+    shutil.rmtree(legacy)
+shutil.copytree(root / 'uni_modules' / plugin_id, destination, dirs_exist_ok=True)
 print('Prepared ' + str(destination.parent.parent))

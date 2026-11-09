@@ -14,7 +14,7 @@ async function main() {
     ['ArkTS', 'app-harmony', 'ets', 'HelloFaceVerify']
   ]) {
     const result = await compiler['bundle' + target]({ hbxVersion: '5.34',
-      input: { root, filename: path.join(root, 'uni_modules/HelloFaceVerify/utssdk', platform, 'index.uts'),
+      input: { root, filename: path.join(root, 'uni_modules/HelloFace-Verify/utssdk', platform, 'index.uts'),
         paths: {}, externals: ['./HelloFaceVerifyNative.ets'] },
       output: { outDir: path.join(output, platform), package: packageName, extname: extension,
         isPlugin: true, isApp: true } })

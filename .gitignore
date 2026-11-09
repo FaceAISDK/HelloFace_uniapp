@@ -9,8 +9,8 @@ node_modules/
 *.p12
 *.mobileprovision
 local.properties
-uni_modules/HelloFaceVerify/utssdk/app-android/libs/*.aar
-uni_modules/HelloFaceVerify/utssdk/app-ios/Frameworks/*.xcframework/
-uni_modules/HelloFaceVerify/utssdk/app-harmony/libs/*.har
-examples/uni-app-x/uni_modules/HelloFaceVerify/
+uni_modules/HelloFace-Verify/utssdk/app-android/libs/*.aar
+uni_modules/HelloFace-Verify/utssdk/app-ios/Frameworks/*.xcframework/
+uni_modules/HelloFace-Verify/utssdk/app-harmony/libs/*.har
+examples/uni-app-x/uni_modules/
 __pycache__/

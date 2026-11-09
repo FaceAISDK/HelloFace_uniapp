@@ -4,7 +4,7 @@
 
 识别在设备端离线完成，无需调用云端人脸识别 API。用户确认录入后，基准特征加密保存在本机；业务可按 `faceID` 读取、同步和删除。底层使用 [FaceSDKPro/HelloFace](https://github.com/FaceSDKPro/HelloFace) 原生 SDK 0.8.8。
 
-插件目录与导入入口为 `uni_modules/HelloFaceVerify`，首个版本的 `HelloFace` 入口已迁移。接口方法名与参数保持一致；错误主题改为 `HelloFaceVerify`，升级时需同步修改导入路径及按错误主题进行过滤的业务代码。
+插件发布 ID 为 `HelloFace-Verify`（作者前缀 `HelloFace`，插件名 `Verify`），展示名称为 `HelloFaceVerify`。目录与导入入口为 `uni_modules/HelloFace-Verify`；从早期 `HelloFace` 或 `HelloFaceVerify` 目录升级时，更新导入路径并重新构建包含插件的原生基座。接口方法与参数相同，当前错误主题为 `HelloFaceVerify`，本机特征存储键延续原有值。
 
 录入流程：打开原生相机 → 采集人脸 → 显示采集预览 → 用户确认 → 保存此 `faceID` 的基准特征。识别流程：读取此 `faceID` 的特征 → 原生相机连续送帧 → 可选静默/动作活体 → 1:1 比对 → 返回 SDK 业务结果。
 
@@ -14,7 +14,7 @@
 | --- | --- |
 | 当前工程根目录 | HBuilderX 的 uni-app Vue3 示例；切换 `vueVersion` 可运行 Vue2 |
 | `examples/uni-app-x` | 独立的 uvue 示例，执行 `npm run demo:prepare` 后导入 HBuilderX |
-| `uni_modules/HelloFaceVerify` | 唯一的插件源码目录，业务工程集成此目录 |
+| `uni_modules/HelloFace-Verify` | 唯一的插件源码目录，业务工程集成此目录 |
 | [三端打包指南](docs/BUILDING.md) | 本地/云端打包选择、平台配置与操作步骤 |
 | [API 参考](docs/API.md) | 接口、参数、结果与错误码 |
 | [验证记录](docs/VALIDATION.md) | 已通过的检查和待执行的真机验收 |
@@ -25,7 +25,7 @@
 HelloFace_uniapp/
 ├── App.vue / main.js / manifest.json / pages.json   # Vue2 / Vue3 示例配置
 ├── pages/index/index.vue                            # 示例页面
-├── uni_modules/HelloFaceVerify/                     # 插件主源码
+├── uni_modules/HelloFace-Verify/                     # 插件主源码
 │   ├── package.json / readme.md / notices/
 │   └── utssdk/
 │       ├── interface.uts                            # 统一对外类型
@@ -40,7 +40,7 @@ HelloFace_uniapp/
 └── sdk-artifacts.json                               # 原生 SDK 版本和校验锁
 ```
 
-在 `uni_modules/HelloFaceVerify` 修改插件，再同步到 uvue 示例。`examples/uni-app-x/uni_modules` 是生成的副本；`unpackage`、`node_modules`、`.sdk-cache` 为本机产物，不作为插件源码维护。
+在 `uni_modules/HelloFace-Verify` 修改插件，再同步到 uvue 示例。`examples/uni-app-x/uni_modules` 是生成的副本；`unpackage`、`node_modules`、`.sdk-cache` 为本机产物，不作为插件源码维护。
 
 ## 环境
 
@@ -79,7 +79,7 @@ HelloFace_uniapp/
 
    在 HBuilderX 中单独导入 `examples/uni-app-x`，配置自己的 AppID/签名后运行。该命令把根目录的插件与已安装的原生依赖复制到示例中，避免维护两份插件源码；修改插件后再次执行。
 
-集成到已有工程时，复制**安装完成后的** `uni_modules/HelloFaceVerify`。Android 宿主还需合并下面的模型打包配置：
+集成到已有工程时，复制**安装完成后的** `uni_modules/HelloFace-Verify`。Android 宿主还需合并下面的模型打包配置：
 
 ```json
 // uni-app：manifest.json -> app-plus -> distribute -> android
@@ -93,7 +93,7 @@ HelloFace_uniapp/
 ## 最小调用
 
 ```js
-import { enrollFace, verifyFace, cancel } from '@/uni_modules/HelloFaceVerify'
+import { enrollFace, verifyFace, cancel } from '@/uni_modules/HelloFace-Verify'
 
 enrollFace({
   faceID: 'user-001',
@@ -124,7 +124,7 @@ verifyFace({
 // 页面退出时：cancel({})
 ```
 
-uvue 从同一插件入口导入 API 和 `FaceResult` 类型，示例见 `examples/uni-app-x/pages/index/index.uvue`。按官方要求，通过 `@/uni_modules/HelloFaceVerify` 引用插件，页面不直接导入 `utssdk` 内部文件。
+uvue 从同一插件入口导入 API 和 `FaceResult` 类型，示例见 `examples/uni-app-x/pages/index/index.uvue`。按官方要求，通过 `@/uni_modules/HelloFace-Verify` 引用插件，页面不直接导入 `utssdk` 内部文件。
 
 ## API 参考
 

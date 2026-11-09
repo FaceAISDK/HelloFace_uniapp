@@ -50,7 +50,7 @@ python3 scripts/install_sdk.py --platform harmony
 | Vue2 | 仓库根目录 | 将 `vueVersion` 改为 `"2"`，使用已有 `main.js` 条件编译入口 |
 | uvue | 执行 `npm run demo:prepare` 后，导入 `examples/uni-app-x` | 使用其独立 `App.uvue`、`main.uts` 和 `manifest.json` |
 
-两个示例的 AppID 是占位配置，包名和签名需根据实际应用填写。插件唯一源码位于 `uni_modules/HelloFaceVerify`；修改后重新执行 `npm run demo:prepare`，把插件与已安装的原生依赖同步到 uvue 示例。
+两个示例的 AppID 是占位配置，包名和签名需根据实际应用填写。插件唯一源码位于 `uni_modules/HelloFace-Verify`；修改后重新执行 `npm run demo:prepare`，把插件与已安装的原生依赖同步到 uvue 示例。
 
 ## Android
 

@@ -2,12 +2,13 @@
 
 日期：2026-11-09。原生 SDK 0.8.8，上游提交 `572751458a3ea9d85ca422cecec56d115be71e4e`。
 
-插件 0.1.1 已统一为 `HelloFaceVerify`。更名后重新通过 18 项自动化测试、三端 UTS 转换、Android Kotlin 编译、鸿蒙 HAR 构建和 iOS Swift 语法检查；另外核对了插件 ID、示例导入、5 个关键词、版本一致性，以及加密存储键和原生 SDK 文件锁的连续性。以下 iOS 完整编译与真机验收限制继续适用。
+插件 0.1.1 的发布 ID 为 `HelloFace-Verify`，展示名称为 `HelloFaceVerify`。本次 ID 迁移后重新通过 28 项自动化检查、37 个 SDK 文件校验和三端 UTS 转换，并核对了目录、示例导入、5 个关键词和版本一致性。原生源码与存储键未因本次 ID 迁移改变；此前的 Android Kotlin 编译、鸿蒙 HAR 构建与 iOS Swift 语法检查记录见下表。以下 iOS 完整编译与真机验收限制继续适用。
 
 ## 已通过
 
 | 检查 | 结果与范围 |
 | --- | --- |
+| 插件 ID | `HelloFace-Verify` 符合“作者 ID-插件名”结构，目录与导入一致。HBuilderX 5.34 官方解析器确认新旧 ID 映射为相同 Kotlin/Swift 命名空间；插件市场的 ID 占用与发布结果仍需服务端确认 |
 | `npm test` | 15 项 API 契约测试、10 项示例交互测试和 3 项 SDK 安装器测试通过 |
 | 示例页面 | Vue 示例通过 HBuilderX 5.34 的 H5 构建；uvue 脚本与 Kotlin/Swift 模板编译、三端 CSS 检查通过。浏览器预览只检查布局与交互，不代表真机识别验收 |
 | SDK 文件校验 | 37 个文件均通过锁定的 SHA-256 和长度校验 |
