@@ -31,7 +31,15 @@
       "ads": "无广告",
       "data": "人脸识别在设备端离线处理，不主动上传人脸图片或特征；录入确认后基准特征加密保存在本机，可由业务读取、同步或删除；不保存采集图。",
       "permissions": "相机（仅在主动启动相机时申请）"
-    }
+    },
+    "vapor": "x",
+    "darkmode": "x",
+    "i18n": "x",
+    "widescreen": "x",
+    "contact": {
+      "qq": ""
+    },
+    "npmurl": ""
   },
   "uni_modules": {
     "dependencies": [],
@@ -45,37 +53,69 @@
           },
           "app": {
             "android": {
-              "minVersion": "23"
+              "minVersion": "23",
+              "extVersion": ""
             },
             "ios": {
-              "minVersion": "15"
+              "minVersion": "15",
+              "extVersion": ""
             },
             "harmony": {
-              "minVersion": "20"
-            }
+              "minVersion": "20",
+              "extVersion": ""
+            },
+            "nvue": "-",
+            "vue": "-"
           },
           "web": {
             "safari": "x",
             "chrome": "x"
+          },
+          "mp": {
+            "alipay": "-",
+            "baidu": "-",
+            "harmony": "-",
+            "jd": "-",
+            "kuaishou": "-",
+            "lark": "-",
+            "qq": "-",
+            "toutiao": "-",
+            "weixin": "-",
+            "xhs": "-"
+          },
+          "quickapp": {
+            "huawei": "-",
+            "union": "-"
           }
         },
         "uni-app-x": {
           "app": {
             "android": {
-              "minVersion": "23"
+              "minVersion": "23",
+              "extVersion": ""
             },
             "ios": {
-              "minVersion": "15"
+              "minVersion": "15",
+              "extVersion": ""
             },
             "harmony": {
-              "minVersion": "20"
+              "minVersion": "20",
+              "extVersion": ""
             }
           },
           "web": {
             "safari": "x",
             "chrome": "x"
+          },
+          "mp": {
+            "weixin": "-"
           }
         }
+      },
+      "cloud": {
+        "tcb": "x",
+        "aliyun": "x",
+        "alipay": "x"
       }
     }
   }
