@@ -2,5 +2,5 @@
 export default {}
 </script>
 <style>
-page { background-color: #f7f9fc; }
+page { background-color: #F2F5FA; }
 </style>

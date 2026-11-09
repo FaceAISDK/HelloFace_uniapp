@@ -19,6 +19,8 @@
 | [API 参考](docs/API.md) | 接口、参数、结果与错误码 |
 | [验证记录](docs/VALIDATION.md) | 已通过的检查和待执行的真机验收 |
 
+两套示例都在页面的 `enroll`、`verify`、`remove` 方法中直接调用插件，展示参数、成功/失败回调与 `complete` 收尾。示例设置 `overwrite: true` 方便重复录入，仍需在原生采集页确认保存；业务可按需保留默认的 `false`。
+
 ```text
 HelloFace_uniapp/
 ├── App.vue / main.js / manifest.json / pages.json   # Vue2 / Vue3 示例配置
@@ -122,7 +124,7 @@ verifyFace({
 // 页面退出时：cancel({})
 ```
 
-uvue 从同一插件入口导入 `EnrollFaceOptions`、`VerifyFaceOptions`、`FaceResult` 等类型，示例见 `examples/uni-app-x/pages/index/index.uvue`。按官方要求，通过 `@/uni_modules/HelloFaceVerify` 引用插件，页面不直接导入 `utssdk` 内部文件。
+uvue 从同一插件入口导入 API 和 `FaceResult` 类型，示例见 `examples/uni-app-x/pages/index/index.uvue`。按官方要求，通过 `@/uni_modules/HelloFaceVerify` 引用插件，页面不直接导入 `utssdk` 内部文件。
 
 ## API 参考
 

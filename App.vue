@@ -2,6 +2,8 @@
 export default {}
 </script>
 <style>
-page { background: #f7f9fc; color: #192b42; font-family: sans-serif; }
-button { margin: 12px 0; }
+page { height: 100%; background-color: #F2F5FA; color: #19324F; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+view, button, input { box-sizing: border-box; }
+button::after { border: none; }
+button[disabled] { opacity: 0.55; }
 </style>
