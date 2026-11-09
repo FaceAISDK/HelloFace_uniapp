@@ -2,23 +2,30 @@
 
 日期：2026-11-09。原生 SDK 0.8.8，上游提交 `572751458a3ea9d85ca422cecec56d115be71e4e`。
 
-插件 0.1.1 的发布 ID 为 `HelloFace-Verify`，展示名称为 `HelloFaceVerify`。本次 ID 迁移后重新通过 28 项自动化检查、37 个 SDK 文件校验和三端 UTS 转换，并核对了目录、示例导入、5 个关键词和版本一致性。原生源码与存储键未因本次 ID 迁移改变；此前的 Android Kotlin 编译、鸿蒙 HAR 构建与 iOS Swift 语法检查记录见下表。以下 iOS 完整编译与真机验收限制继续适用。
+插件 0.1.1 的发布 ID 为 `HelloFace-Verify`，展示名称为 `HelloFaceVerify`。本次 ID 迁移后重新通过 31 项自动化检查、37 个 SDK 文件校验和三端 UTS 转换，并核对了目录、示例导入、5 个关键词和版本一致性。原生源码与存储键未因本次 ID 迁移改变；此前的 Android Kotlin 编译、鸿蒙 HAR 构建与 iOS Swift 语法检查记录见下表。以下 iOS 完整编译与真机验收限制继续适用。
 
 ## 已通过
 
 | 检查 | 结果与范围 |
 | --- | --- |
 | 插件 ID | `HelloFace-Verify` 符合“作者 ID-插件名”结构，目录与导入一致。HBuilderX 5.34 官方解析器确认新旧 ID 映射为相同 Kotlin/Swift 命名空间；插件市场的 ID 占用与发布结果仍需服务端确认 |
-| `npm test` | 15 项 API 契约测试、10 项示例交互测试和 3 项 SDK 安装器测试通过 |
+| `npm test` | 18 项 API 契约测试、10 项示例交互测试和 3 项 SDK 安装器测试通过 |
 | 示例页面 | Vue 示例通过 HBuilderX 5.34 的 H5 构建；uvue 脚本与 Kotlin/Swift 模板编译、三端 CSS 检查通过。浏览器预览只检查布局与交互，不代表真机识别验收 |
 | SDK 文件校验 | 37 个文件均通过锁定的 SHA-256 和长度校验 |
 | 官方 UTS 转换 | HBuilderX 5.34 的 UTS 编译器成功生成 Kotlin、Swift、ArkTS；不是最终 App 链接验证 |
 | Android 完整自定义基座 | HBuilderX 5.34 云端构建成功，APK 约 30.8 MB；相机 Activity、ARM64/ARMv7 动态库和 6 个未压缩模型均已确认，签名通过 API 23 校验，并已安装到华为 GRA-UL00 / Android 6.0 |
 | Android 运行入口 | `npm run android:check` 在已授权的 Android 6.0 / API 23、ARM64 设备上通过；检查真实 AppID、包名、基座版本、SDK 与模型打包，错误 AppID、不完整基座和压缩模型均被拦截 |
-| Android Vue3 真机运行 | HBuilderX 5.34 导出当前页面资源成功，`android:run -- --skip-install --sync-resources` 完成同步并启动（`Status: ok`）。首页显示正常；未录入时验证正确返回 `NOT_FOUND`，相机权限授权后成功打开原生录入 Activity 与前置相机预览，取消正确回调并返回示例。观察期间未见插件崩溃或 JS 异常；真人确认录入、持久化和 1:1 比对尚未验收 |
+| Android Vue3 真机运行 | HBuilderX 5.34 导出当前页面资源成功，`android:run -- --skip-install --sync-resources` 完成同步并启动（`Status: ok`）。已安装包含修复的完整基座，首页与录入页正常，未录入时验证返回 `NOT_FOUND`，取消正确回调并返回示例。真人确认录入、本人/他人比对和活体效果尚未验收 |
+| Android 原生 SDK 集成 | 华为 GRA-UL00 / Android 6.0 上，修复后的独立原生宿主及完整 uni-app 自定义基座均通过 12 项真实调用检查；SDK 返回 `NO_FACE_TIMEOUT`，未再出现相机绑定的 `AbstractMethodError`。最终 APK 的 DEX 确认包含新的超时校验及分析器四个显式接口方法，签名、模型和原生库校验通过 |
 | Android 原生编译 | 将插件原生 Kotlin 源码直接加入临时 Android Library，`compileDebugKotlin` 成功；AGP 8.13.1、Kotlin 1.9.22、JDK 17、compileSdk 36、CameraX 1.5.2、真实 0.8.8 AAR |
 | 鸿蒙原生构建 | 将原生 ArkTS 源码加入临时 HAR 模块，DevEco Studio 26 / Hvigor 的 `assembleHar` 成功，使用真实 0.8.8 HAR，未签名 |
 | iOS Swift 语法 | `swiftc -frontend -parse` 检查所有原生 Swift 文件通过；不代表类型检查或链接通过 |
+
+实时送帧的错误分类按上游 0.8.8 [采集 Demo](https://github.com/FaceSDKPro/HelloFace/blob/572751458a3ea9d85ca422cecec56d115be71e4e/platforms/Android/demo/src/main/java/com/hiface/sdk/demo/search/uvc/UVCCameraFaceEnrollmentActivity.java#L218) 修正：`NOT_READY` 与临时 `BUSY` 只跳过当前帧，其他 SDK 错误仍保留原始错误码并结束操作。Android、iOS、HarmonyOS 均采用此策略；接口重复调用的 `BUSY` 行为不变。修改后的 Kotlin 原生编译、鸿蒙 HAR 构建和 Swift 语法检查已通过。
+
+进一步进行 Android 原生验证时复现了两处接入错误：`actionTimeoutMs: 1000` 虽通过插件校验，却被 SDK 要求的 2000–30000 毫秒范围拒绝；Android 6 上 CameraX 分析器在绑定相机时出现 `getDefaultTargetResolution()` 的 `AbstractMethodError`。已分别修正共享参数校验与文档，并显式实现分析器的默认接口方法。
+
+修改后的真实 Kotlin 源码与 SDK 0.8.8，在独立 Android 调试宿主和重新云打包的完整 uni-app 基座中均通过 12 项真机集成检查，包括 Android Keystore 加解密、特征往返与覆盖保护、真实 SDK 返回 `NO_FACE_TIMEOUT`、接口 `BUSY`、取消后继续调用和删除。复查入口为 [Android 原生集成检查](../tests/android/README.md)。这组检查使用上游公开测试特征，随机测试基准及崩溃期间遗留的测试基准均已清理；不代表真人识别或活体效果验收。
 
 API 测试执行实际 UTS 入口及共享校验/回调代码，使用轻量的 JS 环境适配 UTSJSONObject。原生调用在测试中被捕获，**不会伪造识别成功作为算法测试**。覆盖默认参数、非法输入拦截、特征空间不匹配、未通过活体时保留业务拒绝、空分数、取消错误、原始 SDK 错误和 complete 回调行为。
 

@@ -3,6 +3,7 @@ package uts.sdk.modules.HelloFaceVerify
 import android.Manifest
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.graphics.Matrix
 import android.os.Bundle
 import android.util.Size
 import android.view.Gravity
@@ -15,6 +16,7 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
 import androidx.camera.core.UseCase
 import androidx.camera.core.resolutionselector.ResolutionSelector
@@ -137,22 +139,31 @@ class HelloFaceVerifyCameraActivity : ComponentActivity() {
                     val frames = ImageAnalysis.Builder().setResolutionSelector(resolution)
                         .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST).build()
                     analysis = frames
-                    frames.setAnalyzer(analyzer) { image ->
-                        try {
-                            val planes = image.planes
-                            val frame = Yuv420Frame(planes[0].buffer, planes[1].buffer, planes[2].buffer,
-                                image.width, image.height, planes[0].rowStride, planes[1].rowStride,
-                                planes[2].rowStride, planes[1].pixelStride, YuvColorRange.VIDEO, YuvColorMatrix.BT601,
-                                image.imageInfo.rotationDegrees, front)
-                            val result = instance.processFrame(frame)
-                            if (result.isFailure && result.requireError().code != HiFaceErrorCode.NOT_READY) {
-                                val error = result.requireError()
-                                runOnUiThread { fail(error.code.name, error.message) }
-                            }
-                        } catch (error: Exception) {
-                            runOnUiThread { fail("CAMERA_ERROR", error.message ?: "Unable to process camera frame") }
-                        } finally { image.close() }
-                    }
+                    frames.setAnalyzer(analyzer, object : ImageAnalysis.Analyzer {
+                        // Explicit defaults also work when host/plugin desugaring is separate on API 23.
+                        override fun getDefaultTargetResolution(): Size? = null
+                        override fun getTargetCoordinateSystem() = ImageAnalysis.COORDINATE_SYSTEM_ORIGINAL
+                        override fun updateTransform(matrix: Matrix?) {}
+                        override fun analyze(image: ImageProxy) {
+                            try {
+                                val planes = image.planes
+                                val frame = Yuv420Frame(planes[0].buffer, planes[1].buffer, planes[2].buffer,
+                                    image.width, image.height, planes[0].rowStride, planes[1].rowStride,
+                                    planes[2].rowStride, planes[1].pixelStride, YuvColorRange.VIDEO, YuvColorMatrix.BT601,
+                                    image.imageInfo.rotationDegrees, front)
+                                val result = instance.processFrame(frame)
+                                if (result.isFailure) {
+                                    val error = result.requireError()
+                                    // Readiness and backpressure skip this frame without ending the request.
+                                    if (error.code != HiFaceErrorCode.NOT_READY && error.code != HiFaceErrorCode.BUSY) {
+                                        runOnUiThread { fail(error.code.name, error.message) }
+                                    }
+                                }
+                            } catch (error: Exception) {
+                                runOnUiThread { fail("CAMERA_ERROR", error.message ?: "Unable to process camera frame") }
+                            } finally { image.close() }
+                        }
+                    })
                     cameraProvider.bindToLifecycle(this, selector, display, frames)
                 } catch (error: Exception) { fail("CAMERA_ERROR", error.message ?: "Unable to open camera") }
             }, ContextCompat.getMainExecutor(this))

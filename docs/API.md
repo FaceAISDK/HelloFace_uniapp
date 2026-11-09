@@ -18,7 +18,7 @@
 | `threshold` | `0.80` | 0–1；相似度不是身份概率 |
 | `silentLiveness` | `true` | 是否执行 SDK 静默活体校验 |
 | `actions` | `[]` | `blink` / `openMouth` / `shakeHead` / `nodHead`，最多 4 个，可重复 |
-| `actionTimeoutMs` | `10000` | 整数，1000–60000 毫秒 |
+| `actionTimeoutMs` | `10000` | 整数，2000–30000 毫秒，与原生 SDK 的动作超时范围一致 |
 | `faceTimeoutMs` | `15000` | 整数，1000–60000 毫秒 |
 | `camera` | `front` | 前置或后置相机 |
 

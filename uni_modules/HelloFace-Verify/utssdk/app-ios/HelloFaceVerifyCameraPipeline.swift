@@ -59,7 +59,7 @@ final class HelloFaceVerifyCameraPipeline: NSObject, AVCaptureVideoDataOutputSam
         guard let buffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
         do {
             let frame = try HiFaceCameraFrame(pixelBuffer: buffer, rotation: .degrees0, isMirrored: front)
-            if case .failure(let error) = sdk.processFrame(frame), error.code != .notReady {
+            if case .failure(let error) = sdk.processFrame(frame), error.code != .notReady && error.code != .busy {
                 let code = String(describing: error.code)
                     .replacingOccurrences(of: "([a-z])([A-Z])", with: "$1_$2", options: .regularExpression).uppercased()
                 emitError(code, error.message)

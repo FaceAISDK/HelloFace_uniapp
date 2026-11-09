@@ -16,7 +16,7 @@ export function validateParams(method: string, params: UTSJSONObject): string | 
     const actionTimeout = params.getNumber('actionTimeoutMs') ?? -1
     const faceTimeout = params.getNumber('faceTimeoutMs') ?? -1
     if (!Number.isFinite(threshold) || threshold < 0 || threshold > 1) message = 'threshold must be within 0..1'
-    if (!Number.isInteger(actionTimeout) || actionTimeout < 1000 || actionTimeout > 60000) message = 'actionTimeoutMs must be an integer within 1000..60000'
+    if (!Number.isInteger(actionTimeout) || actionTimeout < 2000 || actionTimeout > 30000) message = 'actionTimeoutMs must be an integer within 2000..30000'
     if (!Number.isInteger(faceTimeout) || faceTimeout < 1000 || faceTimeout > 60000) message = 'faceTimeoutMs must be an integer within 1000..60000'
     const actions = params.getArray<string>('actions') ?? [] as string[]
     if (actions.length > 4) message = 'At most four actions are supported'

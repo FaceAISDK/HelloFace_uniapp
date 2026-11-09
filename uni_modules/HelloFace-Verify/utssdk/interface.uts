@@ -37,6 +37,7 @@ export type VerifyFaceOptions = {
   threshold?: number,
   silentLiveness?: boolean,
   actions?: string[],
+  /** Integer milliseconds, 2000..30000; default 10000. */
   actionTimeoutMs?: number,
   faceTimeoutMs?: number,
   camera?: string,

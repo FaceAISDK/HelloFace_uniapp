@@ -18,6 +18,7 @@
 | [三端打包指南](docs/BUILDING.md) | 本地/云端打包选择、平台配置与操作步骤 |
 | [API 参考](docs/API.md) | 接口、参数、结果与错误码 |
 | [验证记录](docs/VALIDATION.md) | 已通过的检查和待执行的真机验收 |
+| [Android 原生集成检查](tests/android/README.md) | SDK 与桥接代码更新后的真实调用回归检查 |
 
 两套示例都在页面的 `enroll`、`verify`、`remove` 方法中直接调用插件，展示参数、成功/失败回调与 `complete` 收尾。示例设置 `overwrite: true` 方便重复录入，仍需在原生采集页确认保存；业务可按需保留默认的 `false`。
 
@@ -26,7 +27,7 @@ HelloFace_uniapp/
 ├── App.vue / main.js / manifest.json / pages.json   # Vue2 / Vue3 示例配置
 ├── pages/index/index.vue                            # 示例页面
 ├── uni_modules/HelloFace-Verify/                     # 插件主源码
-│   ├── package.json / readme.md / notices/
+│   ├── package.json / readme.md / changelog.md
 │   └── utssdk/
 │       ├── interface.uts                            # 统一对外类型
 │       ├── shared.uts / unierror.uts                 # 参数校验、回调与错误映射
@@ -35,7 +36,7 @@ HelloFace_uniapp/
 │       └── app-harmony/                             # ArkTS、UTS、HAR 与权限
 ├── examples/uni-app-x/                              # uvue 示例工程
 ├── scripts/                                        # SDK 安装、示例同步与 UTS 检查
-├── tests/                                          # API 契约与安装器测试
+├── tests/                                          # API、示例、安装器与 Android 原生集成测试
 ├── docs/                                           # 接口、构建与验证文档
 └── sdk-artifacts.json                               # 原生 SDK 版本和校验锁
 ```

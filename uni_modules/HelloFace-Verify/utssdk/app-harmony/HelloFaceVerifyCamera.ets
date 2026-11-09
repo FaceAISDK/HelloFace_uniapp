@@ -193,7 +193,10 @@ export class CameraFlow {
       } finally { await source.release(); }
       if (!this.accepting || this.ended) return;
       const result = await this.sdk.processFrame(frame);
-      if (result.isFailure() && result.requireError().code !== HiFaceErrorCode.NOT_READY) unwrap(result);
+      if (result.isFailure()) {
+        const code = result.requireError().code;
+        if (code !== HiFaceErrorCode.NOT_READY && code !== HiFaceErrorCode.BUSY) unwrap(result);
+      }
     }
   }
   private progress(value: FaceFlowProgress): void {

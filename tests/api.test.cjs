@@ -97,6 +97,24 @@ for (const platform of ['app-android', 'app-ios', 'app-harmony']) {
     api.setFaceFeature({ faceID: 'u', feature: 'HF1:' + 'A'.repeat(600), featureSpaceID: 'jdx-feature-v1' })
     assert.equal(calls.length, 1); assert.equal(calls[0].params.overwrite, false)
   })
+  test(`${platform}: enforces native SDK timeout limits before invoking native code`, () => {
+    const { api, calls } = load(platform)
+    for (const actionTimeoutMs of [1000, 1999, 30001, 60000, Infinity]) {
+      let failed = 0, completed = 0
+      api.verifyFace({ faceID: 'u', actionTimeoutMs,
+        fail: error => { failed++; assert.equal(error.errCode, 9011001) },
+        complete: () => completed++ })
+      assert.equal(failed, 1); assert.equal(completed, 1)
+    }
+    assert.equal(calls.length, 0)
+    for (const [actionTimeoutMs, faceTimeoutMs] of [[2000, 1000], [30000, 60000]]) {
+      api.verifyFace({ faceID: 'u', actionTimeoutMs, faceTimeoutMs })
+      const call = calls.at(-1)
+      assert.equal(call.params.actionTimeoutMs, actionTimeoutMs)
+      assert.equal(call.params.faceTimeoutMs, faceTimeoutMs)
+    }
+    assert.equal(calls.length, 2)
+  })
   test(`${platform}: cancellation and SDK errors use UniError`, () => {
     const { api, calls } = load(platform)
     const errors = [], completed = []
