@@ -1,4 +1,4 @@
-import { FaceProgressCallback, EnrollFace, VerifyFace, GetFaceFeature, SetFaceFeature, DeleteFace, Cancel, EnrollFaceOptions, VerifyFaceOptions, FaceIDOptions, SetFaceFeatureOptions, CancelOptions } from '../interface.uts'
+import { EnrollFace, VerifyFace, GetFaceFeature, SetFaceFeature, DeleteFace, Cancel, EnrollFaceOptions, VerifyFaceOptions, FaceIDOptions, SetFaceFeatureOptions, CancelOptions } from '../interface.uts'
 import { deliver, validateParams } from '../shared.uts'
 import { HelloFaceVerifyNative } from 'uts.sdk.modules.HelloFaceVerify'
 

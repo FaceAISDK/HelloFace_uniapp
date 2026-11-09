@@ -38,6 +38,8 @@ node scripts/check_uts.cjs
 
 可通过 `HBUILDERX_PATH` 指定 HBuilderX 的 `Contents/HBuilderX` 目录。原生源码位于插件的 `utssdk/app-android`、`app-ios`、`app-harmony`；独立原生构建直接引用这些文件和安装器获取的真实 SDK，未引入算法替代实现。
 
+工程也提供 `npm run check` 顺序执行自动化测试、SDK 文件校验和 UTS 转换。它不生成正式安装包；本地与云端构建路径见 [三端打包指南](BUILDING.md)，接口定义见 [API 参考](API.md)。
+
 ## 待真机验收
 
 在 Android、iOS、HarmonyOS 上，分别使用 Vue2、Vue3、uvue 宿主完成以下用例，并记录 OS、HBuilderX、原生 SDK 版本与设备型号：

@@ -1,6 +1,5 @@
 import Foundation
 import UIKit
-import HiFace
 
 public final class HelloFaceVerifyNative {
     public static func invoke(_ method: String, _ raw: String, _ callback: @escaping (String) -> Void) {

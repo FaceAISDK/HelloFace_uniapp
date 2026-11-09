@@ -5,7 +5,10 @@
   "scripts": {
     "sdk:install": "python3 scripts/install_sdk.py",
     "sdk:check": "python3 scripts/install_sdk.py --check",
-    "test": "node --test tests/api.test.cjs && python3 -m unittest discover -s tests -v"
+    "demo:prepare": "python3 scripts/prepare_example.py",
+    "test": "node --test tests/api.test.cjs && python3 -m unittest discover -s tests -v",
+    "uts:check": "node scripts/check_uts.cjs",
+    "check": "npm test && npm run sdk:check && npm run uts:check"
   },
   "devDependencies": {
     "typescript": "5.9.3"

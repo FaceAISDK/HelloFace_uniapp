@@ -34,7 +34,7 @@ Android 使用 CameraX，iOS 使用 AVFoundation，鸿蒙使用 CameraKit。相�
 
 1. 将包含原生依赖的完整 `HelloFaceVerify` 插件放入工程的 `uni_modules`。
 2. 配置宿主 AppID、包名和签名，以及下面的 Android 模型打包选项。
-3. Android / iOS 制作包含原生 SDK 的自定义调试基座；鸿蒙使用插件内 HAR 依赖与相机权限运行。
+3. Android / iOS 选择云端制作自定义基座，或通过本地原生工程集成 SDK 与 UTS 插件后构建；鸿蒙在本机用 DevEco 工具链运行。用于调试的原生产物需包含本插件全部依赖。
 4. 从 `@/uni_modules/HelloFaceVerify` 导入 API，先录入用户，再按同一 `faceID` 验证。
 
 **从 GitHub 获取源码时**，先在工程根目录运行：
@@ -56,7 +56,9 @@ Android 宿主的 `manifest.json` 必须合并：
 }
 ```
 
-uni-app 放在 `app-plus -> distribute -> android`；uni-app x 放在 `app-android -> distribute`。修改后需要重建自定义基座。离线原生打包同样需要保留模型文件不压缩；iOS 的两个 xcframework 必须一同集成。
+uni-app 放在 `app-plus -> distribute -> android`；uni-app x 放在 `app-android -> distribute`。修改后需按所选方式重新构建原生产物。本地原生打包同样需要保留模型文件不压缩；iOS 的两个 xcframework 必须一同集成。
+
+源码版插件的三端构建均不要求自建云服务器。Android、iOS 可选本地或云端路径；鸿蒙按官方流程使用本地构建。详细步骤及环境要求见 [三端打包指南](https://github.com/FaceAISDK/HelloFace_uniapp/blob/main/docs/BUILDING.md)。
 
 ## 人脸录入
 
