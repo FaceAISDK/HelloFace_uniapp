@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <uses-permission android:name="android.permission.CAMERA" />
+  <uses-feature android:name="android.hardware.camera.any" android:required="false" />
+  <application>
+    <activity android:name="uts.sdk.modules.helloFace.HelloFaceCameraActivity"
+      android:exported="false" android:screenOrientation="portrait"
+      android:theme="@android:style/Theme.Material.NoActionBar" />
+  </application>
+</manifest>

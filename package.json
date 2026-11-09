@@ -1,0 +1,13 @@
+{
+  "name": "helloface-uniapp",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "sdk:install": "python3 scripts/install_sdk.py",
+    "sdk:check": "python3 scripts/install_sdk.py --check",
+    "test": "node --test tests/api.test.cjs && python3 -m unittest discover -s tests -v"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3"
+  }
+}

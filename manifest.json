@@ -1,0 +1,34 @@
+{
+  "name": "HelloFace 1:1 Demo",
+  "appid": "__UNI__HELLOFACE",
+  "description": "HelloFace UTS 1:1 人脸录入与识别示例",
+  "versionName": "0.1.0",
+  "versionCode": "100",
+  "vueVersion": "3",
+  "app-plus": {
+    "usingComponents": true,
+    "distribute": {
+      "android": {
+        "minSdkVersion": 23,
+        "abiFilters": [
+          "arm64-v8a",
+          "armeabi-v7a"
+        ],
+        "aaptOptions": [
+          "noCompress 'bphfm'"
+        ]
+      },
+      "ios": {
+        "deploymentTarget": "15.0",
+        "privacyDescription": {
+          "NSCameraUsageDescription": "用于人脸录入与身份验证"
+        }
+      }
+    }
+  },
+  "app-harmony": {
+    "distribute": {
+      "bundleName": "dev.helloface.uniapp.demo"
+    }
+  }
+}

@@ -1,0 +1,74 @@
+import { FaceResult, FaceProgress, FaceSuccess, FaceFailure, FaceComplete, FaceProgressCallback, HelloFaceErrorCode } from './interface.uts'
+import { HelloFaceFailImpl } from './unierror.uts'
+
+export function validateParams(method: string, params: UTSJSONObject): string | null {
+  let message = ''
+  const faceID = params.getString('faceID') ?? ''
+  if (method != 'cancel' && (faceID.length == 0 || faceID.length > 64 || faceID.indexOf('\u0000') >= 0)) {
+    message = 'faceID must contain 1..64 characters without NUL'
+  }
+  if (method == 'enrollFace' || method == 'verifyFace') {
+    const camera = params.getString('camera') ?? ''
+    if (camera != 'front' && camera != 'back') message = 'camera must be front or back'
+  }
+  if (method == 'verifyFace') {
+    const threshold = params.getNumber('threshold') ?? -1
+    const actionTimeout = params.getNumber('actionTimeoutMs') ?? -1
+    const faceTimeout = params.getNumber('faceTimeoutMs') ?? -1
+    if (!Number.isFinite(threshold) || threshold < 0 || threshold > 1) message = 'threshold must be within 0..1'
+    if (!Number.isInteger(actionTimeout) || actionTimeout < 1000 || actionTimeout > 60000) message = 'actionTimeoutMs must be an integer within 1000..60000'
+    if (!Number.isInteger(faceTimeout) || faceTimeout < 1000 || faceTimeout > 60000) message = 'faceTimeoutMs must be an integer within 1000..60000'
+    const actions = params.getArray<string>('actions') ?? [] as string[]
+    if (actions.length > 4) message = 'At most four actions are supported'
+    actions.forEach((action: string) => {
+      if (!['blink', 'openMouth', 'shakeHead', 'nodHead'].includes(action)) message = 'Unsupported face action: ' + action
+    })
+  }
+  if (method == 'setFaceFeature') {
+    const feature = params.getString('feature') ?? ''
+    if (!/^HF1:[A-Za-z0-9_-]{600}$/.test(feature)) message = 'feature must be a valid 604-character HF1 value'
+    if (params.getString('featureSpaceID') != 'jdx-feature-v1') message = 'Incompatible featureSpaceID'
+  }
+  if (message.length == 0) return null
+  return JSON.stringify({ event: 'error', code: 'INVALID_ARGUMENT', message: message })
+}
+
+function errorCode(code: string): HelloFaceErrorCode {
+  if (code == 'INVALID_ARGUMENT') return 9011001
+  if (code == 'PERMISSION_DENIED') return 9011002
+  if (code == 'CANCELLED') return 9011003
+  if (code == 'BUSY') return 9011004
+  if (code == 'NOT_FOUND') return 9011005
+  if (code == 'ALREADY_EXISTS') return 9011006
+  if (code == 'STORAGE_ERROR') return 9011007
+  return 9011008
+}
+
+export function deliver(raw: string, method: string, faceID: string,
+  success: FaceSuccess | null, fail: FaceFailure | null, complete: FaceComplete | null,
+  onProgress: FaceProgressCallback | null): void {
+  const event = JSON.parseObject(raw)
+  const code = event?.getString('code') ?? 'BRIDGE_ERROR'
+  if (event?.getString('event') == 'progress') {
+    const data = event?.getJSON('data')
+    const progress: FaceProgress = {
+      faceID: faceID, stage: data?.getString('stage') ?? '', action: data?.getString('action'),
+      stepNumber: data?.getNumber('stepNumber') ?? 0, stepCount: data?.getNumber('stepCount') ?? 0
+    }
+    onProgress?.(progress)
+    return
+  }
+  if (code != 'OK' || event?.getString('event') != 'result') {
+    const error = new HelloFaceFailImpl(errorCode(code), method + ':fail ' + (event?.getString('message') ?? 'Invalid native response'), code)
+    try { fail?.(error) } finally { complete?.(error) }
+    return
+  }
+  const data = event?.getJSON('data')
+  const result: FaceResult = {
+    errMsg: method + ':ok', faceID: faceID,
+    feature: data?.getString('feature'), featureSpaceID: 'jdx-feature-v1',
+    passed: data?.getBoolean('passed'), outcome: data?.getString('outcome'),
+    similarity: data?.getNumber('similarity'), livenessScore: data?.getNumber('livenessScore')
+  }
+  try { success?.(result) } finally { complete?.(result) }
+}

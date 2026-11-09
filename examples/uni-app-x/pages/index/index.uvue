@@ -1,0 +1,51 @@
+<template>
+  <scroll-view class="page" scroll-y>
+    <view class="content">
+      <text class="title">HelloFace · uvue</text>
+      <text class="note">离线 1:1 人脸录入与识别</text>
+      <input class="input" v-model="faceID" maxlength="64" placeholder="请输入 faceID" />
+      <button type="primary" :disabled="busy" @click="enroll">录入人脸</button>
+      <button :disabled="busy" @click="verify">验证是否本人（含静默活体）</button>
+      <text class="result">{{ message }}</text>
+    </view>
+  </scroll-view>
+</template>
+<script lang="uts">
+import { enrollFace, verifyFace, cancel, EnrollFaceOptions, VerifyFaceOptions, FaceResult, FaceProgress } from '@/uni_modules/HelloFace'
+export default {
+  data() { return { faceID: 'demo-user', busy: false, message: '请输入用户标识，然后录入人脸。' } },
+  onUnload() { cancel({}) },
+  methods: {
+    enroll() {
+      this.busy = true
+      const options: EnrollFaceOptions = {
+        faceID: this.faceID,
+        onProgress: (p: FaceProgress) => { this.message = '录入中：' + p.stage },
+        success: (r: FaceResult) => { this.message = r.passed == true ? '人脸录入成功' : '未完成录入：' + r.outcome },
+        fail: (e) => { this.message = e.errMsg },
+        complete: (_) => { this.busy = false }
+      }
+      enrollFace(options)
+    },
+    verify() {
+      this.busy = true
+      const options: VerifyFaceOptions = {
+        faceID: this.faceID, threshold: 0.80, silentLiveness: true, actions: [],
+        onProgress: (p: FaceProgress) => { this.message = '识别中：' + p.stage },
+        success: (r: FaceResult) => { this.message = r.passed == true ? '验证通过，相似度：' + r.similarity : '验证未通过：' + r.outcome },
+        fail: (e) => { this.message = e.errMsg },
+        complete: (_) => { this.busy = false }
+      }
+      verifyFace(options)
+    }
+  }
+}
+</script>
+<style>
+.page { flex: 1; }
+.content { padding: 24px; }
+.title { font-size: 28px; font-weight: bold; margin-bottom: 12px; }
+.note { color: #62758d; margin-bottom: 24px; }
+.input { background-color: #ffffff; border-radius: 8px; padding: 14px; margin-bottom: 24px; }
+.result { margin-top: 24px; font-size: 16px; line-height: 26px; }
+</style>

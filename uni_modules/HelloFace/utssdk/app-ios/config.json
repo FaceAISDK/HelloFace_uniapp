@@ -1,0 +1,4 @@
+{
+  "deploymentTarget": "15.0",
+  "frameworks": ["AVFoundation.framework", "UIKit.framework", "ImageIO.framework"]
+}

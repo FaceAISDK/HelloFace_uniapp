@@ -1,0 +1,80 @@
+{
+  "id": "HelloFace",
+  "displayName": "HelloFace 离线人脸识别 UTS 插件",
+  "version": "0.1.0",
+  "description": "离线 1:1 人脸录入与识别 UTS 插件，支持 Vue2、Vue3、uvue，Android、iOS、HarmonyOS。",
+  "keywords": [
+    "人脸识别",
+    "活体检测",
+    "UTS",
+    "鸿蒙"
+  ],
+  "repository": "https://github.com/FaceAISDK/HelloFace_uniapp",
+  "engines": {
+    "HBuilderX": "^5.34",
+    "uni-app": "^5.34",
+    "uni-app-x": "^5.34"
+  },
+  "dcloudext": {
+    "type": "uts",
+    "sale": {
+      "regular": {
+        "price": "0.00"
+      },
+      "sourcecode": {
+        "price": "0.00"
+      }
+    },
+    "declaration": {
+      "ads": "无广告",
+      "data": "离线处理，不上传人脸图片或特征；由宿主决定是否保存到原生 SDK 人脸库。",
+      "permissions": "相机（仅在主动启动相机时申请）"
+    }
+  },
+  "uni_modules": {
+    "dependencies": [],
+    "encrypt": [],
+    "platforms": {
+      "client": {
+        "uni-app": {
+          "vue": {
+            "vue2": "√",
+            "vue3": "√"
+          },
+          "app": {
+            "android": {
+              "minVersion": "23"
+            },
+            "ios": {
+              "minVersion": "15"
+            },
+            "harmony": {
+              "minVersion": "20"
+            }
+          },
+          "web": {
+            "safari": "x",
+            "chrome": "x"
+          }
+        },
+        "uni-app-x": {
+          "app": {
+            "android": {
+              "minVersion": "23"
+            },
+            "ios": {
+              "minVersion": "15"
+            },
+            "harmony": {
+              "minVersion": "20"
+            }
+          },
+          "web": {
+            "safari": "x",
+            "chrome": "x"
+          }
+        }
+      }
+    }
+  }
+}

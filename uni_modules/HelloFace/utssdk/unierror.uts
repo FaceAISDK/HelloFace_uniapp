@@ -1,0 +1,13 @@
+import { HelloFaceFail, HelloFaceErrorCode } from './interface.uts'
+
+export class HelloFaceFailImpl extends UniError implements HelloFaceFail {
+  override errCode: HelloFaceErrorCode
+  sdkCode: string
+  constructor(code: HelloFaceErrorCode, message: string, sdkCode: string) {
+    super()
+    this.errSubject = 'HelloFace'
+    this.errCode = code
+    this.errMsg = message
+    this.sdkCode = sdkCode
+  }
+}

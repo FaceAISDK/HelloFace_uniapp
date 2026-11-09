@@ -1,0 +1,82 @@
+export type FaceResult = {
+  errMsg: string,
+  faceID: string,
+  feature: string | null,
+  featureSpaceID: string,
+  passed: boolean | null,
+  outcome: string | null,
+  similarity: number | null,
+  livenessScore: number | null
+}
+export type FaceProgress = {
+  faceID: string, stage: string, action: string | null,
+  stepNumber: number, stepCount: number
+}
+export type HelloFaceErrorCode = 9011001 | 9011002 | 9011003 | 9011004 | 9011005 | 9011006 | 9011007 | 9011008
+export interface HelloFaceFail extends IUniError {
+  errCode: HelloFaceErrorCode,
+  sdkCode: string
+}
+export type FaceSuccess = (result: FaceResult) => void
+export type FaceFailure = (error: HelloFaceFail) => void
+export type FaceComplete = (result: FaceResult | HelloFaceFail) => void
+export type FaceProgressCallback = (progress: FaceProgress) => void
+
+export type EnrollFaceOptions = {
+  faceID: string,
+  overwrite?: boolean,
+  camera?: string,
+  onProgress?: FaceProgressCallback,
+  success?: FaceSuccess,
+  fail?: FaceFailure,
+  complete?: FaceComplete
+}
+
+export type VerifyFaceOptions = {
+  faceID: string,
+  threshold?: number,
+  silentLiveness?: boolean,
+  actions?: string[],
+  actionTimeoutMs?: number,
+  faceTimeoutMs?: number,
+  camera?: string,
+  onProgress?: FaceProgressCallback,
+  success?: FaceSuccess,
+  fail?: FaceFailure,
+  complete?: FaceComplete
+}
+
+export type FaceIDOptions = {
+  faceID: string,
+  success?: FaceSuccess,
+  fail?: FaceFailure,
+  complete?: FaceComplete
+}
+
+export type SetFaceFeatureOptions = {
+  faceID: string,
+  feature: string,
+  featureSpaceID: string,
+  overwrite?: boolean,
+  success?: FaceSuccess,
+  fail?: FaceFailure,
+  complete?: FaceComplete
+}
+
+export type CancelOptions = {
+  success?: FaceSuccess,
+  fail?: FaceFailure,
+  complete?: FaceComplete
+}
+
+export type EnrollFace = (options: EnrollFaceOptions) => void
+
+export type VerifyFace = (options: VerifyFaceOptions) => void
+
+export type GetFaceFeature = (options: FaceIDOptions) => void
+
+export type SetFaceFeature = (options: SetFaceFeatureOptions) => void
+
+export type DeleteFace = (options: FaceIDOptions) => void
+
+export type Cancel = (options: CancelOptions) => void

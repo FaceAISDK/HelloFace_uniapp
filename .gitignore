@@ -1,0 +1,16 @@
+.DS_Store
+.hbuilderx/
+unpackage/
+node_modules/
+.sdk-cache/
+*.log
+*.keystore
+*.jks
+*.p12
+*.mobileprovision
+local.properties
+uni_modules/HelloFace/utssdk/app-android/libs/*.aar
+uni_modules/HelloFace/utssdk/app-ios/Frameworks/*.xcframework/
+uni_modules/HelloFace/utssdk/app-harmony/libs/*.har
+examples/uni-app-x/uni_modules/HelloFace/
+__pycache__/

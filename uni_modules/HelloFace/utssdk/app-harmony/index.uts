@@ -1,0 +1,74 @@
+import { FaceProgressCallback, EnrollFace, VerifyFace, GetFaceFeature, SetFaceFeature, DeleteFace, Cancel, EnrollFaceOptions, VerifyFaceOptions, FaceIDOptions, SetFaceFeatureOptions, CancelOptions } from '../interface.uts'
+import { deliver, validateParams } from '../shared.uts'
+import { HelloFaceNative } from './HelloFaceNative.ets'
+
+export const enrollFace: EnrollFace = function (options: EnrollFaceOptions) {
+  const params = { faceID: options.faceID.trim() } as UTSJSONObject
+  params['overwrite'] = options.overwrite ?? false
+  params['camera'] = options.camera ?? 'front'
+  const handle = (raw: string): void => {
+    deliver(raw, 'enrollFace', params.getString('faceID') ?? '', options.success ?? null, options.fail ?? null, options.complete ?? null, options.onProgress ?? null)
+  }
+  const error = validateParams('enrollFace', params)
+  if (error != null) { handle(error); return }
+  HelloFaceNative.invoke(UTSHarmony.getUIAbilityContext(), 'enrollFace', JSON.stringify(params), handle)
+}
+
+export const verifyFace: VerifyFace = function (options: VerifyFaceOptions) {
+  const params = { faceID: options.faceID.trim() } as UTSJSONObject
+  params['threshold'] = options.threshold ?? 0.80
+  params['silentLiveness'] = options.silentLiveness ?? true
+  params['actions'] = options.actions ?? [] as string[]
+  params['actionTimeoutMs'] = options.actionTimeoutMs ?? 10000
+  params['faceTimeoutMs'] = options.faceTimeoutMs ?? 15000
+  params['camera'] = options.camera ?? 'front'
+  const handle = (raw: string): void => {
+    deliver(raw, 'verifyFace', params.getString('faceID') ?? '', options.success ?? null, options.fail ?? null, options.complete ?? null, options.onProgress ?? null)
+  }
+  const error = validateParams('verifyFace', params)
+  if (error != null) { handle(error); return }
+  HelloFaceNative.invoke(UTSHarmony.getUIAbilityContext(), 'verifyFace', JSON.stringify(params), handle)
+}
+
+export const getFaceFeature: GetFaceFeature = function (options: FaceIDOptions) {
+  const params = { faceID: options.faceID.trim() } as UTSJSONObject
+  const handle = (raw: string): void => {
+    deliver(raw, 'getFaceFeature', params.getString('faceID') ?? '', options.success ?? null, options.fail ?? null, options.complete ?? null, null)
+  }
+  const error = validateParams('getFaceFeature', params)
+  if (error != null) { handle(error); return }
+  HelloFaceNative.invoke(UTSHarmony.getUIAbilityContext(), 'getFaceFeature', JSON.stringify(params), handle)
+}
+
+export const setFaceFeature: SetFaceFeature = function (options: SetFaceFeatureOptions) {
+  const params = { faceID: options.faceID.trim() } as UTSJSONObject
+  params['feature'] = options.feature
+  params['featureSpaceID'] = options.featureSpaceID
+  params['overwrite'] = options.overwrite ?? false
+  const handle = (raw: string): void => {
+    deliver(raw, 'setFaceFeature', params.getString('faceID') ?? '', options.success ?? null, options.fail ?? null, options.complete ?? null, null)
+  }
+  const error = validateParams('setFaceFeature', params)
+  if (error != null) { handle(error); return }
+  HelloFaceNative.invoke(UTSHarmony.getUIAbilityContext(), 'setFaceFeature', JSON.stringify(params), handle)
+}
+
+export const deleteFace: DeleteFace = function (options: FaceIDOptions) {
+  const params = { faceID: options.faceID.trim() } as UTSJSONObject
+  const handle = (raw: string): void => {
+    deliver(raw, 'deleteFace', params.getString('faceID') ?? '', options.success ?? null, options.fail ?? null, options.complete ?? null, null)
+  }
+  const error = validateParams('deleteFace', params)
+  if (error != null) { handle(error); return }
+  HelloFaceNative.invoke(UTSHarmony.getUIAbilityContext(), 'deleteFace', JSON.stringify(params), handle)
+}
+
+export const cancel: Cancel = function (options: CancelOptions) {
+  const params = { faceID: '' } as UTSJSONObject
+  const handle = (raw: string): void => {
+    deliver(raw, 'cancel', params.getString('faceID') ?? '', options.success ?? null, options.fail ?? null, options.complete ?? null, null)
+  }
+  const error = validateParams('cancel', params)
+  if (error != null) { handle(error); return }
+  HelloFaceNative.invoke(UTSHarmony.getUIAbilityContext(), 'cancel', JSON.stringify(params), handle)
+}
