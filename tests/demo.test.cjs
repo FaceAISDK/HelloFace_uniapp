@@ -43,37 +43,40 @@ function loadPage(filename, app = true) {
 }
 
 for (const file of ['pages/index/index.vue', 'examples/uni-app-x/pages/index/index.uvue']) {
-  test(`${file}: verification uses the SDK verdict and selected liveness options`, () => {
+  test(`${file}: verification displays the SDK verdict and uses the chosen action mode`, () => {
     const { state, calls } = loadPage(file)
-    state.useActions = true
-    state.silentLiveness = false
-    state.verify()
+    state.verify(true)
     const options = calls[0].options
     assert.equal(options.faceID, 'demo-user')
     assert.equal(options.threshold, 0.8)
-    assert.equal(options.silentLiveness, false)
+    assert.equal(options.silentLiveness, true)
     assert.deepEqual(Array.from(options.actions), ['blink', 'nodHead'])
-    options.success({ passed: false, outcome: 'SPOOF_DETECTED', similarity: 0.999, livenessScore: null })
+    options.success({ errMsg: 'verifyFace:ok', faceID: 'demo-user', passed: false,
+      outcome: 'SPOOF_DETECTED', similarity: 0.999, livenessScore: null })
     options.complete({})
-    assert.equal(state.tone, 'rejected')
-    assert.equal(state.title, '身份验证未通过')
-    assert.equal(state.similarity, '0.999')
-    assert.equal(state.liveness, '—')
+    assert.match(state.resultText, /passed: false/)
+    assert.match(state.resultText, /outcome: SPOOF_DETECTED/)
+    assert.match(state.resultText, /similarity: 0\.999/)
+    assert.ok(!state.resultText.includes('livenessScore:'))
     assert.equal(state.busy, false)
+    state.verify(false)
+    assert.deepEqual(Array.from(calls[1].options.actions), [])
+    assert.equal(calls[1].options.silentLiveness, true)
   })
 
   test(`${file}: enrollment calls the plugin directly without retaining biometric features`, () => {
     const { state, calls } = loadPage(file)
     state.enroll()
     state.enroll()
-    state.verify()
+    state.verify(false)
     assert.equal(calls.length, 1)
     assert.equal(calls[0].name, 'enrollFace')
     assert.equal(calls[0].options.overwrite, true)
-    calls[0].options.success({ passed: true, outcome: 'PASSED', feature: 'private-test-feature' })
+    calls[0].options.success({ errMsg: 'enrollFace:ok', faceID: 'demo-user', passed: true,
+      outcome: 'PASSED', feature: 'private-test-feature' })
     calls[0].options.complete({})
-    assert.equal(state.title, '人脸录入成功')
-    assert.equal(state.tone, 'success')
+    assert.match(state.resultText, /msg: enrollFace:ok/)
+    assert.match(state.resultText, /passed: true/)
     assert.ok(!JSON.stringify(state).includes('private-test-feature'))
   })
 
@@ -81,36 +84,51 @@ for (const file of ['pages/index/index.vue', 'examples/uni-app-x/pages/index/ind
     const { state, calls, modals } = loadPage(file)
     state.remove()
     assert.equal(calls.length, 0)
+    state.verify(false)
+    assert.equal(calls.length, 0)
     modals[0].success({ confirm: false })
     assert.equal(calls.length, 0)
+    assert.equal(state.busy, false)
     state.remove()
     modals[1].success({ confirm: true })
     assert.equal(calls[0].name, 'deleteFace')
     assert.equal(calls[0].options.faceID, 'demo-user')
-    calls[0].options.success({})
+    calls[0].options.success({ errMsg: 'deleteFace:ok', faceID: 'demo-user', passed: null })
     calls[0].options.complete({})
-    assert.equal(state.title, '基准已删除')
+    assert.match(state.resultText, /msg: deleteFace:ok/)
+    assert.ok(!state.resultText.includes('passed:'))
     assert.equal(state.busy, false)
   })
 
   test(`${file}: failures release the buttons and unloading cancels active work`, () => {
     const { state, calls, unload } = loadPage(file)
-    state.verify()
-    calls[0].options.fail({ errMsg: '需要相机权限' })
+    state.verify(false)
+    calls[0].options.fail({ errCode: 9011002, sdkCode: 'CAMERA_PERMISSION_DENIED', errMsg: '需要相机权限' })
     calls[0].options.complete({})
-    assert.equal(state.message, '需要相机权限')
+    assert.match(state.resultText, /errCode: 9011002/)
+    assert.match(state.resultText, /sdkCode: CAMERA_PERMISSION_DENIED/)
+    assert.match(state.resultText, /msg: 需要相机权限/)
     assert.equal(state.busy, false)
-    state.verify()
+    state.verify(false)
     unload()
     assert.equal(calls[2].name, 'cancel')
+  })
+
+  test(`${file}: a failed confirmation dialog releases the buttons without deleting`, () => {
+    const { state, calls, modals } = loadPage(file)
+    state.remove()
+    modals[0].fail({ errMsg: 'showModal:fail' })
+    assert.equal(state.busy, false)
+    assert.equal(state.resultText, 'showModal:fail')
+    assert.equal(calls.length, 0)
   })
 
   test(`${file}: browser preview never simulates recognition success`, () => {
     const { state, calls } = loadPage(file, false)
     for (const action of ['enroll', 'verify', 'remove']) {
-      state[action]()
-      assert.equal(state.title, '请在 App 真机体验')
-      assert.equal(state.tone, 'neutral')
+      state[action](false)
+      assert.match(state.resultText, /请在 App 真机体验/)
+      assert.equal(state.busy, false)
       assert.equal(calls.length, 0)
     }
   })

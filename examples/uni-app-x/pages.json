@@ -3,13 +3,13 @@
     {
       "path": "pages/index/index",
       "style": {
-        "navigationBarTitleText": "人脸验证体验"
+        "navigationBarTitleText": "HelloFaceVerify Demo"
       }
     }
   ],
   "globalStyle": {
-    "navigationBarTextStyle": "black",
-    "navigationBarBackgroundColor": "#F2F5FA",
-    "backgroundColor": "#F2F5FA"
+    "navigationBarTextStyle": "white",
+    "navigationBarBackgroundColor": "#397D4B",
+    "backgroundColor": "#F4F5F9"
   }
 }

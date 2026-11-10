@@ -1,108 +1,24 @@
 <template>
   <scroll-view class="page" scroll-y :show-scrollbar="false">
     <view class="content">
-      <view class="brand-row">
-        <view class="brand">
-          <view class="brand-mark"><text class="brand-letter">H</text></view>
-          <text class="brand-name">HelloFaceVerify</text>
-        </view>
-        <view class="offline-pill">
-          <view class="tiny-dot"></view>
-          <text class="offline-text">离线 · 1:1</text>
-        </view>
+      <text class="brand">HelloFaceVerify · 离线 1:1 人脸识别</text>
+      <text class="heading">插件调用示例</text>
+      <view class="identity">
+        <text class="label">faceID</text>
+        <input class="input" v-model="faceID" :disabled="busy" maxlength="64" placeholder="录入与验证使用同一标识" />
       </view>
-      <view class="hero">
-        <view class="hero-copy">
-          <text class="eyebrow">FACE VERIFICATION</text>
-          <text class="hero-title">人脸验证</text>
-          <text class="hero-title">在本机完成</text>
-          <text class="hero-description">先录入，再验证是否本人。人脸数据留在自己的设备。</text>
-        </view>
-        <view class="scan-frame">
-          <view class="face-head"></view>
-          <view class="face-shoulders"></view>
-          <view class="scan-line"></view>
-        </view>
-      </view>
-      <view class="steps">
-        <text class="step">01 选择用户</text>
-        <text class="step-arrow">›</text>
-        <text class="step">02 录入人脸</text>
-        <text class="step-arrow">›</text>
-        <text class="step">03 验证身份</text>
-      </view>
-      <view class="card">
-        <text class="section-title">开始体验</text>
-        <text class="field-label">用户标识 · faceID</text>
-        <input
-          class="identity-input"
-          v-model="faceID"
-          :disabled="busy"
-          maxlength="64"
-          placeholder="请输入用户标识"
-        />
-        <text class="field-hint">同一用户的录入与验证使用相同标识。</text>
-        <view class="setting-row">
-          <view class="setting-copy">
-            <text class="setting-title">静默活体</text>
-            <text class="setting-description">验证时校验是否为真人</text>
-          </view>
-          <switch
-            color="#2878EF"
-            :checked="silentLiveness"
-            :disabled="busy"
-            @change="silentLiveness = $event.detail.value"
-          />
-        </view>
-        <view class="setting-row">
-          <view class="setting-copy">
-            <text class="setting-title">动作活体</text>
-            <text class="setting-description">按提示完成眨眼与点头</text>
-          </view>
-          <switch
-            color="#2878EF"
-            :checked="useActions"
-            :disabled="busy"
-            @change="useActions = $event.detail.value"
-          />
-        </view>
-        <view class="actions">
-          <button class="action-button secondary-button" :disabled="busy" @click="enroll">录入人脸</button>
-          <button class="action-button primary-button" :disabled="busy" @click="verify">验证身份</button>
-        </view>
-        <text class="action-note">采集完成后需本人确认保存，重新录入会替换本机基准。</text>
-      </view>
-      <view class="card result-card" :class="'result-' + tone">
+      <button class="action" :disabled="busy" @click="enroll">相机录入人脸</button>
+      <button class="action" :disabled="busy" @click="verify(false)">1:1 人脸识别 + 静默活体</button>
+      <button class="action" :disabled="busy" @click="verify(true)">1:1 人脸识别 + 动作活体</button>
+      <button class="action" :disabled="busy" @click="remove">删除人脸信息</button>
+      <view class="result-card">
         <view class="result-heading">
-          <text class="section-title">操作结果</text>
-          <text class="result-user">{{ resultFaceID }}</text>
+          <text class="result-title">调用结果</text>
+          <text class="result-label">RESULT</text>
         </view>
-        <view class="result-overview">
-          <view class="result-dot" :class="'dot-' + tone"></view>
-          <text class="result-title">{{ title }}</text>
-        </view>
-        <text class="result-message">{{ message }}</text>
-        <view class="metrics">
-          <view class="metric">
-            <text class="metric-value">{{ similarity }}</text>
-            <text class="metric-label">相似度分数</text>
-          </view>
-          <view class="metric metric-border">
-            <text class="metric-value">{{ liveness }}</text>
-            <text class="metric-label">活体分数</text>
-          </view>
-        </view>
-        <text v-if="outcome.length > 0" class="outcome">SDK 结果 · {{ outcome }}</text>
-        <text class="result-note">比对阈值 0.80 · 是否通过以 SDK 的 passed 为准</text>
+        <text class="result-text">{{ resultText }}</text>
+        <text class="hint">是否通过以 passed 为准，分数仅供参考。</text>
       </view>
-      <view class="data-row">
-        <view class="setting-copy">
-          <text class="data-title">本机人脸基准</text>
-          <text class="setting-description">仅删除当前用户已录入的数据</text>
-        </view>
-        <button class="delete-button" :disabled="busy" @click="remove">删除基准</button>
-      </view>
-      <text class="footer">Android · iOS · HarmonyOS</text>
     </view>
   </scroll-view>
 </template>
@@ -112,11 +28,7 @@ import { enrollFace, verifyFace, deleteFace, cancel } from '@/uni_modules/HelloF
 // #endif
 export default {
   data() {
-    return {
-      faceID: 'demo-user', silentLiveness: true, useActions: false, busy: false,
-      title: '等待开始体验', message: '输入用户标识，录入人脸后即可验证身份。', tone: 'neutral',
-      resultFaceID: '', similarity: '—', liveness: '—', outcome: ''
-    }
+    return { faceID: 'demo-user', busy: false, resultText: '先录入人脸，再使用同一 faceID 验证。' }
   },
   onUnload() {
     // #ifdef APP
@@ -124,146 +36,93 @@ export default {
     // #endif
   },
   methods: {
-    // 1. 录入：采集完成并确认后，保存当前用户的基准。
     enroll() {
-      if (this.busy) return
+      if (!this.begin('正在录入人脸…')) return
       // #ifdef APP
-      this.begin('正在录入人脸')
       enrollFace({
         faceID: this.faceID,
-        overwrite: true, // 允许重复体验；原生确认保存后才替换已有基准。
-        success: (result) => { this.showResult('人脸录入', result) },
-        fail: (error) => { this.showError(error.errMsg) },
+        overwrite: true, // 方便重复体验；仍需在原生页面确认保存。
+        success: (result) => { this.showResult(result) },
+        fail: (error) => { this.showError(error) },
         complete: (_) => { this.busy = false }
       })
       // #endif
-      // #ifndef APP
-      this.showNativeHint()
-      // #endif
     },
-    // 2. 验证：使用同一 faceID，并根据 passed 判断是否本人。
-    verify() {
-      if (this.busy) return
+    verify(withActions) {
+      if (!this.begin('正在验证身份…')) return
       // #ifdef APP
-      this.begin('正在验证身份')
       verifyFace({
-        faceID: this.faceID, threshold: 0.80, silentLiveness: this.silentLiveness,
-        actions: this.useActions ? ['blink', 'nodHead'] : [],
-        success: (result) => { this.showResult('身份验证', result) },
-        fail: (error) => { this.showError(error.errMsg) },
+        faceID: this.faceID,
+        threshold: 0.80,
+        silentLiveness: true,
+        actions: withActions ? ['blink', 'nodHead'] : [], // 动作模式同时保留静默活体。
+        success: (result) => { this.showResult(result) },
+        fail: (error) => { this.showError(error) },
         complete: (_) => { this.busy = false }
       })
       // #endif
-      // #ifndef APP
-      this.showNativeHint()
-      // #endif
     },
-    // 3. 删除：仅清除指定 faceID 的本机基准。
     remove() {
-      if (this.busy) return
+      if (!this.begin('等待删除确认…')) return
       // #ifdef APP
-      uni.showModal({ title: '删除人脸基准', content: '确认删除「' + this.faceID + '」的本机基准？',
+      uni.showModal({
+        title: '删除人脸信息', content: '确认删除「' + this.faceID + '」的本机人脸基准？',
         success: (modal) => {
-          if (!modal.confirm || this.busy) return
-          this.begin('正在删除基准')
+          if (!modal.confirm) { this.busy = false; this.resultText = '已取消删除。'; return }
           deleteFace({
             faceID: this.faceID,
-            success: (_) => { this.update('基准已删除', '可为此用户重新录入人脸。', 'neutral') },
-            fail: (error) => { this.showError(error.errMsg) },
+            success: (result) => { this.showResult(result) },
+            fail: (error) => { this.showError(error) },
             complete: (_) => { this.busy = false }
           })
-        }
+        },
+        fail: (error) => { this.busy = false; this.resultText = error.errMsg }
       })
       // #endif
+    },
+    // 以下仅处理按钮状态与结果展示；不参与 SDK 判定，不保存原始特征。
+    begin(message) {
+      if (this.busy) return false
       // #ifndef APP
-      this.showNativeHint()
+      this.resultText = '请在 App 真机体验：Android、iOS 或鸿蒙。'
+      return false
+      // #endif
+      // #ifdef APP
+      uni.hideKeyboard()
+      this.busy = true
+      this.resultText = message
+      return true
       // #endif
     },
-    // 以下方法仅用于展示状态与结果，不参与人脸比对。
-    begin(title) {
-      this.busy = true
-      this.resultFaceID = this.faceID.trim()
-      this.update(title, '请按原生相机页面的提示操作。', 'working')
-    },
     // #ifdef APP
-    showResult(label, result) {
-      const passed = result.passed == true
-      this.update(
-        label + (passed ? '成功' : '未通过'),
-        passed ? '本次操作已完成。' : '本次流程未通过，请按相机提示重新尝试。',
-        passed ? 'success' : 'rejected'
-      )
-      this.similarity = result.similarity == null ? '—' : result.similarity.toFixed(3)
-      this.liveness = result.livenessScore == null ? '—' : result.livenessScore.toFixed(3)
-      this.outcome = result.outcome ?? ''
+    showResult(result) {
+      const lines = ['msg: ' + result.errMsg, 'faceID: ' + result.faceID]
+      if (result.passed != null) lines.push('passed: ' + result.passed)
+      if (result.outcome != null) lines.push('outcome: ' + result.outcome)
+      if (result.similarity != null) lines.push('similarity: ' + result.similarity.toFixed(3))
+      if (result.livenessScore != null) lines.push('livenessScore: ' + result.livenessScore.toFixed(3))
+      this.resultText = lines.join('\n')
     },
-    // #endif
-    showError(message) { this.update('操作未完成', message, 'error') },
-    showNativeHint() { this.update('请在 App 真机体验', '人脸录入与验证需在 Android、iOS 或鸿蒙真机运行。', 'neutral') },
-    update(title, message, tone) {
-      this.title = title; this.message = message; this.tone = tone
-      this.similarity = '—'; this.liveness = '—'; this.outcome = ''
+    showError(error) {
+      this.resultText = 'errCode: ' + error.errCode + '\nsdkCode: ' + error.sdkCode + '\nmsg: ' + error.errMsg
     }
+    // #endif
   }
 }
 </script>
 <style>
-.page { height: 100%; flex: 1; background-color: #F2F5FA; }
-.content { width: 100%; max-width: 680px; margin-left: auto; margin-right: auto; padding: 20px 18px 30px; }
-.brand-row { display: flex; flex-direction: row; align-items: center; justify-content: space-between; margin-bottom: 18px; }
-.brand { display: flex; flex-direction: row; align-items: center; }
-.brand-mark { width: 32px; height: 32px; border-radius: 10px; background-color: #2878EF; display: flex; align-items: center; justify-content: center; }
-.brand-letter { color: #FFFFFF; font-size: 21px; font-weight: bold; }
-.brand-name { font-size: 17px; font-weight: bold; color: #19324F; margin-left: 8px; }
-.offline-pill { display: flex; flex-direction: row; align-items: center; background-color: #E5F1EC; padding: 6px 8px; border-radius: 16px; }
-.tiny-dot { width: 5px; height: 5px; border-radius: 3px; background-color: #288366; margin-right: 5px; }
-.offline-text { color: #287A61; font-size: 10px; }
-.hero { display: flex; flex-direction: row; align-items: center; background-color: #173554; border-radius: 22px; padding: 23px 20px; margin-bottom: 18px; }
-.hero-copy { flex: 1; }
-.eyebrow { display: block; color: #91B8DD; font-size: 9px; letter-spacing: 1px; margin-bottom: 10px; }
-.hero-title { display: block; color: #FFFFFF; font-size: 23px; font-weight: bold; line-height: 33px; }
-.hero-description { display: block; color: #B8CBDD; font-size: 12px; line-height: 21px; margin-top: 10px; }
-.scan-frame { display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; width: 66px; height: 82px; border: 2px solid #6CDBC6; border-radius: 16px; margin-left: 16px; background-color: #203F5F; }
-.face-head { width: 23px; height: 29px; border: 2px solid #CBE0F2; border-radius: 13px; }
-.face-shoulders { width: 40px; height: 16px; border: 2px solid #CBE0F2; border-bottom-width: 0; border-top-left-radius: 20px; border-top-right-radius: 20px; margin-top: 5px; }
-.scan-line { position: absolute; height: 1px; left: 6px; right: 6px; top: 38px; background-color: #6CDBC6; }
-.steps { display: flex; flex-direction: row; align-items: center; justify-content: space-between; padding: 0 4px; margin-bottom: 18px; }
-.step { color: #627B98; font-size: 11px; }
-.step-arrow { color: #B0BED0; font-size: 20px; }
-.card { background-color: #FFFFFF; border: 1px solid #E2EAF4; border-radius: 20px; padding: 20px; margin-bottom: 14px; }
-.section-title { display: block; color: #1D3552; font-size: 16px; font-weight: bold; }
-.field-label { display: block; color: #778AA1; font-size: 12px; margin-top: 18px; margin-bottom: 9px; }
-.identity-input { height: 48px; padding: 0 13px; border: 1px solid #DCE5F1; border-radius: 11px; background-color: #F7F9FC; color: #253E5D; font-size: 16px; }
-.field-hint { display: block; color: #8B9BB0; font-size: 11px; line-height: 18px; margin-top: 8px; margin-bottom: 6px; }
-.setting-row { display: flex; flex-direction: row; align-items: center; justify-content: space-between; padding: 13px 0; border-bottom: 1px solid #EDF1F6; }
-.setting-copy { flex: 1; }
-.setting-title { display: block; color: #435C78; font-size: 13px; }
-.setting-description { display: block; color: #899AB0; font-size: 11px; line-height: 17px; margin-top: 4px; }
-.actions { display: flex; flex-direction: row; margin-top: 20px; }
-.action-button { flex: 1; height: 48px; line-height: 48px; padding: 0; margin: 0; border-radius: 11px; font-size: 14px; font-weight: bold; }
-.secondary-button { border: 1px solid #D7E5F9; margin-right: 12px; background-color: #EDF4FF; color: #3469AF; }
-.primary-button { border: 1px solid #2878EF; background-color: #2878EF; color: #FFFFFF; }
-.action-note { display: block; color: #8C9CB0; font-size: 11px; line-height: 19px; margin-top: 12px; }
-.result-success { border-color: #CAE7D9; }
-.result-error, .result-rejected { border-color: #EDD3D1; }
-.result-heading { display: flex; flex-direction: row; align-items: center; justify-content: space-between; margin-bottom: 18px; }
-.result-user { max-width: 140px; overflow: hidden; font-size: 11px; color: #8B9DB2; }
-.result-overview { display: flex; flex-direction: row; align-items: center; }
-.result-dot { width: 8px; height: 8px; border-radius: 4px; background-color: #A5B6CC; margin-right: 9px; }
-.dot-success { background-color: #2D9E77; }
-.dot-error, .dot-rejected { background-color: #CF716A; }
-.dot-working { background-color: #2878EF; }
-.result-title { color: #2B4562; font-size: 16px; font-weight: bold; }
-.result-message { display: block; color: #7E91A8; font-size: 12px; line-height: 21px; margin-top: 8px; }
-.metrics { display: flex; flex-direction: row; padding: 15px 0; margin-top: 18px; background-color: #F7F9FC; border-radius: 12px; }
-.metric { display: flex; flex-direction: column; flex: 1; align-items: center; }
-.metric-border { border-left: 1px solid #E0E8F3; }
-.metric-value { color: #2E4E73; font-size: 22px; font-weight: bold; }
-.metric-label { color: #8496AC; font-size: 11px; margin-top: 6px; }
-.outcome { display: block; color: #6D87A6; font-size: 11px; margin-top: 12px; }
-.result-note { display: block; color: #8E9EB2; font-size: 10px; line-height: 18px; margin-top: 12px; }
-.data-row { display: flex; flex-direction: row; align-items: center; justify-content: space-between; padding: 10px 4px 20px; }
-.data-title { display: block; color: #647D98; font-size: 12px; }
-.delete-button { height: 32px; line-height: 32px; padding: 0 12px; margin: 0 0 0 10px; border-radius: 8px; border-width: 0; background-color: #F8EAE9; color: #B96C66; font-size: 11px; }
-.footer { display: block; text-align: center; color: #9AAAC0; font-size: 10px; letter-spacing: 1px; }
+.page { height: 100%; flex: 1; background-color: #F4F5F9; }
+.content { display: flex; flex-direction: column; width: 100%; max-width: 680px; margin: 0 auto; padding: 22px 16px 28px; }
+.brand { color: #6865C6; font-size: 12px; font-weight: bold; }
+.heading { color: #6865C6; font-size: 24px; font-weight: bold; margin-top: 7px; margin-bottom: 20px; }
+.identity { display: flex; flex-direction: row; align-items: center; padding: 0 4px; margin-bottom: 14px; }
+.label { color: #7C8190; font-size: 13px; margin-right: 12px; }
+.input { flex: 1; height: 36px; padding: 0 10px; border: 1px solid #E2E5EA; border-radius: 6px; background-color: #FFFFFF; color: #374151; font-size: 14px; }
+.action { width: 100%; height: 54px; line-height: 52px; margin: 0 0 12px; padding: 0; border: 1px solid #72CCAE; border-radius: 9px; background-color: #FFFFFF; color: #397D4B; font-size: 16px; font-weight: bold; }
+.result-card { display: flex; flex-direction: column; margin-top: 18px; padding: 14px; border: 1px solid #E2E5EA; border-radius: 11px; background-color: #FFFFFF; }
+.result-heading { display: flex; flex-direction: row; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.result-title { color: #303540; font-size: 14px; font-weight: bold; }
+.result-label { color: #9A9DA6; font-size: 11px; }
+.result-text { min-height: 150px; padding: 12px; border: 1px solid #E9EBEF; border-radius: 8px; background-color: #F6F7F9; color: #6865C6; font-size: 14px; line-height: 23px; }
+.hint { color: #9A9DA6; font-size: 10px; line-height: 18px; text-align: center; margin-top: 10px; }
 </style>

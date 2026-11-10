@@ -22,7 +22,9 @@
 | [Android 原生集成检查](tests/android/README.md) | SDK 与桥接代码更新后的真实调用回归检查 |
 | [Android 调试与实现](docs/ANDROID_DEBUG.md) | 页面快速同步、基座指纹、监听与日志 |
 
-两套示例都在页面的 `enroll`、`verify`、`remove` 方法中直接调用插件，展示参数、成功/失败回调与 `complete` 收尾。示例设置 `overwrite: true` 方便重复录入，仍需在原生采集页确认保存；业务可按需保留默认的 `false`。
+两套示例均采用“功能按钮列表 + 调用结果”的简单页面：输入同一 `faceID`，录入人脸后选择静默活体或动作活体进行 1:1 验证，也可确认删除本机基准。动作模式同时保留静默活体。结果框直接显示 SDK 的 `passed`、`outcome`、分数或错误码，不展示原始人脸特征。
+
+页面的 `enroll`、`verify`、`remove` 方法直接调用插件，展示参数、成功/失败回调与 `complete` 收尾。示例设置 `overwrite: true` 方便重复录入，仍需在原生采集页确认保存；业务可按需保留默认的 `false`。
 
 ```text
 HelloFace_uniapp/
