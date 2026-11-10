@@ -160,7 +160,7 @@ verifyFace({
 
 ## 版本与验证说明
 
-当前插件版本 **0.1.2**，底层为 HelloFace 原生 SDK **0.8.8**。Android 原生 Kotlin 编译、鸿蒙原生 HAR 构建及三端 UTS 转换已通过；iOS 当前仅完成 Swift 语法检查，完整编译和三端真机联合运行仍需按 [验证记录](https://github.com/FaceAISDK/HelloFace_uniapp/blob/main/docs/VALIDATION.md) 验收。
+当前插件版本 **0.1.3**，底层为 HelloFace 原生 SDK **0.8.8**。Android 原生 Kotlin 编译、鸿蒙原生 HAR 构建及三端 UTS 转换已通过；iOS 当前仅完成 Swift 语法检查，完整编译和三端真机联合运行仍需按 [验证记录](https://github.com/FaceAISDK/HelloFace_uniapp/blob/main/docs/VALIDATION.md) 验收。
 
 从 `HelloFace` 或 `HelloFaceVerify` 目录升级时，改为 `HelloFace-Verify` 并更新导入入口，重新构建包含本插件的原生基座。当前错误主题为 `HelloFaceVerify`，原有接口方法、参数与本机特征存储键延续使用。
 

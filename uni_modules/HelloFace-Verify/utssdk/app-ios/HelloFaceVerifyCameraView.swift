@@ -33,7 +33,8 @@ final class HelloFaceVerifyCameraView: UIView {
         self.enrollment = enrollment
         super.init(frame: .zero)
         backgroundColor = Self.background
-        photo.contentMode = .scaleAspectFill; photo.clipsToBounds = true
+        photo.contentMode = .scaleAspectFit; photo.clipsToBounds = true
+        photo.backgroundColor = Self.background
         photo.accessibilityLabel = "已采集的人脸照片"; photo.isAccessibilityElement = true
         addSubview(photo)
         cutoutMask.fillColor = Self.background.cgColor; cutoutMask.fillRule = .evenOdd

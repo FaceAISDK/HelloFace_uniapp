@@ -77,7 +77,8 @@ final class HelloFaceVerifyCameraController: UIViewController {
         do {
             try startRequest()
             let layer = AVCaptureVideoPreviewLayer(session: pipeline.session)
-            layer.videoGravity = .resizeAspectFill; layer.frame = view.bounds
+            layer.videoGravity = .resizeAspect; layer.frame = view.bounds
+            layer.backgroundColor = HelloFaceVerifyCameraView.background.cgColor
             view.layer.insertSublayer(layer, at: 0); preview = layer
             pipeline.start()
         } catch { fail("INVALID_ARGUMENT", error.localizedDescription) }

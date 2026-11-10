@@ -29,6 +29,7 @@ struct FaceCameraDialog {
   @State photo: image.PixelMap | undefined = undefined;
   @State viewportWidth: number = 360;
   @State viewportHeight: number = 640;
+  @State previewRatio: number = 3 / 4;
   private safeTop: number = 0;
   private safeBottom: number = 0;
   private safeLeft: number = 0;
@@ -44,6 +45,7 @@ struct FaceCameraDialog {
     this.safeLeft = flow.safeLeft; this.safeRight = flow.safeRight;
     this.viewportWidth = flow.viewportWidth; this.viewportHeight = flow.viewportHeight;
     this.phase = flow.isEnrollment() ? '第一步 · 人脸采集' : '实时身份核验';
+    flow.onPreviewSize = (width: number, height: number): void => { this.previewRatio = width / height; };
     flow.onStatus = (guide: string, stage: string, step: number, count: number): void => {
       if (this.captured) return;
       this.guidance = guide;
@@ -73,6 +75,8 @@ struct FaceCameraDialog {
   }
   private phaseY(): number { return this.circleY() + this.diameter() + 16; }
   private privacyY(): number { return this.viewportHeight - this.safeBottom - 49; }
+  private previewWidth(): number { return Math.min(this.viewportWidth, this.viewportHeight * this.previewRatio); }
+  private previewHeight(): number { return this.previewWidth() / this.previewRatio; }
   private drawMask(): void {
     if (!this.canvasReady) return;
     const context = this.canvas; const radius = this.diameter() / 2;
@@ -91,7 +95,8 @@ struct FaceCameraDialog {
   }
   @Builder
   private CapturePhoto(photo: image.PixelMap) {
-    Image(photo).objectFit(ImageFit.Cover).width(this.diameter()).height(this.diameter())
+    Image(photo).objectFit(ImageFit.Contain).backgroundColor(CAMERA_BACKGROUND)
+      .width(this.diameter()).height(this.diameter())
       .borderRadius(this.diameter() / 2).clip(true)
       .scale({ x: this.flow?.isFrontCamera() === false ? 1 : -1, y: 1 })
       .position({ x: this.centerX() - this.diameter() / 2, y: this.circleY() })
@@ -101,8 +106,13 @@ struct FaceCameraDialog {
   build() {
     Stack({ alignContent: Alignment.TopStart }) {
       XComponent({ id: 'hellofaceverify-camera', type: XComponentType.SURFACE, controller: this.controller })
-        .width('100%').height('100%')
-        .onLoad((): void => { this.flow?.start(this.controller.getXComponentSurfaceId()); })
+        .width(this.previewWidth()).height(this.previewHeight())
+        .position({ x: (this.viewportWidth - this.previewWidth()) / 2, y: (this.viewportHeight - this.previewHeight()) / 2 })
+        .renderFit(RenderFit.RESIZE_CONTAIN)
+        .onLoad((): void => {
+          this.controller.setXComponentSurfaceRotation({ lock: true });
+          this.flow?.start(this.controller.getXComponentSurfaceId());
+        })
       if (this.captured && this.photo !== undefined) { this.CapturePhoto(this.photo) }
       Canvas(this.canvas).width('100%').height('100%').hitTestBehavior(HitTestMode.None)
         .onReady((): void => { this.canvasReady = true; this.drawMask(); })
@@ -204,6 +214,7 @@ export class CameraFlow {
   committing: boolean = false;
   onStatus: (value: string, stage: string, step: number, count: number) => void = (): void => {};
   onCapture: (photo: image.PixelMap | undefined, ready: boolean) => void = (): void => {};
+  onPreviewSize: (width: number, height: number) => void = (): void => {};
   private readonly visibility = (event: window.WindowEventType): void => {
     if (event === window.WindowEventType.WINDOW_HIDDEN) this.cancel();
   };
@@ -307,7 +318,10 @@ export class CameraFlow {
     this.session.addInput(this.input); this.session.addOutput(this.output); this.session.addOutput(this.analysis);
     await this.session.commitConfig(); this.checkActive();
     const orientation = display.getDefaultDisplaySync().rotation;
-    this.output.setPreviewRotation(this.output.getPreviewRotation(orientation), true);
+    const previewRotation = this.output.getPreviewRotation(orientation);
+    this.output.setPreviewRotation(previewRotation, true);
+    const swapped = previewRotation === camera.ImageRotation.ROTATION_90 || previewRotation === camera.ImageRotation.ROTATION_270;
+    this.onPreviewSize(swapped ? profile.size.height : profile.size.width, swapped ? profile.size.width : profile.size.height);
     this.rotation = this.analysis.getPreviewRotation(orientation);
     this.accepting = true;
     await this.session.start(); this.checkActive();

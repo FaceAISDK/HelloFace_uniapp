@@ -24,10 +24,15 @@ import kotlin.math.min
 /** Presentation only: the circular opening never crops frames submitted to the SDK. */
 internal class HelloFaceVerifyCameraView(context: Context, private val enrollment: Boolean,
     onCancel: () -> Unit, onRetake: () -> Unit, onConfirm: () -> Unit) : FrameLayout(context) {
-    val preview = PreviewView(context).apply { implementationMode = PreviewView.ImplementationMode.COMPATIBLE }
+    val preview = PreviewView(context).apply {
+        implementationMode = PreviewView.ImplementationMode.COMPATIBLE
+        scaleType = PreviewView.ScaleType.FIT_CENTER
+        setBackgroundColor(BACKGROUND)
+    }
     private val mask = CameraMask(context)
     private val photo = ImageView(context).apply {
-        scaleType = ImageView.ScaleType.CENTER_CROP
+        scaleType = ImageView.ScaleType.FIT_CENTER
+        setBackgroundColor(BACKGROUND)
         contentDescription = "已采集的人脸照片"
         clipToOutline = true
         outlineProvider = object : ViewOutlineProvider() {
