@@ -88,6 +88,10 @@ function errorCode(code: string): HelloFaceVerifyErrorCode {
 function isProgress(event: UTSJSONObject | null): boolean {
   return event?.getString('event') == 'progress' && event?.getString('code') == 'OK' && event?.getJSON('data')?.getString('stage') != null
 }
+function score(data: UTSJSONObject | null, key: string): number | null {
+  const value = data?.getNumber(key)
+  return value != null && Number.isFinite(value) ? value : null
+}
 
 /** A terminal callback is delivered once, including validation failures and malformed native replies. */
 export function createDispatcher(method: string, faceID: string,
@@ -125,8 +129,10 @@ export function createDispatcher(method: string, faceID: string,
       errMsg: method + ':ok', faceID: faceID,
       feature: method == 'enrollFace' || method == 'getFaceFeature' || method == 'setFaceFeature' ? data?.getString('feature') : null,
       featureSpaceID: 'jdx-feature-v1',
-      passed: data?.getBoolean('passed'), outcome: data?.getString('outcome'),
-      similarity: data?.getNumber('similarity'), livenessScore: data?.getNumber('livenessScore')
+      passed: cameraMethod ? data?.getBoolean('passed') : null,
+      outcome: cameraMethod ? data?.getString('outcome') : null,
+      similarity: method == 'verifyFace' ? score(data ?? null, 'similarity') : null,
+      livenessScore: method == 'verifyFace' ? score(data ?? null, 'livenessScore') : null
     }
     try { success?.(result) } finally { complete?.(result) }
   }

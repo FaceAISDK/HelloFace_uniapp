@@ -179,7 +179,7 @@ class HelloFaceVerifyCameraActivity : ComponentActivity() {
     }
 
     private fun update(progress: FaceFlowProgress) {
-        if (!active()) return
+        if (!active() || capturedFeature != null) return
         val action = progress.action?.let { actionName(it) }
         val stage = progress.stage.name
         screen.showProgress(stage, action, progress.stepNumber, progress.stepCount)
@@ -188,7 +188,7 @@ class HelloFaceVerifyCameraActivity : ComponentActivity() {
     }
 
     private fun confirmCapture(result: FaceCaptureResult) {
-        if (!active()) return
+        if (!active() || capturedFeature != null) return
         stopAnalysis()
         aligned = result.alignedFace // The SDK creates a Bitmap; read it only once.
         capturedFeature = result.feature

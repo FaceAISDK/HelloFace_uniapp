@@ -152,6 +152,6 @@ HBuilderX 官方鸿蒙流程在本机调用 DevEco 工具链完成构建，不�
 npm run check
 ```
 
-这条命令执行 API、示例、SDK 安装器和 Android 调试/对齐自动化测试、完整三端 SDK 文件校验和 UTS 转换。如果只安装了单端 SDK，可以单独执行 `python3 scripts/install_sdk.py --check --platform android` 等对应检查；完整 `npm run check` 需要三端 SDK 文件。
+这条命令执行三端页面配置同步检查、API、示例、SDK 安装器和 Android 调试/对齐自动化测试、完整三端 SDK 文件校验和 UTS 转换。如果只安装了单端 SDK，可以单独执行 `python3 scripts/install_sdk.py --check --platform android` 等对应检查；完整 `npm run check` 需要三端 SDK 文件。
 
 随后按所选平台实际构建安装包、安装到真机，验证录入、本人/他人识别、活体拒绝、权限拒绝、取消、后台释放和特征保存。已有结果及待验项见 [验证记录](VALIDATION.md)。

@@ -128,8 +128,8 @@ setFaceFeature({ faceID: 'user-001', feature: savedFeature, featureSpaceID: save
 | `faceID` | string | 规范化后的用户标识；cancel 为空 |
 | `passed` | boolean / null | 录入/验证的 SDK 判定；管理接口、cancel 为 null |
 | `outcome` | string / null | SDK 业务结果，未产生为 null |
-| `similarity` | number / null | 相似度；未产生时为 null |
-| `livenessScore` | number / null | 活体分数；未产生时为 null |
+| `similarity` | number / null | 仅验证返回实际相似度；其他接口、未产生或非有限值为 null |
+| `livenessScore` | number / null | 仅验证返回实际活体分数；其他接口、未产生或非有限值为 null |
 | `feature` | string / null | 录入、读取、同步可返回基准；验证、删除、取消不返回特征 |
 | `featureSpaceID` | string | 当前 SDK 的特征空间，跨设备传递时保留 |
 

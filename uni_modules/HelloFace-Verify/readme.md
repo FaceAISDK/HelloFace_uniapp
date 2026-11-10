@@ -119,7 +119,7 @@ verifyFace({
 | `referenceFeature` | 不传 | 可选的完整 HF1 基准，仅用于本次验证；必须同时传入 featureSpaceID |
 | `featureSpaceID` | 不传 | 与 referenceFeature 成对传入，使用录入/读取返回的原值 |
 
-所有 API 使用 `success / fail / complete`；录入和识别还可监听 `onProgress`。`success` 表示业务流程已完成，应以 `passed` 判断是否通过。例如 `outcome: 'SPOOF_DETECTED'` 会返回 `passed: false`，前端不能仅依据相似度放行。未产生的相似度或活体分数返回 `null`。
+所有 API 使用 `success / fail / complete`；录入和识别还可监听 `onProgress`。`success` 表示业务流程已完成，应以 `passed` 判断是否通过。例如 `outcome: 'SPOOF_DETECTED'` 会返回 `passed: false`，前端不能仅依据相似度放行。三端返回字段一致：相似度、活体分数仅在验证时返回实际有限值，其他接口或未产生时为 `null`；特征管理、取消的 `passed / outcome` 为 `null`。
 
 uvue 可从同一入口导入 `EnrollFaceOptions`、`VerifyFaceOptions`、`FaceResult`、`FaceProgress` 类型。完整示例位于 [uvue 示例工程](https://github.com/FaceAISDK/HelloFace_uniapp/tree/main/examples/uni-app-x)。
 

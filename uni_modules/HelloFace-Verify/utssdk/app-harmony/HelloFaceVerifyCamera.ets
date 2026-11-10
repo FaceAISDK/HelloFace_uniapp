@@ -7,12 +7,13 @@ import { HiFaceSdk, FaceRequest, FaceFlowListener, FaceFlowProgress, FaceFlowRes
   FaceVerificationConfig, Yuv420Frame, YuvPlane, YuvColorRange, YuvColorMatrix } from 'hiface';
 import { BridgeError, FaceParams, NativeData, envelope, errorEnvelope, unwrap } from './BridgeTypes';
 import { ReferenceStore } from './ReferenceStore';
+import { HelloFaceVerifyPresentation as UI } from './HelloFaceVerifyPresentation';
 
-const CAMERA_BACKGROUND: string = '#F7F9FC';
-const CAMERA_INK: string = '#19324F';
-const CAMERA_MUTED: string = '#60738B';
-const CAMERA_BLUE: string = '#2878EF';
-const CAMERA_GREEN: string = '#28866C';
+const CAMERA_BACKGROUND: string = UI.colorBackground;
+const CAMERA_INK: string = UI.colorInk;
+const CAMERA_MUTED: string = UI.colorMuted;
+const CAMERA_BLUE: string = UI.colorBlue;
+const CAMERA_GREEN: string = UI.colorGreen;
 interface DialogParams { flow: CameraFlow; }
 
 @Builder
@@ -21,8 +22,8 @@ function cameraDialog(params: DialogParams) { FaceCameraDialog({ flow: params.fl
 @Component
 struct FaceCameraDialog {
   flow: CameraFlow | undefined = undefined;
-  @State guidance: string = '请正对镜头';
-  @State phase: string = '实时身份核验';
+  @State guidance: string = UI.liveTitle;
+  @State phase: string = UI.verifyPhase;
   @State warning: boolean = false;
   @State captured: boolean = false;
   @State saving: boolean = false;
@@ -44,37 +45,36 @@ struct FaceCameraDialog {
     this.safeTop = flow.safeTop; this.safeBottom = flow.safeBottom;
     this.safeLeft = flow.safeLeft; this.safeRight = flow.safeRight;
     this.viewportWidth = flow.viewportWidth; this.viewportHeight = flow.viewportHeight;
-    this.phase = flow.isEnrollment() ? '第一步 · 人脸采集' : '实时身份核验';
+    this.phase = UI.phase(flow.isEnrollment());
     flow.onPreviewSize = (width: number, height: number): void => { this.previewRatio = width / height; };
-    flow.onStatus = (guide: string, stage: string, step: number, count: number): void => {
+    flow.onStatus = (stage: string, action: string | undefined, step: number, count: number): void => {
       if (this.captured) return;
-      this.guidance = guide;
-      this.phase = stage === 'PERFORM_ACTION' && count > 0 ? `动作验证 · ${step}/${count}` :
-        (flow.isEnrollment() ? '第一步 · 人脸采集' : '实时身份核验');
-      const warning = ['MULTIPLE_FACES', 'FACE_TOO_SMALL', 'FACE_NOT_FRONTAL'].includes(stage);
+      this.guidance = UI.guidance(stage, action);
+      this.phase = UI.phase(flow.isEnrollment(), stage, step, count);
+      const warning = UI.isWarning(stage);
       if (this.warning !== warning) { this.warning = warning; this.drawMask(); }
     };
     flow.onCapture = (value: image.PixelMap | undefined, ready: boolean): void => {
       this.photo = value; this.captured = ready; this.saving = false; this.warning = false;
-      this.guidance = ready ? (value === undefined ? '未能生成预览' : '请确认人脸照片') : '请正对镜头';
-      this.phase = ready ? '第二步 · 确认保存' : '第一步 · 人脸采集';
+      this.guidance = ready ? (value === undefined ? UI.missingTitle : UI.confirmTitle) : UI.liveTitle;
+      this.phase = ready ? UI.confirmPhase : UI.phase(flow.isEnrollment());
       this.drawMask();
     };
   }
   aboutToDisappear(): void { this.canvasReady = false; this.flow?.cancel(); }
-  private contentLeft(): number { return this.safeLeft + 24; }
-  private contentWidth(): number { return Math.max(100, this.viewportWidth - this.safeLeft - this.safeRight - 48); }
+  private contentLeft(): number { return this.safeLeft + UI.sideInset; }
+  private contentWidth(): number { return Math.max(UI.minCircle, this.viewportWidth - this.safeLeft - this.safeRight - UI.sideInset * 2); }
   private centerX(): number { return this.contentLeft() + this.contentWidth() / 2; }
   private titleY(): number {
-    return this.safeTop + 8 + (this.viewportHeight - this.safeTop - this.safeBottom < 600 ? 55 : 70);
+    return this.safeTop + UI.headerInset + (this.viewportHeight - this.safeTop - this.safeBottom < UI.compactHeight ? UI.compactTitleOffset : UI.titleOffset);
   }
-  private circleY(): number { return this.titleY() + 104; }
+  private circleY(): number { return this.titleY() + UI.circleOffset; }
   private diameter(): number {
-    return Math.max(100, Math.min(this.contentWidth(), (this.viewportWidth - this.safeLeft - this.safeRight) * 0.8,
-      this.viewportHeight - this.safeBottom - (this.captured ? 206 : 168) - this.circleY()));
+    return Math.max(UI.minCircle, Math.min(this.contentWidth(), (this.viewportWidth - this.safeLeft - this.safeRight) * UI.circleRatio,
+      this.viewportHeight - this.safeBottom - (this.captured ? UI.captureReserve : UI.liveReserve) - this.circleY()));
   }
-  private phaseY(): number { return this.circleY() + this.diameter() + 16; }
-  private privacyY(): number { return this.viewportHeight - this.safeBottom - 49; }
+  private phaseY(): number { return this.circleY() + this.diameter() + UI.phaseOffset; }
+  private privacyY(): number { return this.viewportHeight - this.safeBottom - UI.footerInset; }
   private previewWidth(): number { return Math.min(this.viewportWidth, this.viewportHeight * this.previewRatio); }
   private previewHeight(): number { return this.previewWidth() / this.previewRatio; }
   private drawMask(): void {
@@ -87,10 +87,10 @@ struct FaceCameraDialog {
     context.globalCompositeOperation = 'destination-out';
     context.beginPath(); context.arc(x, y, radius, 0, Math.PI * 2); context.fill();
     context.globalCompositeOperation = 'source-over';
-    context.lineWidth = 1; context.strokeStyle = '#DCE6F4';
-    context.beginPath(); context.arc(x, y, radius + 7, 0, Math.PI * 2); context.stroke();
-    context.lineWidth = 3;
-    context.strokeStyle = this.captured ? CAMERA_GREEN : (this.warning ? '#C58A27' : CAMERA_BLUE);
+    context.lineWidth = UI.borderWidth; context.strokeStyle = UI.colorOuterRing;
+    context.beginPath(); context.arc(x, y, radius + UI.outerRingGap, 0, Math.PI * 2); context.stroke();
+    context.lineWidth = UI.ringWidth;
+    context.strokeStyle = this.captured ? CAMERA_GREEN : (this.warning ? UI.colorAmber : CAMERA_BLUE);
     context.beginPath(); context.arc(x, y, radius, 0, Math.PI * 2); context.stroke(); context.restore();
   }
   @Builder
@@ -100,7 +100,7 @@ struct FaceCameraDialog {
       .borderRadius(this.diameter() / 2).clip(true)
       .scale({ x: this.flow?.isFrontCamera() === false ? 1 : -1, y: 1 })
       .position({ x: this.centerX() - this.diameter() / 2, y: this.circleY() })
-      .accessibilityText('已采集的人脸照片')
+      .accessibilityText(UI.photoLabel)
       .onDisAppear((): void => { this.flow?.releasePreview(photo); })
   }
   build() {
@@ -116,54 +116,55 @@ struct FaceCameraDialog {
       if (this.captured && this.photo !== undefined) { this.CapturePhoto(this.photo) }
       Canvas(this.canvas).width('100%').height('100%').hitTestBehavior(HitTestMode.None)
         .onReady((): void => { this.canvasReady = true; this.drawMask(); })
-      Button('‹', { type: ButtonType.Normal }).width(44).height(44).fontSize(32)
-        .fontColor(CAMERA_INK).backgroundColor(Color.Transparent).borderRadius(22)
-        .position({ x: this.safeLeft + 12, y: this.safeTop + 8 }).accessibilityText('返回')
-        .enabled(!this.saving).onClick((): void => { this.flow?.cancel(); })
-      Text(this.flow?.isEnrollment() === true ? '人脸录入' : '身份验证').fontSize(17).fontWeight(FontWeight.Medium)
-        .fontColor(CAMERA_INK).textAlign(TextAlign.Center).width(96).height(44)
-        .position({ x: this.centerX() - 48, y: this.safeTop + 8 })
-      Text('● 本机处理').fontSize(11).fontColor(CAMERA_GREEN).textAlign(TextAlign.Center)
-        .backgroundColor('#E8F4EF').borderRadius(13).width(76).height(25)
-        .position({ x: this.contentLeft() + this.contentWidth() - 76, y: this.safeTop + 18 })
-      Text(this.guidance).fontSize(25).fontWeight(FontWeight.Medium).fontColor(CAMERA_INK)
-        .textAlign(TextAlign.Center).maxLines(2).width(this.contentWidth()).height(54)
+      Button('‹', { type: ButtonType.Normal }).width(UI.backSize).height(UI.backSize).fontSize(UI.fontBack)
+        .fontColor(CAMERA_INK).backgroundColor(Color.Transparent).borderRadius(UI.backSize / 2)
+        .position({ x: this.safeLeft + UI.backInset, y: this.safeTop + UI.headerInset }).accessibilityText(UI.backLabel)
+        .opacity(this.saving ? UI.disabledAlpha : 1).enabled(!this.saving).onClick((): void => { this.flow?.cancel(); })
+      Text(this.flow?.isEnrollment() === true ? UI.enrollHeading : UI.verifyHeading).fontSize(UI.fontHeading).fontWeight(FontWeight.Medium)
+        .fontColor(CAMERA_INK).textAlign(TextAlign.Center).width(UI.headingWidth).height(UI.backSize)
+        .position({ x: this.centerX() - UI.headingWidth / 2, y: this.safeTop + UI.headerInset })
+      Text(UI.localLabel).fontSize(UI.fontLocal).fontColor(CAMERA_GREEN).textAlign(TextAlign.Center)
+        .backgroundColor(UI.colorLocalFill).borderRadius(UI.pillRadius).width(UI.localWidth).height(UI.localHeight)
+        .position({ x: this.contentLeft() + this.contentWidth() - UI.localWidth, y: this.safeTop + UI.headerInset + UI.localOffset })
+      Text(this.guidance).fontSize(UI.fontTitle).fontWeight(FontWeight.Medium).fontColor(CAMERA_INK)
+        .textAlign(TextAlign.Center).maxLines(2).width(this.contentWidth()).height(UI.titleHeight)
         .position({ x: this.contentLeft(), y: this.titleY() })
-      Text(this.saving ? '即将完成，请稍候' : (this.captured ?
-        (this.photo === undefined ? '请重新采集后再确认' : '照片清晰且为本人，即可确认录入') :
-        '请将面部置于圆框内，保持光线均匀')).fontSize(13).fontColor(CAMERA_MUTED)
-        .textAlign(TextAlign.Center).maxLines(2).width(this.contentWidth()).height(34)
-        .position({ x: this.contentLeft(), y: this.titleY() + 56 })
-      Text(this.phase).fontSize(12).fontColor(CAMERA_BLUE).textAlign(TextAlign.Center)
-        .backgroundColor('#EAF1FD').borderRadius(13).width(Math.min(this.contentWidth(), 176)).height(26)
-        .position({ x: this.centerX() - Math.min(this.contentWidth(), 176) / 2, y: this.phaseY() })
+      Text(this.saving ? UI.savingDetail : (this.captured ?
+        (this.photo === undefined ? UI.missingDetail : UI.confirmDetail) :
+        UI.liveDetail)).fontSize(UI.fontDetail).fontColor(CAMERA_MUTED)
+        .textAlign(TextAlign.Center).maxLines(2).width(this.contentWidth()).height(UI.detailHeight)
+        .position({ x: this.contentLeft(), y: this.titleY() + UI.detailOffset })
+      Text(this.phase).fontSize(UI.fontPhase).fontColor(CAMERA_BLUE).textAlign(TextAlign.Center)
+        .backgroundColor(UI.colorPhaseFill).borderRadius(UI.pillRadius).width(Math.min(this.contentWidth(), UI.phaseWidth)).height(UI.phaseHeight)
+        .position({ x: this.centerX() - Math.min(this.contentWidth(), UI.phaseWidth) / 2, y: this.phaseY() })
       if (this.captured) {
-        Text('确认后将加密保存人脸特征，不保存照片').fontSize(13).fontColor(CAMERA_MUTED)
-          .textAlign(TextAlign.Center).maxLines(2).width(this.contentWidth()).height(36)
-          .position({ x: this.contentLeft(), y: this.privacyY() - 106 })
-        Row({ space: 12 }) {
-          Button('重新采集', { type: ButtonType.Normal }).layoutWeight(1).height(50).borderRadius(14)
-            .fontSize(15).fontColor(CAMERA_INK).backgroundColor(Color.White).border({ width: 1, color: '#DCE5F1' })
-            .enabled(!this.saving).onClick((): void => { this.flow?.retake(); })
-          Button(this.saving ? '正在保存…' : '确认录入', { type: ButtonType.Normal })
-            .layoutWeight(1).height(50).borderRadius(14).fontSize(15).fontColor(Color.White).backgroundColor(CAMERA_BLUE)
+        Text(UI.confirmation).fontSize(UI.fontConfirmation).fontColor(CAMERA_MUTED)
+          .textAlign(TextAlign.Center).maxLines(2).width(this.contentWidth()).height(UI.confirmationHeight)
+          .position({ x: this.contentLeft(), y: this.privacyY() - UI.buttonOffset - UI.confirmationOffset })
+        Row({ space: UI.buttonGap }) {
+          Button(UI.retake, { type: ButtonType.Normal }).layoutWeight(1).height(UI.buttonHeight).borderRadius(UI.buttonRadius)
+            .fontSize(UI.fontButton).fontWeight(FontWeight.Medium).fontColor(CAMERA_INK).backgroundColor(Color.White).border({ width: UI.borderWidth, color: UI.colorButtonBorder })
+            .opacity(this.saving ? UI.disabledAlpha : 1).enabled(!this.saving).onClick((): void => { this.flow?.retake(); })
+          Button(this.saving ? UI.savingButton : UI.confirm, { type: ButtonType.Normal })
+            .layoutWeight(1).height(UI.buttonHeight).borderRadius(UI.buttonRadius).fontSize(UI.fontButton).fontWeight(FontWeight.Medium).fontColor(Color.White).backgroundColor(CAMERA_BLUE)
+            .opacity(this.saving || this.photo === undefined ? UI.disabledAlpha : 1)
             .enabled(!this.saving && this.photo !== undefined)
-            .onClick((): void => { this.saving = true; this.guidance = '正在保存人脸基准'; this.flow?.confirm(); })
-        }.width(this.contentWidth()).position({ x: this.contentLeft(), y: this.privacyY() - 64 })
+            .onClick((): void => { this.saving = true; this.guidance = UI.savingTitle; this.flow?.confirm(); })
+        }.width(this.contentWidth()).position({ x: this.contentLeft(), y: this.privacyY() - UI.buttonOffset })
       } else {
         Row() {
-          Text('人脸居中').fontSize(12).fontColor(CAMERA_INK).textAlign(TextAlign.Center).layoutWeight(1)
-          Divider().vertical(true).height(20).color('#E5EBF3')
-          Text('光线均匀').fontSize(12).fontColor(CAMERA_INK).textAlign(TextAlign.Center).layoutWeight(1)
-          Divider().vertical(true).height(20).color('#E5EBF3')
-          Text('面部无遮挡').fontSize(12).fontColor(CAMERA_INK).textAlign(TextAlign.Center).layoutWeight(1)
-        }.backgroundColor(Color.White).borderRadius(18).width(this.contentWidth()).height(48)
-          .position({ x: this.contentLeft(), y: this.phaseY() + 39 })
+          Text(UI.tipCenter).fontSize(UI.fontTip).fontColor(CAMERA_INK).textAlign(TextAlign.Center).layoutWeight(1)
+          Divider().vertical(true).height(UI.dividerHeight).color(UI.colorDivider)
+          Text(UI.tipLight).fontSize(UI.fontTip).fontColor(CAMERA_INK).textAlign(TextAlign.Center).layoutWeight(1)
+          Divider().vertical(true).height(UI.dividerHeight).color(UI.colorDivider)
+          Text(UI.tipClear).fontSize(UI.fontTip).fontColor(CAMERA_INK).textAlign(TextAlign.Center).layoutWeight(1)
+        }.backgroundColor(Color.White).borderRadius(UI.tipsRadius).width(this.contentWidth()).height(UI.tipsHeight)
+          .position({ x: this.contentLeft(), y: this.phaseY() + UI.tipsOffset })
       }
-      Text('人脸处理在本机完成').fontSize(12).fontColor(CAMERA_MUTED).textAlign(TextAlign.Center)
-        .width(this.contentWidth()).height(20).position({ x: this.contentLeft(), y: this.privacyY() })
-      Text('HelloFaceVerify').fontSize(11).fontColor('#78899B').textAlign(TextAlign.Center)
-        .width(this.contentWidth()).height(16).position({ x: this.contentLeft(), y: this.privacyY() + 22 })
+      Text(UI.privacy).fontSize(UI.fontPrivacy).fontColor(CAMERA_MUTED).textAlign(TextAlign.Center)
+        .width(this.contentWidth()).height(UI.privacyHeight).position({ x: this.contentLeft(), y: this.privacyY() })
+      Text(UI.brand).fontSize(UI.fontBrand).fontColor(UI.colorBrand).textAlign(TextAlign.Center)
+        .width(this.contentWidth()).height(UI.brandHeight).position({ x: this.contentLeft(), y: this.privacyY() + UI.brandOffset })
     }.width('100%').height('100%').backgroundColor(CAMERA_BACKGROUND)
       .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
       .onAreaChange((_, area): void => {
@@ -212,7 +213,7 @@ export class CameraFlow {
   safeLeft: number = 0;
   safeRight: number = 0;
   committing: boolean = false;
-  onStatus: (value: string, stage: string, step: number, count: number) => void = (): void => {};
+  onStatus: (stage: string, action: string | undefined, step: number, count: number) => void = (): void => {};
   onCapture: (photo: image.PixelMap | undefined, ready: boolean) => void = (): void => {};
   onPreviewSize: (width: number, height: number) => void = (): void => {};
   private readonly visibility = (event: window.WindowEventType): void => {
@@ -366,13 +367,15 @@ export class CameraFlow {
   }
   private progress(value: FaceFlowProgress): void {
     if (this.ended || this.captured !== undefined) return;
-    const actions: string[] = ['shakeHead', 'nodHead', 'blink', 'openMouth'];
-    const action = value.action === undefined ? undefined : actions[value.action];
+    let action: string | undefined = undefined;
+    switch (value.action) {
+      case FaceAction.BLINK: action = 'blink'; break;
+      case FaceAction.MOUTH_OPEN: action = 'openMouth'; break;
+      case FaceAction.SHAKE_HEAD: action = 'shakeHead'; break;
+      case FaceAction.NOD_HEAD: action = 'nodHead'; break;
+    }
     const stage = FaceFlowStage[value.stage];
-    const prompts: string[] = ['请正对镜头', '请保持画面中只有一人', '请靠近一些', '请完成提示动作', '请正对镜头', '请保持不动', '请正对镜头', '请保持稳定'];
-    const actionPrompts: string[] = ['请摇摇头', '请点点头', '请眨眨眼', '请张张嘴'];
-    this.onStatus(value.stage === FaceFlowStage.PERFORM_ACTION && value.action !== undefined ? actionPrompts[value.action] : prompts[value.stage],
-      stage, value.stepNumber, value.stepCount);
+    this.onStatus(stage, action, value.stepNumber, value.stepCount);
     this.progressCallback(envelope('progress', 'OK', '', { stage: stage, action: action,
       stepNumber: value.stepNumber, stepCount: value.stepCount }));
   }
@@ -384,10 +387,15 @@ export class CameraFlow {
       this.stopCamera().then(async (): Promise<void> => {
         if (this.ended) return;
         if (value.alignedRgba !== undefined) {
-          this.photo = await image.createPixelMap(value.alignedRgba, {
-            size: { width: value.alignedSide, height: value.alignedSide },
-            pixelFormat: image.PixelMapFormat.RGBA_8888, editable: false });
-          this.previews.push(this.photo);
+          try {
+            this.photo = await image.createPixelMap(value.alignedRgba, {
+              size: { width: value.alignedSide, height: value.alignedSide },
+              pixelFormat: image.PixelMapFormat.RGBA_8888, editable: false });
+            this.previews.push(this.photo);
+          } catch (_) {
+            // Like Android/iOS: keep the confirmation screen available for a retake.
+            this.photo = undefined;
+          }
         }
         if (this.ended) { if (this.photo !== undefined) this.releasePreview(this.photo); return; }
         this.onCapture(this.photo, true);

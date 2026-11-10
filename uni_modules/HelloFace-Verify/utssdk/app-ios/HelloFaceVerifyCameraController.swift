@@ -120,13 +120,12 @@ final class HelloFaceVerifyCameraController: UIViewController {
         guard !ended, captured == nil else { return }
         let action = value.action.map { Self.actionName($0) }
         let stage = Self.stageName(value.stage)
-        screen.showProgress(stage: stage, action: action, step: Int(value.stepNumber), count: Int(value.stepCount),
-                            guidance: Self.guidance(stage, action))
+        screen.showProgress(stage: stage, action: action, step: Int(value.stepNumber), count: Int(value.stepCount))
         onProgress(["stage": stage, "action": action as Any? ?? NSNull(),
                     "stepNumber": value.stepNumber, "stepCount": value.stepCount])
     }
     private func result(_ value: FaceFlowResult) {
-        guard !ended else { return }
+        guard !ended, captured == nil else { return }
         if method == "enrollFace", value.passed, value.feature != nil {
             captured = value
             pipeline.pause()
@@ -211,14 +210,6 @@ final class HelloFaceVerifyCameraController: UIViewController {
         case .faceUnstable: return "FACE_UNSTABLE"
         @unknown default: return "UNKNOWN"
         }
-    }
-    private static func guidance(_ stage: String, _ action: String?) -> String {
-        if stage == "PERFORM_ACTION" {
-            return ["blink": "请眨眨眼", "openMouth": "请张张嘴", "shakeHead": "请摇摇头", "nodHead": "请点点头"][action ?? ""] ?? "请按提示完成动作"
-        }
-        return ["WAITING_FOR_FACE": "请正对镜头", "MULTIPLE_FACES": "请保持画面中只有一人",
-            "FACE_TOO_SMALL": "请靠近一些", "HOLD_STILL": "请保持不动", "FACE_FORWARD": "请正对镜头",
-            "FACE_NOT_FRONTAL": "请正对镜头", "FACE_UNSTABLE": "请保持稳定"][stage] ?? "正在处理"
     }
     private static func errorName(_ code: HiFaceErrorCode) -> String {
         // Preserve every documented SDK code; convert Swift camelCase to the shared uppercase form.

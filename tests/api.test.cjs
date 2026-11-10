@@ -226,4 +226,32 @@ for (const platform of ['app-android', 'app-ios', 'app-harmony']) {
     calls[1].reply(JSON.stringify({ event: 'error', code: 'NOT_FOUND' }))
     assert.equal(complete, 1)
   })
+
+  test(`${platform}: each API returns consistent nullable fields despite native payload extras`, () => {
+    const feature = 'HF1:' + 'A'.repeat(600)
+    for (const method of ['enrollFace', 'verifyFace', 'getFaceFeature', 'setFaceFeature', 'deleteFace', 'cancel']) {
+      const { api, calls } = load(platform)
+      let result, completed
+      api[method]({ faceID: 'u', ...(method === 'setFaceFeature' ? { feature, featureSpaceID: 'jdx-feature-v1' } : {}),
+        success: value => { result = value }, complete: value => { completed = value } })
+      calls[0].reply(JSON.stringify({ event: 'result', code: 'OK', data: {
+        feature, passed: method !== 'verifyFace', outcome: method === 'verifyFace' ? 'NOT_MATCHED' : 'PASSED',
+        similarity: 0, livenessScore: 0.97
+      } }))
+      assert.strictEqual(result, completed)
+      assert.equal(result.feature, ['enrollFace', 'getFaceFeature', 'setFaceFeature'].includes(method) ? feature : null)
+      assert.equal(result.passed, method === 'verifyFace' ? false : method === 'enrollFace' ? true : null)
+      assert.equal(result.outcome, method === 'verifyFace' ? 'NOT_MATCHED' : method === 'enrollFace' ? 'PASSED' : null)
+      assert.equal(result.similarity, method === 'verifyFace' ? 0 : null)
+      assert.equal(result.livenessScore, method === 'verifyFace' ? 0.97 : null)
+    }
+    const { api, calls } = load(platform)
+    let result
+    api.verifyFace({ faceID: 'u', success: value => { result = value } })
+    // An overflowing JSON number must never become a usable business score.
+    calls[0].reply('{"event":"result","code":"OK","data":{"passed":false,"outcome":"NOT_MATCHED","similarity":1e309,"livenessScore":-1e309}}')
+    assert.equal(result.passed, false)
+    assert.equal(result.similarity, null)
+    assert.equal(result.livenessScore, null)
+  })
 }

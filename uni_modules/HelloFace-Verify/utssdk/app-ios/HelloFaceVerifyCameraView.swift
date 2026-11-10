@@ -1,12 +1,14 @@
 import UIKit
 
+private typealias UI = HelloFaceVerifyPresentation
+
 /// Native presentation only. The mask does not change camera pixels or SDK coordinates.
 final class HelloFaceVerifyCameraView: UIView {
-    static let background = UIColor(red: 247/255, green: 249/255, blue: 252/255, alpha: 1)
-    private let ink = UIColor(red: 25/255, green: 50/255, blue: 79/255, alpha: 1)
-    private let muted = UIColor(red: 96/255, green: 115/255, blue: 139/255, alpha: 1)
-    private let blue = UIColor(red: 40/255, green: 120/255, blue: 239/255, alpha: 1)
-    private let green = UIColor(red: 40/255, green: 134/255, blue: 108/255, alpha: 1)
+    static let background = UI.colorBackground
+    private let ink = UI.colorInk
+    private let muted = UI.colorMuted
+    private let blue = UI.colorBlue
+    private let green = UI.colorGreen
     private let enrollment: Bool
     private let cutoutMask = CAShapeLayer()
     private let ring = CAShapeLayer()
@@ -35,41 +37,56 @@ final class HelloFaceVerifyCameraView: UIView {
         backgroundColor = Self.background
         photo.contentMode = .scaleAspectFit; photo.clipsToBounds = true
         photo.backgroundColor = Self.background
-        photo.accessibilityLabel = "已采集的人脸照片"; photo.isAccessibilityElement = true
+        photo.accessibilityLabel = UI.photoLabel; photo.isAccessibilityElement = true
         addSubview(photo)
         cutoutMask.fillColor = Self.background.cgColor; cutoutMask.fillRule = .evenOdd
-        ring.fillColor = UIColor.clear.cgColor; ring.strokeColor = blue.cgColor; ring.lineWidth = 3
+        ring.fillColor = UIColor.clear.cgColor; ring.strokeColor = blue.cgColor; ring.lineWidth = UI.ringWidth
         outerRing.fillColor = UIColor.clear.cgColor
-        outerRing.strokeColor = UIColor(red: 220/255, green: 230/255, blue: 244/255, alpha: 1).cgColor
-        outerRing.lineWidth = 1
+        outerRing.strokeColor = UI.colorOuterRing.cgColor
+        outerRing.lineWidth = UI.borderWidth
         [cutoutMask, outerRing, ring].forEach { layer.addSublayer($0) }
-        back.setImage(UIImage(systemName: "chevron.left"), for: .normal)
-        back.tintColor = ink; back.accessibilityLabel = "返回"
+        back.setTitle("‹", for: .normal)
+        back.titleLabel?.font = .systemFont(ofSize: UI.fontBack)
+        back.setTitleColor(ink, for: .normal); back.accessibilityLabel = UI.backLabel
         back.addTarget(self, action: #selector(cancelTapped), for: .touchUpInside)
-        style(heading, text: enrollment ? "人脸录入" : "身份验证", size: 17, color: ink, weight: .semibold)
-        style(local, text: "● 本机处理", size: 11, color: green)
-        local.backgroundColor = UIColor(red: 232/255, green: 244/255, blue: 239/255, alpha: 1)
-        local.layer.cornerRadius = 13; local.clipsToBounds = true
-        style(title, text: "正在准备相机", size: 25, color: ink, weight: .semibold)
+        style(heading, text: enrollment ? UI.enrollHeading : UI.verifyHeading, size: UI.fontHeading, color: ink, weight: .medium)
+        style(local, text: UI.localLabel, size: UI.fontLocal, color: green)
+        local.backgroundColor = UI.colorLocalFill
+        local.layer.cornerRadius = UI.pillRadius; local.clipsToBounds = true
+        style(title, text: UI.preparingTitle, size: UI.fontTitle, color: ink, weight: .medium)
         title.accessibilityTraits.insert(.updatesFrequently)
-        style(detail, text: "请将面部置于圆框内，保持光线均匀", size: 13, color: muted)
-        style(phase, text: "", size: 12, color: blue)
-        phase.backgroundColor = UIColor(red: 234/255, green: 241/255, blue: 253/255, alpha: 1)
-        phase.layer.cornerRadius = 13; phase.clipsToBounds = true
-        tips.axis = .horizontal; tips.distribution = .fillEqually
-        tips.backgroundColor = .white; tips.layer.cornerRadius = 18
-        for text in ["人脸居中", "光线均匀", "面部无遮挡"] {
-            let label = UILabel(); style(label, text: text, size: 12, color: ink); tips.addArrangedSubview(label)
+        style(detail, text: UI.liveDetail, size: UI.fontDetail, color: muted)
+        style(phase, text: "", size: UI.fontPhase, color: blue)
+        phase.backgroundColor = UI.colorPhaseFill
+        phase.layer.cornerRadius = UI.pillRadius; phase.clipsToBounds = true
+        tips.axis = .horizontal; tips.distribution = .fill
+        tips.backgroundColor = .white; tips.layer.cornerRadius = UI.tipsRadius
+        var previousTip: UILabel?
+        for text in [UI.tipCenter, UI.tipLight, UI.tipClear] {
+            if previousTip != nil {
+                let separator = UIView(); separator.backgroundColor = UI.colorDivider
+                let slot = UIView(); slot.addSubview(separator)
+                separator.translatesAutoresizingMaskIntoConstraints = false
+                slot.widthAnchor.constraint(equalToConstant: UI.borderWidth).isActive = true
+                NSLayoutConstraint.activate([separator.centerYAnchor.constraint(equalTo: slot.centerYAnchor),
+                    separator.widthAnchor.constraint(equalTo: slot.widthAnchor),
+                    separator.heightAnchor.constraint(equalToConstant: UI.dividerHeight)])
+                tips.addArrangedSubview(slot)
+            }
+            let label = UILabel(); style(label, text: text, size: UI.fontTip, color: ink)
+            tips.addArrangedSubview(label)
+            if let previous = previousTip { label.widthAnchor.constraint(equalTo: previous.widthAnchor).isActive = true }
+            previousTip = label
         }
-        style(confirmation, text: "确认后将加密保存人脸特征，不保存照片", size: 13, color: muted)
-        style(retake, text: "重新采集", fill: .white, color: ink)
-        retake.layer.borderColor = UIColor(red: 220/255, green: 229/255, blue: 241/255, alpha: 1).cgColor
-        retake.layer.borderWidth = 1
+        style(confirmation, text: UI.confirmation, size: UI.fontConfirmation, color: muted)
+        style(retake, text: UI.retake, fill: .white, color: ink)
+        retake.layer.borderColor = UI.colorButtonBorder.cgColor
+        retake.layer.borderWidth = UI.borderWidth
         retake.addTarget(self, action: #selector(retakeTapped), for: .touchUpInside)
-        style(confirm, text: "确认录入", fill: blue, color: .white)
+        style(confirm, text: UI.confirm, fill: blue, color: .white)
         confirm.addTarget(self, action: #selector(confirmTapped), for: .touchUpInside)
-        style(privacy, text: "人脸处理在本机完成", size: 12, color: muted)
-        style(brand, text: "HelloFaceVerify", size: 11, color: UIColor(red: 120/255, green: 137/255, blue: 155/255, alpha: 1))
+        style(privacy, text: UI.privacy, size: UI.fontPrivacy, color: muted)
+        style(brand, text: UI.brand, size: UI.fontBrand, color: UI.colorBrand)
         [back, heading, local, title, detail, phase, tips, confirmation, retake, confirm, privacy, brand]
             .forEach { addSubview($0) }
         showLive()
@@ -78,22 +95,21 @@ final class HelloFaceVerifyCameraView: UIView {
 
     func showLive() {
         captured = false; photo.image = nil; photo.isHidden = true
-        title.text = "请正对镜头"; detail.text = "请将面部置于圆框内，保持光线均匀"
-        phase.text = enrollment ? "第一步 · 人脸采集" : "实时身份核验"
+        title.text = UI.liveTitle; detail.text = UI.liveDetail
+        phase.text = UI.phase(enrollment: enrollment)
         tips.isHidden = false
         [confirmation, retake, confirm].forEach { $0.isHidden = true }
         [back, retake, confirm].forEach { $0.isEnabled = true; $0.alpha = 1 }
-        confirm.setTitle("确认录入", for: .normal); ring.strokeColor = blue.cgColor; setNeedsLayout()
+        confirm.setTitle(UI.confirm, for: .normal); ring.strokeColor = blue.cgColor; setNeedsLayout()
     }
 
-    func showProgress(stage: String, action: String?, step: Int, count: Int, guidance: String) {
+    func showProgress(stage: String, action: String?, step: Int, count: Int) {
         guard !captured else { return }
+        let guidance = UI.guidance(stage: stage, action: action)
         if title.text != guidance { title.text = guidance }
-        let phaseText = stage == "PERFORM_ACTION" && count > 0 ? "动作验证 · \(step)/\(count)" :
-            (enrollment ? "第一步 · 人脸采集" : "实时身份核验")
+        let phaseText = UI.phase(enrollment: enrollment, stage: stage, step: step, count: count)
         if phase.text != phaseText { phase.text = phaseText }
-        let color = (["MULTIPLE_FACES", "FACE_TOO_SMALL", "FACE_NOT_FRONTAL"].contains(stage)
-            ? UIColor(red: 197/255, green: 138/255, blue: 39/255, alpha: 1) : blue).cgColor
+        let color = (UI.isWarning(stage: stage) ? UI.colorAmber : blue).cgColor
         if ring.strokeColor != color {
             CATransaction.begin(); CATransaction.setDisableActions(true); ring.strokeColor = color; CATransaction.commit()
         }
@@ -102,36 +118,37 @@ final class HelloFaceVerifyCameraView: UIView {
     func showConfirmation(image: UIImage?, mirrored: Bool) {
         captured = true; photo.image = image; photo.isHidden = image == nil
         photo.transform = CGAffineTransform(scaleX: mirrored ? -1 : 1, y: 1)
-        title.text = image == nil ? "未能生成预览" : "请确认人脸照片"
-        detail.text = image == nil ? "请重新采集后再确认" : "照片清晰且为本人，即可确认录入"
+        title.text = image == nil ? UI.missingTitle : UI.confirmTitle
+        detail.text = image == nil ? UI.missingDetail : UI.confirmDetail
         confirm.isEnabled = image != nil
-        phase.text = "第二步 · 确认保存"; ring.strokeColor = green.cgColor
+        confirm.alpha = image != nil ? 1 : UI.disabledAlpha
+        phase.text = UI.confirmPhase; ring.strokeColor = green.cgColor
         tips.isHidden = true
         [confirmation, retake, confirm].forEach { $0.isHidden = false }
         setNeedsLayout()
     }
 
     func showSaving() {
-        title.text = "正在保存人脸基准"; detail.text = "即将完成，请稍候"
-        confirm.setTitle("正在保存…", for: .normal)
-        [back, retake, confirm].forEach { $0.isEnabled = false; $0.alpha = 0.55 }
+        title.text = UI.savingTitle; detail.text = UI.savingDetail
+        confirm.setTitle(UI.savingButton, for: .normal)
+        [back, retake, confirm].forEach { $0.isEnabled = false; $0.alpha = UI.disabledAlpha }
     }
     func clearPhoto() { photo.image = nil }
 
     override func layoutSubviews() {
         super.layoutSubviews()
         let safe = safeAreaInsets, w = bounds.width, h = bounds.height
-        let left = safe.left + 24, right = w - safe.right - 24, width = right - left, center = (left + right) / 2
-        let headerY = safe.top + 8
-        back.frame = CGRect(x: safe.left + 12, y: headerY, width: 44, height: 44)
-        heading.frame = CGRect(x: center - 48, y: headerY, width: 96, height: 44)
-        local.frame = CGRect(x: right - 76, y: headerY + 10, width: 76, height: 25)
-        let titleY = headerY + (h - safe.top - safe.bottom < 600 ? 55 : 70)
-        title.frame = CGRect(x: left, y: titleY, width: width, height: 54)
-        detail.frame = CGRect(x: left, y: titleY + 56, width: width, height: 34)
-        let circleTop = titleY + 104
-        let diameter = max(100, min(width, (w - safe.left - safe.right) * 0.8,
-                                    h - safe.bottom - (captured ? 206 : 168) - circleTop))
+        let left = safe.left + UI.sideInset, right = w - safe.right - UI.sideInset, width = right - left, center = (left + right) / 2
+        let headerY = safe.top + UI.headerInset
+        back.frame = CGRect(x: safe.left + UI.backInset, y: headerY, width: UI.backSize, height: UI.backSize)
+        heading.frame = CGRect(x: center - UI.headingWidth / 2, y: headerY, width: UI.headingWidth, height: UI.backSize)
+        local.frame = CGRect(x: right - UI.localWidth, y: headerY + UI.localOffset, width: UI.localWidth, height: UI.localHeight)
+        let titleY = headerY + (h - safe.top - safe.bottom < UI.compactHeight ? UI.compactTitleOffset : UI.titleOffset)
+        title.frame = CGRect(x: left, y: titleY, width: width, height: UI.titleHeight)
+        detail.frame = CGRect(x: left, y: titleY + UI.detailOffset, width: width, height: UI.detailHeight)
+        let circleTop = titleY + UI.circleOffset
+        let diameter = max(UI.minCircle, min(width, (w - safe.left - safe.right) * UI.circleRatio,
+                                    h - safe.bottom - (captured ? UI.captureReserve : UI.liveReserve) - circleTop))
         let circle = CGRect(x: center - diameter / 2, y: circleTop, width: diameter, height: diameter)
         photo.bounds = CGRect(origin: .zero, size: circle.size); photo.center = CGPoint(x: circle.midX, y: circle.midY)
         photo.layer.cornerRadius = diameter / 2
@@ -139,19 +156,19 @@ final class HelloFaceVerifyCameraView: UIView {
         CATransaction.begin(); CATransaction.setDisableActions(true)
         cutoutMask.frame = bounds; cutoutMask.path = cutout.cgPath
         ring.frame = bounds; ring.path = UIBezierPath(ovalIn: circle).cgPath
-        outerRing.frame = bounds; outerRing.path = UIBezierPath(ovalIn: circle.insetBy(dx: -7, dy: -7)).cgPath
+        outerRing.frame = bounds; outerRing.path = UIBezierPath(ovalIn: circle.insetBy(dx: -UI.outerRingGap, dy: -UI.outerRingGap)).cgPath
         CATransaction.commit()
-        let phaseY = circle.maxY + 16, phaseWidth = min(width, 176)
-        phase.frame = CGRect(x: center - phaseWidth / 2, y: phaseY, width: phaseWidth, height: 26)
-        let privacyY = h - safe.bottom - 49
-        privacy.frame = CGRect(x: left, y: privacyY, width: width, height: 20)
-        brand.frame = CGRect(x: left, y: privacyY + 22, width: width, height: 16)
+        let phaseY = circle.maxY + UI.phaseOffset, phaseWidth = min(width, UI.phaseWidth)
+        phase.frame = CGRect(x: center - phaseWidth / 2, y: phaseY, width: phaseWidth, height: UI.phaseHeight)
+        let privacyY = h - safe.bottom - UI.footerInset
+        privacy.frame = CGRect(x: left, y: privacyY, width: width, height: UI.privacyHeight)
+        brand.frame = CGRect(x: left, y: privacyY + UI.brandOffset, width: width, height: UI.brandHeight)
         if captured {
-            let buttonY = privacyY - 64, buttonWidth = (width - 12) / 2
-            confirmation.frame = CGRect(x: left, y: buttonY - 42, width: width, height: 36)
-            retake.frame = CGRect(x: left, y: buttonY, width: buttonWidth, height: 50)
-            confirm.frame = CGRect(x: left + buttonWidth + 12, y: buttonY, width: buttonWidth, height: 50)
-        } else { tips.frame = CGRect(x: left, y: phaseY + 39, width: width, height: 48) }
+            let buttonY = privacyY - UI.buttonOffset, buttonWidth = (width - UI.buttonGap) / 2
+            confirmation.frame = CGRect(x: left, y: buttonY - UI.confirmationOffset, width: width, height: UI.confirmationHeight)
+            retake.frame = CGRect(x: left, y: buttonY, width: buttonWidth, height: UI.buttonHeight)
+            confirm.frame = CGRect(x: left + buttonWidth + UI.buttonGap, y: buttonY, width: buttonWidth, height: UI.buttonHeight)
+        } else { tips.frame = CGRect(x: left, y: phaseY + UI.tipsOffset, width: width, height: UI.tipsHeight) }
     }
 
     private func style(_ label: UILabel, text: String, size: CGFloat, color: UIColor, weight: UIFont.Weight = .regular) {
@@ -161,8 +178,8 @@ final class HelloFaceVerifyCameraView: UIView {
     }
     private func style(_ button: UIButton, text: String, fill: UIColor, color: UIColor) {
         button.setTitle(text, for: .normal); button.setTitleColor(color, for: .normal)
-        button.backgroundColor = fill; button.layer.cornerRadius = 14
-        button.titleLabel?.font = .systemFont(ofSize: 15, weight: .semibold)
+        button.backgroundColor = fill; button.layer.cornerRadius = UI.buttonRadius
+        button.titleLabel?.font = .systemFont(ofSize: UI.fontButton, weight: .medium)
     }
     @objc private func cancelTapped() { onCancel?() }
     @objc private func retakeTapped() { onRetake?() }

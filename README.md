@@ -158,7 +158,9 @@ npm run uts:check         # 调用 HBuilderX 编译器转换三端 UTS
 npm run android:alignment # 检查 SDK AAR 和最终 APK 的 16KB 对齐
 ```
 
-也可运行 `npm run check` 顺序执行测试、SDK 文件校验和三端 UTS 转换；16KB 对齐另行检查。这些命令不生成 APK / IPA / APP 安装包。
+也可运行 `npm run check` 顺序执行三端页面配置同步检查、测试、SDK 文件校验和 UTS 转换；16KB 对齐另行检查。这些命令不生成 APK / IPA / APP 安装包。
+
+三端原生页面文案、视觉参数和动作引导共用 [native-ui.json](uni_modules/HelloFace-Verify/native-ui.json)。维护时执行 `npm run ui:build` 同步原生配置，再执行 `npm run demo:prepare`；接入插件的业务代码无需增加配置。详见 [原生页面说明](docs/NATIVE_UI.md)。
 
 修改接口或 UTS 实现后，另运行 `npm run android:uts-check` 和 `npm run android:uts-check -- --uni-app-x`。它们使用 HBuilderX 官方工具链实际编译桥接与 Kotlin，能发现仅做 UTS 转换时无法发现的类型错误；不需要签名、云端 AppID 权限或连接设备。环境要求见 [Android 调试说明](docs/ANDROID_DEBUG.md)。
 

@@ -17,9 +17,9 @@ export type FaceResult = {
   passed: boolean | null,
   /** PASSED、NOT_MATCHED、SPOOF_DETECTED、NO_FACE_TIMEOUT 等；未产生时为 null。 */
   outcome: string | null,
-  /** SDK 相似度，未产生时为 null；不是身份概率。 */
+  /** 仅验证返回 SDK 相似度，其他接口或未产生时为 null；不是身份概率。 */
   similarity: number | null,
-  /** SDK 活体分数，未产生时为 null；不得用分数覆盖 passed。 */
+  /** 仅验证返回 SDK 活体分数，其他接口或未产生时为 null；不得用分数覆盖 passed。 */
   livenessScore: number | null
 }
 /** 可选过程通知；不是终态，不会触发 complete。原生页面已提供操作引导。 */

@@ -1,6 +1,6 @@
 {
   "name": "hellofaceverify-uniapp",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "license": "SEE LICENSE IN LICENSE",
   "private": true,
   "scripts": {
@@ -18,9 +18,11 @@
     "android:native-check": "python3 scripts/check_android_native.py",
     "test": "node --test tests/*.test.cjs && python3 -m unittest discover -s tests -v",
     "uts:check": "node scripts/check_uts.cjs",
-    "check": "npm test && npm run sdk:check && npm run uts:check",
+    "check": "npm run ui:check && npm test && npm run sdk:check && npm run uts:check",
     "android:uts-check": "node scripts/check_android_uts.cjs",
-    "icons:build": "swift scripts/generate_app_icons.swift"
+    "icons:build": "swift scripts/generate_app_icons.swift",
+    "ui:build": "python3 scripts/generate_native_ui.py",
+    "ui:check": "python3 scripts/generate_native_ui.py --check"
   },
   "devDependencies": {
     "typescript": "5.9.3"
