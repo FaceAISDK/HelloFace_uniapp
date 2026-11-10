@@ -56,38 +56,27 @@ python3 scripts/install_sdk.py --platform harmony
 
 ### 真机调试入口
 
-根目录示例的 Android 包名为 `dev.helloface.uniapp.demo`；独立 uvue 示例使用 `dev.helloface.uniappx.demo`，便于在同一手机安装两套示例。两套工程均关闭 uni统计；各自的 AppID、签名和原生基座按宿主工程配置。
+根目录示例的包名为 `dev.helloface.uniapp.demo`，独立 uvue 示例为 `dev.helloface.uniappx.demo`。两者各自使用 AppID、签名和基座，共享规范插件源码。
 
-1. 在 HBuilderX 的 `manifest.json` 可视化界面获取自己的真实 AppID 并保存，不能使用占位值 `__UNI__HELLOFACE` 制作云端基座。
-2. 在 HBuilderX 的 Android 打包配置中选择制作自定义调试基座，包名与该工程的 `manifest.json` 一致，使用自己的调试证书或已配置的云端证书。新应用不支持旧公共测试证书；签名文件与密码不要提交 Git。
-3. 确认产物保存到该工程的 `unpackage/debug/android_debug.apk`。连接手机、授权 USB 调试，然后执行：
+1. 在 HBuilderX 配置有效 AppID、Android 包名和自己的调试签名。
+2. 执行 `npm run android:base` 制作基座；手工制作时先执行 `npm run android:prepare`。
+3. 连接手机并授权 USB 调试，执行：
 
 ```sh
+npm run android:devices
 npm run android:check
 npm run android:run
-# 多台设备时指定序列号：
-npm run android:run -- --device 设备序列号
-# 基座已经安装时，只同步和启动：
-npm run android:run -- --skip-install
-# 检查独立 uvue 工程（需先配置其 AppID 并制作对应基座）：
-npm run android:check -- --project examples/uni-app-x
+npm run android:dev       # Vue 页面修改后自动重新同步
+npm run android:logs -- --follow
 ```
 
-检查失败时不会退回标准基座。`android:check` 只读取配置、APK 和设备信息；`android:run` 安装完整 APK，并通过 HBuilderX 的“已安装基座”入口同步页面和启动。部分设备会显示系统安装确认，需要在手机上允许；取消或超时后脚本会结束，不会重复触发安装。
+Vue 默认由 App 进程替换页面资源，相同基座会自动跳过安装。`--device 序列号` 可明确选择设备；`--skip-install` 严格核对手机与本机 APK。`--hbuilder` 使用 HBuilderX 自身运行通道。uvue 使用 `--project examples/uni-app-x`，由 HBuilderX 原生编译运行；先配置自身 AppID、执行 `demo:prepare` 并制作对应基座。
 
-如果“已安装基座”启动命令停住，或者直接打开基座提示 `__uniappview.html` 无法打开，说明需要检查页面资源是否同步。根目录 Vue 示例提供备用命令：
+运行前检查 SDK、源码指纹、基座版本、AppID/包名、API/ABI、模型不压缩和 16KB 对齐。原生代码或宿主配置改变后要求重建。运行过程不卸载 App；本机录入数据保留。签名配置、资源同步协议、缓存迁移、日志和排错见 [Android 调试与实现](ANDROID_DEBUG.md)。
 
-```sh
-npm run android:run -- --skip-install --sync-resources
-```
+脚本优先使用 `ANDROID_HOME` / `ANDROID_SDK_ROOT` 对应的有效 ADB，再尝试常见 SDK 目录和 PATH。`HBUILDERX_PATH` 指向 `Contents/HBuilderX`；macOS 默认使用 `/Applications/HBuilderX.app`。
 
-此命令使用 HBuilderX 的 `appResource` 导出入口重新编译，核对资源 AppID 后，通过 ADB 同步到该示例包名的外部应用目录，再启动示例。已在华为 GRA-UL00 / Android 6.0 上验证页面资源同步。Android 11+ 会先确认目录由 App 创建；目录缺失或归属不符时停止，避免生成 App 无权读取的 shell 目录。遇到此限制，使用 HBuilderX 常规真机运行，或安装包含页面资源的完整 APK。此入口仅适用于 uni-app Vue2/Vue3，uvue 仍走其原生编译与运行流程。原生代码、SDK 或权限有变化时，仍须重建并安装自定义基座。
-
-脚本使用 PATH 中的 `adb`，也可通过 `ANDROID_HOME` / `ANDROID_SDK_ROOT` 指定 Android SDK。`HBUILDERX_PATH` 使用与 UTS 检查相同的 HBuilderX 根目录；macOS 默认识别 `/Applications/HBuilderX.app`。
-
-HBuilderX 的 Android UTS 开发配置还需要有效的 JDK、Android SDK 和 Gradle。当前 5.34 的依赖解析器支持 Gradle 7.5–8.x；配置的 Gradle 程序必须能正常执行 `--version`。文件存在但分发包缺少 JAR 时仍不能使用。修改路径可用 HBuilderX 设置界面或 CLI 的 `config set --key uts-development-android.gradleHome --value Gradle程序路径`。修改原生 SDK、依赖或权限后重新制作基座。
-
-更新 SDK 或原生桥接代码后，可运行 [Android 原生集成检查](../tests/android/README.md)。该检查在已安装基座内执行真实 SDK 调用，覆盖加密存储、验证超时、忙碌与取消；需要连接真机及基座对应的调试签名。
+更新 SDK 或原生桥接代码后，可运行 [Android 原生集成检查](../tests/android/README.md)，需要可调试基座及对应签名。
 
 ### 云端路径
 
@@ -163,6 +152,6 @@ HBuilderX 官方鸿蒙流程在本机调用 DevEco 工具链完成构建，不�
 npm run check
 ```
 
-这条命令执行 31 项自动化测试、完整三端 SDK 文件校验和 UTS 转换。如果只安装了单端 SDK，可以单独执行 `python3 scripts/install_sdk.py --check --platform android` 等对应检查；完整 `npm run check` 需要三端 SDK 文件。
+这条命令执行 API、示例、SDK 安装器和 Android 调试/对齐自动化测试、完整三端 SDK 文件校验和 UTS 转换。如果只安装了单端 SDK，可以单独执行 `python3 scripts/install_sdk.py --check --platform android` 等对应检查；完整 `npm run check` 需要三端 SDK 文件。
 
 随后按所选平台实际构建安装包、安装到真机，验证录入、本人/他人识别、活体拒绝、权限拒绝、取消、后台释放和特征保存。已有结果及待验项见 [验证记录](VALIDATION.md)。

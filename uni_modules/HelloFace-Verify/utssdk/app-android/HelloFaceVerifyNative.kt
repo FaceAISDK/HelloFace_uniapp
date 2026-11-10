@@ -37,7 +37,8 @@ object HelloFaceVerifyNative {
         main.post { job?.takeIf { it.id == id }?.callback?.invoke(envelope("progress", data = data)) }
     }
 
-    @JvmStatic fun invoke(context: Context, method: String, raw: String, callback: (String) -> Unit) {
+    @JvmStatic fun invoke(context: Context, method: String, raw: String, completion: (String) -> Unit) {
+        val callback = HelloFaceVerifyDebug.trace(context, method, completion)
         main.post {
             if (method == "cancel") {
                 val current = job

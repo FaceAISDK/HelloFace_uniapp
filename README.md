@@ -20,6 +20,7 @@
 | [原生相机界面](docs/NATIVE_UI.md) | 三端取景、录入确认与重新采集流程 |
 | [验证记录](docs/VALIDATION.md) | 已通过的检查和待执行的真机验收 |
 | [Android 原生集成检查](tests/android/README.md) | SDK 与桥接代码更新后的真实调用回归检查 |
+| [Android 调试与实现](docs/ANDROID_DEBUG.md) | 页面快速同步、基座指纹、监听与日志 |
 
 两套示例都在页面的 `enroll`、`verify`、`remove` 方法中直接调用插件，展示参数、成功/失败回调与 `complete` 收尾。示例设置 `overwrite: true` 方便重复录入，仍需在原生采集页确认保存；业务可按需保留默认的 `false`。
 
@@ -81,14 +82,17 @@ HelloFace_uniapp/
 
    在 HBuilderX 中单独导入 `examples/uni-app-x`，配置自己的 AppID/签名后运行。该命令把根目录的插件与已安装的原生依赖复制到示例中，避免维护两份插件源码；修改插件后再次执行。
 
-Android 调试时，先制作包含本插件的自定义基座，再运行：
+Android 调试时，使用已有本机签名制作包含本插件的自定义基座，再运行：
 
 ```sh
+npm run android:base
 npm run android:check
 npm run android:run
+# 持续监听 Vue 页面修改：
+npm run android:dev
 ```
 
-多台手机连接时使用 `npm run android:run -- --device 设备序列号`。脚本检查真实 AppID、SDK 文件、基座版本与包名、原生相机类、动态库、未压缩模型，以及手机 API/ABI；安装后使用“已安装自定义基座”运行，不使用标准基座。手机弹出的安装确认仍需允许。完整步骤见 [Android 调试指南](docs/BUILDING.md#android)。
+多台在线手机连接时使用 `--device 设备序列号`。Vue 默认通过 App 进程安全替换页面资源，复用相同基座；修改原生代码会要求重建。uvue 继续使用 HBuilderX 原生运行通道。手工制作基座前先执行 `npm run android:prepare`。签名、完整流程与实现细节见 [Android 调试说明](docs/ANDROID_DEBUG.md)。
 
 集成到已有工程时，复制**安装完成后的** `uni_modules/HelloFace-Verify`。Android 宿主还需合并下面的模型打包配置：
 
