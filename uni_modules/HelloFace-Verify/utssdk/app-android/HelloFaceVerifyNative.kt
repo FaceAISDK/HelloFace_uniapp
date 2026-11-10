@@ -49,8 +49,8 @@ object HelloFaceVerifyNative {
                     job = null
                     camera.get()?.let { it.shutdownCamera(); it.finish() }
                     camera.clear()
-                    current.callback(envelope("error", "CANCELLED", "Face operation cancelled"))
-                    callback(envelope())
+                    try { current.callback(envelope("error", "CANCELLED", "Face operation cancelled")) }
+                    finally { callback(envelope()) }
                 }
                 return@post
             }
@@ -65,7 +65,12 @@ object HelloFaceVerifyNative {
                 try {
                     val faceID = params.getString("faceID")
                     val store = ReferenceStore(context.applicationContext)
-                    val feature = if (method == "deleteFace") null else store.get(faceID)
+                    // A supplied reference is transient: do not read or replace the local reference.
+                    val feature = when {
+                        method == "verifyFace" && params.has("referenceFeature") -> params.getString("referenceFeature")
+                        method == "deleteFace" -> null
+                        else -> store.get(faceID)
+                    }
                     when (method) {
                         "getFaceFeature" -> {
                             if (feature == null) finish(current.id, envelope("error", "NOT_FOUND", "No enrolled face for faceID"))

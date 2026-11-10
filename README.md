@@ -135,17 +135,17 @@ verifyFace({
     }
   },
   fail: error => { /* 技术错误、取消、权限拒绝等 */ },
-  complete: result => { /* 清理业务页面的 loading 状态 */ }
+  complete: (_) => { /* 仅收尾；业务字段在 success/fail 中读取 */ }
 })
 
-// 页面退出时：cancel({})
+// 页面退出时：cancel()
 ```
 
 uvue 从同一插件入口导入 API 和 `FaceResult` 类型，示例见 `examples/uni-app-x/pages/index/index.uvue`。按官方要求，通过 `@/uni_modules/HelloFace-Verify` 引用插件，页面不直接导入 `utssdk` 内部文件。
 
 ## API 参考
 
-插件提供 `enrollFace`、`verifyFace`、`getFaceFeature`、`setFaceFeature`、`deleteFace`、`cancel` 六个接口。完整参数、回调结果、错误码与特征同步约定统一维护在 [API 参考](docs/API.md)。
+插件提供 `enrollFace`、`verifyFace`、`getFaceFeature`、`setFaceFeature`、`deleteFace`、`cancel` 六个接口。完整参数、回调结果、错误码与特征同步约定统一维护在 [接入与 API](docs/API.md)。默认只传 `faceID` 即可使用本机基准；0.1.2 起可同时传 `referenceFeature` 与 `featureSpaceID`，仅使用业务提供的基准完成本次验证，不改写本机数据。参数类型含编辑器说明和值域提示；三端统一校验、默认值与单次终态回调。
 
 ## 开发与验证
 
@@ -157,7 +157,9 @@ npm run uts:check         # 调用 HBuilderX 编译器转换三端 UTS
 npm run android:alignment # 检查 SDK AAR 和最终 APK 的 16KB 对齐
 ```
 
-也可运行 `npm run check` 顺序执行以上三项检查。它们不生成 APK / IPA / APP 安装包。
+也可运行 `npm run check` 顺序执行测试、SDK 文件校验和三端 UTS 转换；16KB 对齐另行检查。这些命令不生成 APK / IPA / APP 安装包。
+
+修改接口或 UTS 实现后，另运行 `npm run android:uts-check` 和 `npm run android:uts-check -- --uni-app-x`。它们使用 HBuilderX 官方工具链实际编译桥接与 Kotlin，能发现仅做 UTS 转换时无法发现的类型错误；不需要签名、云端 AppID 权限或连接设备。环境要求见 [Android 调试说明](docs/ANDROID_DEBUG.md)。
 
 API 测试使用 HBuilderX 自带 TypeScript（可设置 `HBUILDERX_PATH` 指向 `Contents/HBuilderX`），也可安装项目的开发依赖后运行 `npm test`。这些测试验证 UTS API 参数与回调契约，不模拟人脸识别成功。原生编译和待执行的真机用例记录在 [docs/VALIDATION.md](docs/VALIDATION.md)。
 

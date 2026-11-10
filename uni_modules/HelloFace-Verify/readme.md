@@ -102,10 +102,10 @@ verifyFace({
     }
   },
   fail: error => { /* errCode、errMsg、sdkCode */ },
-  complete: result => { /* 清理页面状态 */ }
+  complete: (_) => { /* 仅收尾；业务字段在 success/fail 中读取 */ }
 })
 
-// 页面 onUnload 中调用：cancel({})
+// 页面 onUnload 中调用：cancel()
 ```
 
 | 参数 | 默认值 | 说明 |
@@ -113,9 +113,11 @@ verifyFace({
 | `threshold` | `0.80` | 比对阈值，范围 0–1 |
 | `silentLiveness` | `true` | 是否开启静默活体校验 |
 | `actions` | `[]` | `blink`、`openMouth`、`shakeHead`、`nodHead`，最多 4 个 |
-| `actionTimeoutMs` | `10000` | 动作超时，1000–60000 毫秒整数 |
+| `actionTimeoutMs` | `10000` | 每步动作超时，2000–30000 毫秒整数 |
 | `faceTimeoutMs` | `15000` | 等待人脸超时，1000–60000 毫秒整数 |
 | `camera` | `front` | `front` 前置，`back` 后置 |
+| `referenceFeature` | 不传 | 可选的完整 HF1 基准，仅用于本次验证；必须同时传入 featureSpaceID |
+| `featureSpaceID` | 不传 | 与 referenceFeature 成对传入，使用录入/读取返回的原值 |
 
 所有 API 使用 `success / fail / complete`；录入和识别还可监听 `onProgress`。`success` 表示业务流程已完成，应以 `passed` 判断是否通过。例如 `outcome: 'SPOOF_DETECTED'` 会返回 `passed: false`，前端不能仅依据相似度放行。未产生的相似度或活体分数返回 `null`。
 
@@ -134,11 +136,31 @@ uvue 可从同一入口导入 `EnrollFaceOptions`、`VerifyFaceOptions`、`FaceR
 
 特征管理以 `faceID` 为键。当前特征格式为 604 字符的 HF1，特征空间为 `jdx-feature-v1`。同步时需同时保留 `feature` 和 `featureSpaceID`；旧插件的不同格式不能直接导入。跨设备传输、服务端保存与账号授权由业务系统接入。
 
-错误遵循 UniError，主题为 `HelloFaceVerify`：`9011001` 参数错误、`9011002` 权限拒绝、`9011003` 取消、`9011004` 任务忙、`9011005` 尚未录入、`9011006` 已录入未允许覆盖、`9011007` 存储错误、`9011008` 其他原生错误；`sdkCode` 保留 SDK 错误名称。
+接口返回 `void`，使用回调，不直接 `await verifyFace(...)`。普通验证只需传 `faceID`；需要动作活体时传 `actions: ['blink', 'nodHead']`，默认静默活体继续开启。两个超时参数仅属于验证流程，不是接口总时长；录入须用户确认保存。
+
+业务如已取得同模型基准，可跳过本机同步：
+
+```js
+verifyFace({
+  faceID: 'user-001',
+  referenceFeature: savedFeature,
+  featureSpaceID: savedSpaceID,
+  success: (res) => { /* 只在 res.passed === true 时放行 */ },
+  fail: (err) => { /* err.errCode / err.sdkCode / err.faceID */ }
+})
+```
+
+直接传入的基准只用于本次验证，不使用、覆盖或保存本机基准。希望下次只传 faceID 时，显式调用 setFaceFeature 同步。
+
+每次调用只终结一次，success/fail 后执行 complete。cancel 会等待相机释放后再 success，此时可开始新任务；原任务走 fail(CANCELLED)。无相机任务也成功，保存提交中返回 BUSY。不要取消其他业务页面拥有的任务。
+
+完整参数、结果、同步方式、错误处理和三端边界见 [接入与 API](https://github.com/FaceAISDK/HelloFace_uniapp/blob/main/docs/API.md)。
+
+错误遵循 UniError，主题为 `HelloFaceVerify`：`9011001` 参数错误、`9011002` 权限拒绝、`9011003` 取消、`9011004` 任务忙、`9011005` 尚未录入、`9011006` 已录入未允许覆盖、`9011007` 存储错误、`9011008` 其他原生错误；`sdkCode` 保留 SDK 错误名称，`faceID` 关联此次用户。
 
 ## 版本与验证说明
 
-当前插件版本 **0.1.1**，底层为 HelloFace 原生 SDK **0.8.8**。Android 原生 Kotlin 编译、鸿蒙原生 HAR 构建及三端 UTS 转换已通过；iOS 当前仅完成 Swift 语法检查，完整编译和三端真机联合运行仍需按 [验证记录](https://github.com/FaceAISDK/HelloFace_uniapp/blob/main/docs/VALIDATION.md) 验收。
+当前插件版本 **0.1.2**，底层为 HelloFace 原生 SDK **0.8.8**。Android 原生 Kotlin 编译、鸿蒙原生 HAR 构建及三端 UTS 转换已通过；iOS 当前仅完成 Swift 语法检查，完整编译和三端真机联合运行仍需按 [验证记录](https://github.com/FaceAISDK/HelloFace_uniapp/blob/main/docs/VALIDATION.md) 验收。
 
 从 `HelloFace` 或 `HelloFaceVerify` 目录升级时，改为 `HelloFace-Verify` 并更新导入入口，重新构建包含本插件的原生基座。当前错误主题为 `HelloFaceVerify`，原有接口方法、参数与本机特征存储键延续使用。
 

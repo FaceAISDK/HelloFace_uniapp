@@ -17,6 +17,7 @@ final class HelloFaceVerifyCameraController: UIViewController {
     private var captured: FaceFlowResult?
     private var ended = false
     private var saving = false
+    var committing: Bool { saving }
     private var generation = 0
     private var previousIdleTimer: Bool?
     private var backgroundObserver: NSObjectProtocol?

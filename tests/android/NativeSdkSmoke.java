@@ -162,6 +162,19 @@ public final class NativeSdkSmoke extends Instrumentation {
             expect(call("deleteFace", identity).terminal(), "OK", "reference deletion");
             created = false;
             expect(call("getFaceFeature", identity).terminal(), "NOT_FOUND", "deleted reference absent");
+            // No local enrollment exists: use the supplied reference for this operation only.
+            created = true; // Cleanup also covers an unintended persistence regression.
+            verification.put("referenceFeature", fixture.getString("feature"))
+                .put("featureSpaceID", "jdx-feature-v1").put("faceTimeoutMs", 1000);
+            JSONObject transientResult = call("verifyFace", verification).terminal();
+            expect(transientResult, "OK", "transient reference reaches the real SDK without local enrollment");
+            JSONObject transientData = transientResult.getJSONObject("data");
+            if (transientData.getBoolean("passed") || !transientData.getString("outcome").equals("NO_FACE_TIMEOUT") ||
+                (transientData.has("feature") && !transientData.isNull("feature")))
+                throw new IllegalStateException("Transient verification returned an invalid or sensitive result");
+            checks++; report("PASS transient verification preserves the real SDK verdict without exposing features");
+            expect(call("getFaceFeature", identity).terminal(), "NOT_FOUND", "transient reference is not persisted");
+            created = false;
             status = Activity.RESULT_OK;
             result.putString("stream", "PASS: " + checks + " native integration checks. No face match accuracy claim.\n");
         } catch (Throwable error) {

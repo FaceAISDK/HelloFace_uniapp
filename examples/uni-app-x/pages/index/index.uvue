@@ -32,7 +32,7 @@ export default {
   },
   onUnload() {
     // #ifdef APP
-    if (this.busy) cancel({})
+    if (this.busy) cancel()
     // #endif
   },
   methods: {
@@ -104,7 +104,7 @@ export default {
       this.resultText = lines.join('\n')
     },
     showError(error: HelloFaceVerifyFail) {
-      this.resultText = 'errCode: ' + error.errCode + '\nsdkCode: ' + error.sdkCode + '\nmsg: ' + error.errMsg
+      this.resultText = 'errCode: ' + error.errCode + '\nsdkCode: ' + error.sdkCode + '\nfaceID: ' + error.faceID + '\nmsg: ' + error.errMsg
     }
     // #endif
   }

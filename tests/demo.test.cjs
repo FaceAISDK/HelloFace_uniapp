@@ -103,11 +103,12 @@ for (const file of ['pages/index/index.vue', 'examples/uni-app-x/pages/index/ind
   test(`${file}: failures release the buttons and unloading cancels active work`, () => {
     const { state, calls, unload } = loadPage(file)
     state.verify(false)
-    calls[0].options.fail({ errCode: 9011002, sdkCode: 'CAMERA_PERMISSION_DENIED', errMsg: '需要相机权限' })
+    calls[0].options.fail({ errCode: 9011002, sdkCode: 'CAMERA_PERMISSION_DENIED', faceID: 'demo-user', errMsg: '需要相机权限' })
     calls[0].options.complete({})
     assert.match(state.resultText, /errCode: 9011002/)
     assert.match(state.resultText, /sdkCode: CAMERA_PERMISSION_DENIED/)
     assert.match(state.resultText, /msg: 需要相机权限/)
+    assert.match(state.resultText, /faceID: demo-user/)
     assert.equal(state.busy, false)
     state.verify(false)
     unload()

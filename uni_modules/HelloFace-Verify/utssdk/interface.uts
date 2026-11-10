@@ -1,52 +1,94 @@
+/** 相机方向。front：前置（默认）；back：后置。 */
+export type FaceCamera = 'front' | 'back'
+/** 动作按数组顺序执行；最多 4 步，可重复。 */
+export type FaceAction = 'blink' | 'openMouth' | 'shakeHead' | 'nodHead'
+
+/** success 表示调用正常完成；验证是否通过必须判断 passed === true。 */
 export type FaceResult = {
+  /** 如 verifyFace:ok，不代表身份验证通过。 */
   errMsg: string,
+  /** 去除两端空白后的业务用户标识；cancel 返回空字符串。 */
   faceID: string,
+  /** 仅录入、读取、同步返回 HF1 基准；验证、删除、取消返回 null。不要写入日志。 */
   feature: string | null,
+  /** 同步特征时连同 feature 一起传递，禁止混用其他模型特征。 */
   featureSpaceID: string,
+  /** 录入/验证的 SDK 判定；特征管理、取消为 null。 */
   passed: boolean | null,
+  /** PASSED、NOT_MATCHED、SPOOF_DETECTED、NO_FACE_TIMEOUT 等；未产生时为 null。 */
   outcome: string | null,
+  /** SDK 相似度，未产生时为 null；不是身份概率。 */
   similarity: number | null,
+  /** SDK 活体分数，未产生时为 null；不得用分数覆盖 passed。 */
   livenessScore: number | null
 }
+/** 可选过程通知；不是终态，不会触发 complete。原生页面已提供操作引导。 */
 export type FaceProgress = {
-  faceID: string, stage: string, action: string | null,
-  stepNumber: number, stepCount: number
+  faceID: string,
+  /** WAITING_FOR_FACE、PERFORM_ACTION 等 SDK 阶段名称。 */
+  stage: string,
+  /** blink / openMouth / shakeHead / nodHead；当前无动作时为 null。 */
+  action: string | null,
+  /** SDK 返回的当前步骤编号；非动作阶段通常为 0。 */
+  stepNumber: number,
+  stepCount: number
 }
 export type HelloFaceVerifyErrorCode = 9011001 | 9011002 | 9011003 | 9011004 | 9011005 | 9011006 | 9011007 | 9011008
+/** 接口错误；业务拒绝走 success(passed: false)，用户取消走 fail(9011003)。 */
 export interface HelloFaceVerifyFail extends IUniError {
   errCode: HelloFaceVerifyErrorCode,
-  sdkCode: string
+  /** 原始 SDK/桥接错误名，如 CANCELLED、NOT_FOUND；便于定位问题。 */
+  sdkCode: string,
+  /** 此次调用的业务标识，参数无效或 cancel 时可为空。 */
+  faceID: string
 }
 export type FaceSuccess = (result: FaceResult) => void
 export type FaceFailure = (error: HelloFaceVerifyFail) => void
-export type FaceComplete = (result: FaceResult | HelloFaceVerifyFail) => void
+/** 仅用于收尾。按官方 JS 桥接约定使用 any，业务字段在 success/fail 中读取。 */
+export type FaceComplete = (result: any) => void
 export type FaceProgressCallback = (progress: FaceProgress) => void
 
+/** 录入只需 faceID；相机权限在调用后申请，用户确认前不会保存或覆盖基准。 */
 export type EnrollFaceOptions = {
+  /** 必填。1..64 个 UTF-16 单元；两端空白自动去除，不允许 NUL。 */
   faceID: string,
+  /** 默认 false；已有基准返回 9011006。true 时仍需用户确认保存。 */
   overwrite?: boolean,
-  camera?: string,
+  /** 默认 front。不支持请求的相机时 fail，不自动切换方向。 */
+  camera?: FaceCamera,
   onProgress?: FaceProgressCallback,
   success?: FaceSuccess,
   fail?: FaceFailure,
   complete?: FaceComplete
 }
 
+/** 默认以 faceID 读取本机基准；也可同时传 referenceFeature、featureSpaceID 仅用于本次验证。 */
 export type VerifyFaceOptions = {
+  /** 必填业务标识。本机验证时应与录入相同；直接传基准时用于关联回调。 */
   faceID: string,
+  /** 可选的完整 HF1 基准；提供后优先使用，不读取/写入本机基准。必须配合 featureSpaceID。 */
+  referenceFeature?: string,
+  /** 必须来自同版本 getFaceFeature/enrollFace 的结果，不要猜测或省略。 */
+  featureSpaceID?: string,
+  /** 默认 0.80，范围 0..1；调低会放宽比对要求。 */
   threshold?: number,
+  /** 默认 true。false 仅关闭静默活体，不会清除 actions。 */
   silentLiveness?: boolean,
-  actions?: string[],
-  /** Integer milliseconds, 2000..30000; default 10000. */
+  /** 默认 []。启用动作直接传 ['blink', 'nodHead']；不会自动关闭静默活体。 */
+  actions?: FaceAction[],
+  /** 每步动作的超时，整数毫秒 2000..30000；默认 10000。不是整个流程总时长。 */
   actionTimeoutMs?: number,
+  /** 等待首次人脸的超时，整数毫秒 1000..60000；默认 15000。仅作用于验证。 */
   faceTimeoutMs?: number,
-  camera?: string,
+  /** 默认 front。 */
+  camera?: FaceCamera,
   onProgress?: FaceProgressCallback,
   success?: FaceSuccess,
   fail?: FaceFailure,
   complete?: FaceComplete
 }
 
+/** 指定用户的本机基准操作；不启动相机、不申请相机权限。 */
 export type FaceIDOptions = {
   faceID: string,
   success?: FaceSuccess,
@@ -54,10 +96,13 @@ export type FaceIDOptions = {
   complete?: FaceComplete
 }
 
+/** 将已有基准保存到本机；feature 与 featureSpaceID 应成对从录入/读取结果取得。 */
 export type SetFaceFeatureOptions = {
   faceID: string,
+  /** 完整 HF1 特征，禁止截断或改用图片/base64。 */
   feature: string,
   featureSpaceID: string,
+  /** 默认 false，true 时覆盖指定用户的基准。本接口无确认页面，由业务确认。 */
   overwrite?: boolean,
   success?: FaceSuccess,
   fail?: FaceFailure,
@@ -70,14 +115,15 @@ export type CancelOptions = {
   complete?: FaceComplete
 }
 
+/** 打开相机录入，并在用户确认后加密保存。示例：enrollFace({ faceID: 'user-1' })。 */
 export type EnrollFace = (options: EnrollFaceOptions) => void
-
+/** 1:1 验证。最简调用：verifyFace({ faceID: 'user-1', success: (res) => { ... } })。 */
 export type VerifyFace = (options: VerifyFaceOptions) => void
-
+/** 读取基准供业务同步；不存在返回 9011005。 */
 export type GetFaceFeature = (options: FaceIDOptions) => void
-
+/** 保存相同模型的基准；不打开相机。 */
 export type SetFaceFeature = (options: SetFaceFeatureOptions) => void
-
+/** 删除指定用户的本机基准；不存在也成功，正在识别时返回 BUSY。 */
 export type DeleteFace = (options: FaceIDOptions) => void
-
-export type Cancel = (options: CancelOptions) => void
+/** cancel() 即可取消当前相机任务；原任务 fail(CANCELLED)，本调用 success。无任务也成功；保存提交中返回 BUSY。 */
+export type Cancel = (options?: CancelOptions) => void

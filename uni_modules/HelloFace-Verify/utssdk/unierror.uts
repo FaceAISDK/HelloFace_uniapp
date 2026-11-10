@@ -1,13 +1,15 @@
 import { HelloFaceVerifyFail, HelloFaceVerifyErrorCode } from './interface.uts'
 
 export class HelloFaceVerifyFailImpl extends UniError implements HelloFaceVerifyFail {
-  override errCode: HelloFaceVerifyErrorCode
-  sdkCode: string
-  constructor(code: HelloFaceVerifyErrorCode, message: string, sdkCode: string) {
+  override errCode: HelloFaceVerifyErrorCode = 9011008
+  sdkCode: string = ''
+  faceID: string = ''
+  constructor(code: HelloFaceVerifyErrorCode, message: string, sdkCode: string, faceID: string = '') {
     super()
     this.errSubject = 'HelloFaceVerify'
     this.errCode = code
     this.errMsg = message
     this.sdkCode = sdkCode
+    this.faceID = faceID
   }
 }

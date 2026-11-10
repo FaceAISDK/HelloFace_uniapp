@@ -4,6 +4,7 @@ export interface FaceParams {
   faceID: string;
   feature?: string;
   featureSpaceID?: string;
+  referenceFeature?: string;
   overwrite?: boolean;
   camera?: string;
   threshold?: number;

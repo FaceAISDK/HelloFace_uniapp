@@ -1,36 +1,78 @@
-import { FaceResult, FaceProgress, FaceSuccess, FaceFailure, FaceComplete, FaceProgressCallback, HelloFaceVerifyErrorCode } from './interface.uts'
+import { FaceResult, FaceProgress, FaceSuccess, FaceFailure, FaceComplete, FaceProgressCallback, HelloFaceVerifyErrorCode, EnrollFaceOptions, VerifyFaceOptions, SetFaceFeatureOptions } from './interface.uts'
 import { HelloFaceVerifyFailImpl } from './unierror.uts'
 
+// The three platform entries share defaults, validation and callback semantics.
+export function createFaceParams(faceID: string): UTSJSONObject {
+  return { faceID: typeof faceID == 'string' ? faceID.trim() : '' } as UTSJSONObject
+}
+export function createEnrollParams(options: EnrollFaceOptions): UTSJSONObject {
+  const params = createFaceParams(options.faceID)
+  params['overwrite'] = options.overwrite ?? false
+  params['camera'] = options.camera ?? 'front'
+  return params
+}
+export function createVerifyParams(options: VerifyFaceOptions): UTSJSONObject {
+  const params = createFaceParams(options.faceID)
+  params['threshold'] = options.threshold ?? 0.80
+  params['silentLiveness'] = options.silentLiveness ?? true
+  params['actions'] = options.actions ?? [] as string[]
+  params['actionTimeoutMs'] = options.actionTimeoutMs ?? 10000
+  params['faceTimeoutMs'] = options.faceTimeoutMs ?? 15000
+  params['camera'] = options.camera ?? 'front'
+  if (options.referenceFeature != null) params['referenceFeature'] = options.referenceFeature
+  if (options.featureSpaceID != null) params['featureSpaceID'] = options.featureSpaceID
+  return params
+}
+export function createFeatureParams(options: SetFaceFeatureOptions): UTSJSONObject {
+  const params = createFaceParams(options.faceID)
+  params['feature'] = options.feature
+  params['featureSpaceID'] = options.featureSpaceID
+  params['overwrite'] = options.overwrite ?? false
+  return params
+}
+function invalidArgument(message: string): string {
+  return JSON.stringify({ event: 'error', code: 'INVALID_ARGUMENT', message: message })
+}
+function validateFeature(feature: string | null, space: string | null): string | null {
+  if (feature == null || !/^HF1:[A-Za-z0-9_-]{600}$/.test(feature)) return 'feature must be a complete 604-character HF1 value'
+  if (space != 'jdx-feature-v1') return 'featureSpaceID must be jdx-feature-v1; use the value returned with the feature'
+  return null
+}
 export function validateParams(method: string, params: UTSJSONObject): string | null {
-  let message = ''
   const faceID = params.getString('faceID') ?? ''
   if (method != 'cancel' && (faceID.length == 0 || faceID.length > 64 || faceID.indexOf('\u0000') >= 0)) {
-    message = 'faceID must contain 1..64 characters without NUL'
+    return invalidArgument('faceID must contain 1..64 UTF-16 units without NUL after trimming')
+  }
+  if (method == 'enrollFace' || method == 'setFaceFeature') {
+    if (params.getBoolean('overwrite') == null) return invalidArgument('overwrite must be a boolean')
   }
   if (method == 'enrollFace' || method == 'verifyFace') {
     const camera = params.getString('camera') ?? ''
-    if (camera != 'front' && camera != 'back') message = 'camera must be front or back'
+    if (camera != 'front' && camera != 'back') return invalidArgument('camera must be front or back')
   }
   if (method == 'verifyFace') {
     const threshold = params.getNumber('threshold') ?? -1
     const actionTimeout = params.getNumber('actionTimeoutMs') ?? -1
     const faceTimeout = params.getNumber('faceTimeoutMs') ?? -1
-    if (!Number.isFinite(threshold) || threshold < 0 || threshold > 1) message = 'threshold must be within 0..1'
-    if (!Number.isInteger(actionTimeout) || actionTimeout < 2000 || actionTimeout > 30000) message = 'actionTimeoutMs must be an integer within 2000..30000'
-    if (!Number.isInteger(faceTimeout) || faceTimeout < 1000 || faceTimeout > 60000) message = 'faceTimeoutMs must be an integer within 1000..60000'
-    const actions = params.getArray<string>('actions') ?? [] as string[]
-    if (actions.length > 4) message = 'At most four actions are supported'
-    actions.forEach((action: string) => {
-      if (!['blink', 'openMouth', 'shakeHead', 'nodHead'].includes(action)) message = 'Unsupported face action: ' + action
-    })
+    if (!Number.isFinite(threshold) || threshold < 0 || threshold > 1) return invalidArgument('threshold must be within 0..1')
+    if (params.getBoolean('silentLiveness') == null) return invalidArgument('silentLiveness must be a boolean')
+    if (!Number.isInteger(actionTimeout) || actionTimeout < 2000 || actionTimeout > 30000) return invalidArgument('actionTimeoutMs must be an integer within 2000..30000')
+    if (!Number.isInteger(faceTimeout) || faceTimeout < 1000 || faceTimeout > 60000) return invalidArgument('faceTimeoutMs must be an integer within 1000..60000')
+    const actions = params.getArray<string>('actions')
+    if (actions == null || actions.length > 4) return invalidArgument('actions must be an array containing at most four actions')
+    for (let i = 0; i < actions.length; i++) {
+      if (!['blink', 'openMouth', 'shakeHead', 'nodHead'].includes(actions[i])) return invalidArgument('actions supports blink, openMouth, shakeHead and nodHead only')
+    }
+    if (params['referenceFeature'] != null || params['featureSpaceID'] != null) {
+      const error = validateFeature(params.getString('referenceFeature'), params.getString('featureSpaceID'))
+      if (error != null) return invalidArgument('referenceFeature and featureSpaceID must be supplied together: ' + error)
+    }
   }
   if (method == 'setFaceFeature') {
-    const feature = params.getString('feature') ?? ''
-    if (!/^HF1:[A-Za-z0-9_-]{600}$/.test(feature)) message = 'feature must be a valid 604-character HF1 value'
-    if (params.getString('featureSpaceID') != 'jdx-feature-v1') message = 'Incompatible featureSpaceID'
+    const error = validateFeature(params.getString('feature'), params.getString('featureSpaceID'))
+    if (error != null) return invalidArgument(error)
   }
-  if (message.length == 0) return null
-  return JSON.stringify({ event: 'error', code: 'INVALID_ARGUMENT', message: message })
+  return null
 }
 
 function errorCode(code: string): HelloFaceVerifyErrorCode {
@@ -43,32 +85,49 @@ function errorCode(code: string): HelloFaceVerifyErrorCode {
   if (code == 'STORAGE_ERROR') return 9011007
   return 9011008
 }
+function isProgress(event: UTSJSONObject | null): boolean {
+  return event?.getString('event') == 'progress' && event?.getString('code') == 'OK' && event?.getJSON('data')?.getString('stage') != null
+}
 
-export function deliver(raw: string, method: string, faceID: string,
+/** A terminal callback is delivered once, including validation failures and malformed native replies. */
+export function createDispatcher(method: string, faceID: string,
   success: FaceSuccess | null, fail: FaceFailure | null, complete: FaceComplete | null,
-  onProgress: FaceProgressCallback | null): void {
-  const event = JSON.parseObject(raw)
-  const code = event?.getString('code') ?? 'BRIDGE_ERROR'
-  if (event?.getString('event') == 'progress') {
+  onProgress: FaceProgressCallback | null): (raw: string) => void {
+  let ended = false
+  return (raw: string): void => {
+    if (ended) return
+    let event: UTSJSONObject | null = null
+    try { event = JSON.parseObject(raw) } catch (_) { /* Converted to BRIDGE_ERROR below. */ }
     const data = event?.getJSON('data')
-    const progress: FaceProgress = {
-      faceID: faceID, stage: data?.getString('stage') ?? '', action: data?.getString('action'),
-      stepNumber: data?.getNumber('stepNumber') ?? 0, stepCount: data?.getNumber('stepCount') ?? 0
+    const cameraMethod = method == 'enrollFace' || method == 'verifyFace'
+    if (cameraMethod && isProgress(event)) {
+      const progress: FaceProgress = {
+        faceID: faceID, stage: data?.getString('stage') ?? '', action: data?.getString('action'),
+        stepNumber: data?.getNumber('stepNumber') ?? 0, stepCount: data?.getNumber('stepCount') ?? 0
+      }
+      onProgress?.(progress)
+      return
     }
-    onProgress?.(progress)
-    return
+    ended = true // Set before user code: reentrant and late native events cannot complete twice.
+    let code = event?.getString('code') ?? 'BRIDGE_ERROR'
+    const validResult = event?.getString('event') == 'result' &&
+      (!cameraMethod || (data?.getBoolean('passed') != null && data?.getString('outcome') != null)) &&
+      (method != 'enrollFace' || data?.getBoolean('passed') != true || data?.getString('feature') != null) &&
+      ((method != 'getFaceFeature' && method != 'setFaceFeature') || data?.getString('feature') != null)
+    if (code == 'OK' && !validResult) code = 'BRIDGE_ERROR'
+    if (code != 'OK') {
+      const message = event?.getString('message') ?? ''
+      const error = new HelloFaceVerifyFailImpl(errorCode(code), method + ':fail ' + (message.length > 0 ? message : (code == 'BRIDGE_ERROR' ? 'Invalid native response' : code)), code, faceID)
+      try { fail?.(error) } finally { complete?.(error) }
+      return
+    }
+    const result: FaceResult = {
+      errMsg: method + ':ok', faceID: faceID,
+      feature: method == 'enrollFace' || method == 'getFaceFeature' || method == 'setFaceFeature' ? data?.getString('feature') : null,
+      featureSpaceID: 'jdx-feature-v1',
+      passed: data?.getBoolean('passed'), outcome: data?.getString('outcome'),
+      similarity: data?.getNumber('similarity'), livenessScore: data?.getNumber('livenessScore')
+    }
+    try { success?.(result) } finally { complete?.(result) }
   }
-  if (code != 'OK' || event?.getString('event') != 'result') {
-    const error = new HelloFaceVerifyFailImpl(errorCode(code), method + ':fail ' + (event?.getString('message') ?? 'Invalid native response'), code)
-    try { fail?.(error) } finally { complete?.(error) }
-    return
-  }
-  const data = event?.getJSON('data')
-  const result: FaceResult = {
-    errMsg: method + ':ok', faceID: faceID,
-    feature: data?.getString('feature'), featureSpaceID: 'jdx-feature-v1',
-    passed: data?.getBoolean('passed'), outcome: data?.getString('outcome'),
-    similarity: data?.getNumber('similarity'), livenessScore: data?.getNumber('livenessScore')
-  }
-  try { success?.(result) } finally { complete?.(result) }
 }

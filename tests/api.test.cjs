@@ -131,5 +131,99 @@ for (const platform of ['app-android', 'app-ios', 'app-harmony']) {
     api.deleteFace({ faceID: 'u', success: () => { throw new Error('consumer error') }, complete: () => complete++ })
     assert.throws(() => calls[0].reply(JSON.stringify({ event: 'result', code: 'OK', data: {} })), /consumer error/)
     assert.equal(complete, 1)
+    calls[0].reply(JSON.stringify({ event: 'result', code: 'OK', data: {} }))
+    assert.equal(complete, 1)
+  })
+
+  test(`${platform}: transient references are passed explicitly and require matching metadata`, () => {
+    const { api, calls } = load(platform)
+    const referenceFeature = 'HF1:' + 'A'.repeat(600)
+    api.verifyFace({ faceID: 'server-user', referenceFeature, featureSpaceID: 'jdx-feature-v1' })
+    assert.equal(calls[0].params.referenceFeature, referenceFeature)
+    assert.equal(calls[0].params.featureSpaceID, 'jdx-feature-v1')
+    for (const options of [{ referenceFeature }, { featureSpaceID: 'jdx-feature-v1' },
+      { referenceFeature: '', featureSpaceID: 'jdx-feature-v1' },
+      { referenceFeature, featureSpaceID: 'other-model' }]) {
+      let error
+      api.verifyFace({ faceID: 'server-user', ...options, fail: value => { error = value } })
+      assert.equal(error.errCode, 9011001)
+      assert.equal(error.faceID, 'server-user')
+      assert.ok(!error.errMsg.includes(referenceFeature))
+    }
+    assert.equal(calls.length, 1)
+  })
+
+  test(`${platform}: cancel accepts no arguments and existing callback options`, () => {
+    const { api, calls } = load(platform)
+    api.cancel()
+    assert.equal(calls[0].method, 'cancel')
+    let result
+    api.cancel({ success: value => { result = value } })
+    calls[1].reply(JSON.stringify({ event: 'result', code: 'OK', data: {} }))
+    assert.equal(result.faceID, '')
+  })
+
+  test(`${platform}: runtime input failures use fail and complete without native side effects`, () => {
+    const { api, calls } = load(platform)
+    for (const options of [{}, { faceID: null }, { faceID: 42 }, { faceID: 'u', actions: 'blink' },
+      { faceID: 'u', silentLiveness: 'false' }, { faceID: 'u', threshold: '0.8' },
+      { faceID: 'u', actions: [42] }]) {
+      let failed = 0, completed = 0
+      api.verifyFace({ ...options, fail: e => { failed++; assert.equal(e.errCode, 9011001) }, complete: () => completed++ })
+      assert.equal(failed, 1); assert.equal(completed, 1)
+    }
+    let failed = 0
+    api.enrollFace({ faceID: 'u', overwrite: 'false', fail: e => { failed++; assert.equal(e.errCode, 9011001) } })
+    assert.equal(failed, 1)
+    assert.equal(calls.length, 0)
+  })
+
+  test(`${platform}: duplicate terminal events and progress after completion are ignored`, () => {
+    const { api, calls } = load(platform)
+    let success = 0, fail = 0, complete = 0, progress = 0
+    api.verifyFace({ faceID: 'u', success: () => success++, fail: () => fail++,
+      complete: () => complete++, onProgress: () => progress++ })
+    const reply = calls[0].reply
+    reply(JSON.stringify({ event: 'result', code: 'OK', data: { passed: false, outcome: 'NOT_MATCHED', feature: 'private-probe' } }))
+    reply(JSON.stringify({ event: 'error', code: 'CANCELLED' }))
+    reply(JSON.stringify({ event: 'progress', code: 'OK', data: { stage: 'PERFORM_ACTION' } }))
+    assert.deepEqual([success, fail, complete, progress], [1, 0, 1, 0])
+  })
+
+  test(`${platform}: malformed replies never report a completed capture or feature operation`, () => {
+    for (const method of ['verifyFace', 'enrollFace', 'getFaceFeature', 'setFaceFeature']) {
+      for (const raw of ['{', 'null', '42', JSON.stringify({ event: 'result', code: 'OK', data: {} }),
+        JSON.stringify({ event: 'progress', code: 'OK' })]) {
+        const { api, calls } = load(platform)
+        let error, complete = 0
+        api[method]({ faceID: 'u', ...(method === 'setFaceFeature' ?
+          { feature: 'HF1:' + 'A'.repeat(600), featureSpaceID: 'jdx-feature-v1' } : {}),
+          success: () => assert.fail('Unexpected success'),
+          fail: value => { error = value }, complete: () => complete++ })
+        calls[0].reply(raw)
+        calls[0].reply(raw)
+        assert.equal(error.sdkCode, 'BRIDGE_ERROR')
+        assert.equal(error.faceID, 'u')
+        assert.equal(complete, 1)
+      }
+    }
+    const { api, calls } = load(platform)
+    let failed = 0
+    api.enrollFace({ faceID: 'u', success: () => assert.fail('Enrollment has no saved feature'),
+      fail: e => { assert.equal(e.sdkCode, 'BRIDGE_ERROR'); failed++ } })
+    calls[0].reply(JSON.stringify({ event: 'result', code: 'OK', data: { passed: true, outcome: 'PASSED' } }))
+    assert.equal(failed, 1)
+  })
+
+  test(`${platform}: verification never exposes probe features and fail exceptions still complete`, () => {
+    const { api, calls } = load(platform)
+    let result, complete = 0
+    api.verifyFace({ faceID: 'u', success: value => { result = value } })
+    calls[0].reply(JSON.stringify({ event: 'result', code: 'OK', data: { passed: true, outcome: 'PASSED', feature: 'private-probe' } }))
+    assert.equal(result.feature, null)
+    api.getFaceFeature({ faceID: 'u', fail: () => { throw new Error('consumer error') }, complete: () => complete++ })
+    assert.throws(() => calls[1].reply(JSON.stringify({ event: 'error', code: 'NOT_FOUND' })), /consumer error/)
+    calls[1].reply(JSON.stringify({ event: 'error', code: 'NOT_FOUND' }))
+    assert.equal(complete, 1)
   })
 }

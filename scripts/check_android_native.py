@@ -137,7 +137,7 @@ def main():
         run(target + ['install', '--no-incremental', '-r', '-t', signed])
         try:
             output = instrument(target, args.package)
-            if 'INSTRUMENTATION_CODE: -1' not in output or 'PASS: 17 native integration checks.' not in output:
+            if 'INSTRUMENTATION_CODE: -1' not in output or 'PASS: 20 native integration checks.' not in output:
                 raise RuntimeError('Native SDK integration checks failed; inspect the target app logcat.')
         finally:
             run(target + ['uninstall', TEST_PACKAGE])

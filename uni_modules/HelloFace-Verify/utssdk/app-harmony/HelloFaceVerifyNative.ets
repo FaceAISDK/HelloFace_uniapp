@@ -10,19 +10,24 @@ export class HelloFaceVerifyNative {
   private static generation: number = 0;
   private static camera: CameraFlow | undefined = undefined;
   private static cameraCallback: ((value: string) => void) | undefined = undefined;
+  private static cancelCallbacks: Array<(value: string) => void> = [];
 
   static invoke(context: common.UIAbilityContext, method: string, raw: string, callback: (value: string) => void): void {
     if (method === 'cancel') {
       if (HelloFaceVerifyNative.camera !== undefined) {
         if (HelloFaceVerifyNative.camera.committing) { callback(envelope('error', 'BUSY', 'Enrollment is being saved')); return; }
+        HelloFaceVerifyNative.cancelCallbacks.push(callback);
         HelloFaceVerifyNative.camera.cancel();
+        return;
       } else if (HelloFaceVerifyNative.cameraCallback !== undefined) {
         // Permission/readiness may still be pending before a dialog exists.
         const pending = HelloFaceVerifyNative.cameraCallback;
         HelloFaceVerifyNative.cameraCallback = undefined;
         HelloFaceVerifyNative.generation++;
         HelloFaceVerifyNative.busy = false;
-        pending(envelope('error', 'CANCELLED', 'Face operation cancelled'));
+        try { pending(envelope('error', 'CANCELLED', 'Face operation cancelled')); }
+        finally { callback(envelope()); }
+        return;
       }
       callback(envelope());
       return;
@@ -37,7 +42,10 @@ export class HelloFaceVerifyNative {
       HelloFaceVerifyNative.busy = false;
       HelloFaceVerifyNative.camera = undefined;
       HelloFaceVerifyNative.cameraCallback = undefined;
-      callback(result);
+      const cancellations = HelloFaceVerifyNative.cancelCallbacks;
+      HelloFaceVerifyNative.cancelCallbacks = [];
+      try { callback(result); }
+      finally { cancellations.forEach((cancelled: (value: string) => void): void => { cancelled(envelope()); }); }
     };
     if (method === 'enrollFace' || method === 'verifyFace') HelloFaceVerifyNative.cameraCallback = callback;
     HelloFaceVerifyNative.execute(context, method, raw, token, callback, finish).catch((error: Error): void => {
@@ -49,7 +57,8 @@ export class HelloFaceVerifyNative {
     callback: (value: string) => void, finish: (value: string) => void): Promise<void> {
     const params = JSON.parse(raw) as FaceParams;
     const store = new ReferenceStore(context);
-    const feature = method === 'deleteFace' ? undefined : await store.get(params.faceID);
+    const feature = method === 'verifyFace' && params.referenceFeature !== undefined ? params.referenceFeature :
+      (method === 'deleteFace' ? undefined : await store.get(params.faceID));
     if (token !== HelloFaceVerifyNative.generation) return;
     if (method === 'getFaceFeature') {
       if (feature === undefined) throw new BridgeError('NOT_FOUND', 'No enrolled face for faceID');

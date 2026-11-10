@@ -12,6 +12,7 @@ final class HelloFaceVerifyOperation {
     static let shared = HelloFaceVerifyOperation()
     private var activeID: UUID?
     private weak var camera: HelloFaceVerifyCameraController?
+    private var cancelCallbacks: [(String) -> Void] = []
 
     nonisolated static func envelope(_ event: String = "result", _ code: String = "OK", _ message: String = "",
                          _ data: [String: Any] = [:]) -> String {
@@ -25,8 +26,13 @@ final class HelloFaceVerifyOperation {
 
     func invoke(_ method: String, _ raw: String, _ callback: @escaping (String) -> Void) {
         if method == "cancel" {
-            camera?.cancel()
-            callback(Self.envelope())
+            guard let camera = camera else { callback(Self.envelope()); return }
+            guard !camera.committing else {
+                callback(Self.envelope("error", "BUSY", "Enrollment is being saved")); return
+            }
+            // Acknowledge only after dismissal and camera teardown release the operation slot.
+            cancelCallbacks.append(callback)
+            camera.cancel()
             return
         }
         guard activeID == nil else { callback(Self.envelope("error", "BUSY", "A face operation is active")); return }
@@ -40,11 +46,15 @@ final class HelloFaceVerifyOperation {
             guard let self = self, self.activeID == id else { return }
             self.activeID = nil
             self.camera = nil
+            let cancellations = self.cancelCallbacks
+            self.cancelCallbacks = []
             callback(value)
+            cancellations.forEach { $0(Self.envelope()) }
         }
         do {
             let feature: String?
-            if method == "deleteFace" { feature = nil }
+            if method == "verifyFace", let incoming = params["referenceFeature"] as? String { feature = incoming }
+            else if method == "deleteFace" { feature = nil }
             else { feature = try ReferenceStore.get(faceID) }
             switch method {
             case "getFaceFeature":

@@ -2,6 +2,17 @@
 
 根目录 Vue2/Vue3 示例提供“编译页面 → 应用内同步 → 重启示例”的调试通道。只修改页面时复用已安装基座；修改 Android 原生源码、UTS 接口或 SDK 二进制后重建基座。uvue 继续使用 HBuilderX 的原生编译通道。
 
+## 接口改动后的本地编译检查
+
+```sh
+npm run android:uts-check                     # uni-app 的 UTS 桥接 + Kotlin
+npm run android:uts-check -- --uni-app-x       # uni-app x 的 UTS 桥接 + Kotlin
+```
+
+这两项使用已安装的 HBuilderX Android UTS 扩展实际生成并编译插件，补充 `uts:check` 的三端源码转换检查。不打包、不签名、不安装 App，也不需要云端 AppID 权限；仍不能代替完整基座与真机验证。
+
+需要 Android SDK、兼容的 JDK（本工程使用 17）与 Gradle 8。脚本优先使用环境变量，再查找常用 SDK 路径、本机 JDK 和 Gradle wrapper 缓存。非默认安装位置可设置 `HBUILDERX_PATH`、`ANDROID_HOME`、`GRADLE_JAVA_HOME`、`GRADLE_HOME`、`USER_DATA_PATH`（HBuilderX 用户数据目录）。首次解析第三方依赖时可能需要 Maven 网络访问。产物仅写入 `unpackage` 和工具链缓存。
+
 ## 常用命令
 
 ```sh
