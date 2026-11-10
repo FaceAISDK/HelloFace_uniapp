@@ -6,7 +6,11 @@
   "versionCode": "103",
   "app-harmony": {
     "distribute": {
-      "bundleName": "dev.helloface.uniapp.demo"
+      "bundleName": "dev.helloface.uniapp.demo",
+      "icons": {
+        "foreground": "app-icons/harmony/foreground.png",
+        "background": "app-icons/harmony/background.png"
+      }
     }
   },
   "uni-app-x": {},
@@ -20,12 +24,21 @@
       "aaptOptions": [
         "noCompress 'bphfm'"
       ],
-      "packagename": "dev.helloface.uniappx.demo"
+      "packagename": "dev.helloface.uniappx.demo",
+      "icons": {
+        "hdpi": "app-icons/android/hdpi.png",
+        "xhdpi": "app-icons/android/xhdpi.png",
+        "xxhdpi": "app-icons/android/xxhdpi.png",
+        "xxxhdpi": "app-icons/android/xxxhdpi.png"
+      }
     }
   },
   "app-ios": {
     "distribute": {
-      "deploymentTarget": "15.0"
+      "deploymentTarget": "15.0",
+      "icons": {
+        "appstore": "app-icons/HiFaceUni.png"
+      }
     }
   },
   "uniStatistics": {

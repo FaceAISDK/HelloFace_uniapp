@@ -26,12 +26,48 @@
           "NSCameraUsageDescription": "用于人脸录入与身份验证"
         },
         "dSYMs": false
+      },
+      "icons": {
+        "android": {
+          "hdpi": "app-icons/android/hdpi.png",
+          "xhdpi": "app-icons/android/xhdpi.png",
+          "xxhdpi": "app-icons/android/xxhdpi.png",
+          "xxxhdpi": "app-icons/android/xxxhdpi.png"
+        },
+        "ios": {
+          "appstore": "app-icons/HiFaceUni.png",
+          "iphone": {
+            "app@2x": "app-icons/ios/120.png",
+            "app@3x": "app-icons/ios/180.png",
+            "notification@2x": "app-icons/ios/40.png",
+            "notification@3x": "app-icons/ios/60.png",
+            "settings@2x": "app-icons/ios/58.png",
+            "settings@3x": "app-icons/ios/87.png",
+            "spotlight@2x": "app-icons/ios/80.png",
+            "spotlight@3x": "app-icons/ios/120.png"
+          },
+          "ipad": {
+            "app": "app-icons/ios/76.png",
+            "app@2x": "app-icons/ios/152.png",
+            "proapp@2x": "app-icons/ios/167.png",
+            "notification": "app-icons/ios/20.png",
+            "notification@2x": "app-icons/ios/40.png",
+            "settings": "app-icons/ios/29.png",
+            "settings@2x": "app-icons/ios/58.png",
+            "spotlight": "app-icons/ios/40.png",
+            "spotlight@2x": "app-icons/ios/80.png"
+          }
+        }
       }
     }
   },
   "app-harmony": {
     "distribute": {
-      "bundleName": "dev.helloface.uniapp.demo"
+      "bundleName": "dev.helloface.uniapp.demo",
+      "icons": {
+        "foreground": "app-icons/harmony/foreground.png",
+        "background": "app-icons/harmony/background.png"
+      }
     }
   },
   "uniStatistics": {

@@ -70,6 +70,19 @@ def host_fingerprint(project):
         return value
     source = {key: manifest.get(key) for key in ['appid', 'versionName', 'versionCode']}
     source.update(android=public(android), uvue=(Path(project) / 'App.uvue').exists())
+    icons = manifest.get('app-plus', {}).get('distribute', {}).get('icons', {}).get('android') or android.get('icons', {})
+    if icons:
+        hashes = {}
+        for relative in icons.values():
+            if not isinstance(relative, str) or not relative:
+                continue
+            icon = Path(relative)
+            if not icon.is_absolute() or not icon.is_file():
+                icon = Path(project) / relative.lstrip('/')
+            if not icon.is_file():
+                raise RuntimeError('缺少 Android 图标文件：' + relative + '；检查图标资源并执行 demo:prepare。')
+            hashes[relative] = hashlib.sha256(icon.read_bytes()).hexdigest()
+        source.update(icons=icons, iconFiles=hashes)
     return hashlib.sha256(json.dumps(source, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
 
 

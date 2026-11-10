@@ -71,6 +71,27 @@ class AndroidDebugTests(unittest.TestCase):
             path.write_text(json.dumps(manifest))
             self.assertNotEqual(first, debug.host_fingerprint(root))
 
+    def test_icon_content_changes_require_a_new_base_in_both_examples(self):
+        for uvue in [False, True]:
+            with self.subTest(uvue=uvue), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory); self.project(root)
+                path = root / 'manifest.json'; manifest = json.loads(path.read_text())
+                icon = root / 'app-icons/android/hdpi.png'; icon.parent.mkdir(parents=True)
+                icon.write_bytes(b'first icon')
+                if uvue:
+                    manifest['app-android'] = {'distribute': manifest.pop('app-plus')['distribute']['android']}
+                    manifest['app-android']['distribute']['icons'] = {'hdpi': 'app-icons/android/hdpi.png'}
+                    (root / 'App.uvue').write_text('')
+                else:
+                    manifest['app-plus']['distribute']['icons'] = {'android': {'hdpi': 'app-icons/android/hdpi.png'}}
+                path.write_text(json.dumps(manifest))
+                first = debug.host_fingerprint(root)
+                icon.write_bytes(b'changed icon')
+                self.assertNotEqual(first, debug.host_fingerprint(root))
+                icon.unlink()
+                with self.assertRaisesRegex(RuntimeError, '图标文件'):
+                    debug.host_fingerprint(root)
+
     def test_single_online_device_is_selected_without_using_offline_phone(self):
         output = 'List of devices attached\nphone-a offline model:Samsung\nphone-b device model:Xiaomi_17\n'
         with patch.object(debug, 'run', return_value=output):

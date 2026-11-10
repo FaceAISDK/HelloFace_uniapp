@@ -12,7 +12,7 @@ from android_debug import ROOT, PLUGIN, adb_path, devices, select_device
 
 
 def snapshot(project, cache):
-    roots = [project / name for name in ['App.vue', 'main.js', 'manifest.json', 'pages.json', 'pages', 'static']]
+    roots = [project / name for name in ['App.vue', 'main.js', 'manifest.json', 'pages.json', 'pages', 'static', 'app-icons/android']]
     roots += [ROOT / PLUGIN / name for name in ['app-android', 'interface.uts', 'shared.uts', 'unierror.uts']]
     roots += [project / 'unpackage/debug/android_debug.apk']
     files = set()

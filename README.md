@@ -18,6 +18,7 @@
 | [三端打包指南](docs/BUILDING.md) | 本地/云端打包选择、平台配置与操作步骤 |
 | [API 参考](docs/API.md) | 接口、参数、结果与错误码 |
 | [原生相机界面](docs/NATIVE_UI.md) | 三端取景、录入确认与重新采集流程 |
+| [应用图标](app-icons/README.md) | 三端 HiFaceUni 图标、母版和资源生成方式 |
 | [验证记录](docs/VALIDATION.md) | 已通过的检查和待执行的真机验收 |
 | [Android 原生集成检查](tests/android/README.md) | SDK 与桥接代码更新后的真实调用回归检查 |
 | [Android 调试与实现](docs/ANDROID_DEBUG.md) | 页面快速同步、基座指纹、监听与日志 |
@@ -45,7 +46,7 @@ HelloFace_uniapp/
 └── sdk-artifacts.json                               # 原生 SDK 版本和校验锁
 ```
 
-在 `uni_modules/HelloFace-Verify` 修改插件，再同步到 uvue 示例。`examples/uni-app-x/uni_modules` 是生成的副本；`unpackage`、`node_modules`、`.sdk-cache` 为本机产物，不作为插件源码维护。
+在 `uni_modules/HelloFace-Verify` 修改插件，再同步到 uvue 示例。`examples/uni-app-x/uni_modules` 和 `examples/uni-app-x/app-icons` 是生成的副本；`unpackage`、`node_modules`、`.sdk-cache` 为本机产物，不作为插件源码维护。应用图标以根目录 `app-icons` 为源，执行 `demo:prepare` 时一并复制。
 
 ## 环境
 
