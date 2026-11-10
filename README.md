@@ -17,6 +17,7 @@
 | `uni_modules/HelloFace-Verify` | 唯一的插件源码目录，业务工程集成此目录 |
 | [三端打包指南](docs/BUILDING.md) | 本地/云端打包选择、平台配置与操作步骤 |
 | [API 参考](docs/API.md) | 接口、参数、结果与错误码 |
+| [原生相机界面](docs/NATIVE_UI.md) | 三端取景、录入确认与重新采集流程 |
 | [验证记录](docs/VALIDATION.md) | 已通过的检查和待执行的真机验收 |
 | [Android 原生集成检查](tests/android/README.md) | SDK 与桥接代码更新后的真实调用回归检查 |
 
@@ -147,6 +148,7 @@ npm ci --ignore-scripts
 npm test                  # API 契约和 SDK 安装器测试
 npm run sdk:check         # 原生 SDK 文件完整性
 npm run uts:check         # 调用 HBuilderX 编译器转换三端 UTS
+npm run android:alignment # 检查 SDK AAR 和最终 APK 的 16KB 对齐
 ```
 
 也可运行 `npm run check` 顺序执行以上三项检查。它们不生成 APK / IPA / APP 安装包。

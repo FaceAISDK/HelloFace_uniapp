@@ -81,7 +81,7 @@ npm run android:check -- --project examples/uni-app-x
 npm run android:run -- --skip-install --sync-resources
 ```
 
-此命令使用 HBuilderX 的 `appResource` 导出入口重新编译，核对资源 AppID 后，通过 ADB 同步到该示例包名的外部应用目录，再启动示例。已在华为 GRA-UL00 / Android 6.0 上验证页面资源同步；若设备拒绝写入该目录，需使用 HBuilderX 常规真机运行。此入口仅适用于 uni-app Vue2/Vue3，uvue 仍走其原生编译与运行流程。原生代码、SDK 或权限有变化时，仍须重建并安装自定义基座。
+此命令使用 HBuilderX 的 `appResource` 导出入口重新编译，核对资源 AppID 后，通过 ADB 同步到该示例包名的外部应用目录，再启动示例。已在华为 GRA-UL00 / Android 6.0 上验证页面资源同步。Android 11+ 会先确认目录由 App 创建；目录缺失或归属不符时停止，避免生成 App 无权读取的 shell 目录。遇到此限制，使用 HBuilderX 常规真机运行，或安装包含页面资源的完整 APK。此入口仅适用于 uni-app Vue2/Vue3，uvue 仍走其原生编译与运行流程。原生代码、SDK 或权限有变化时，仍须重建并安装自定义基座。
 
 脚本使用 PATH 中的 `adb`，也可通过 `ANDROID_HOME` / `ANDROID_SDK_ROOT` 指定 Android SDK。`HBUILDERX_PATH` 使用与 UTS 检查相同的 HBuilderX 根目录；macOS 默认识别 `/Applications/HBuilderX.app`。
 
@@ -115,6 +115,21 @@ android {
 ```
 
 HBuilderX 云端配置由 `manifest.json` 的 `aaptOptions: ["noCompress 'bphfm'"]` 提供：uni-app 位于 `app-plus.distribute.android`；uni-app x 位于 `app-android.distribute`。已有两个示例均包含此项。本地原生工程也需在宿主 Gradle 中显式设置。[Android UTS 配置](https://doc.dcloud.net.cn/uni-app-x/native/use/androiduts.html)
+
+### 16KB 对齐检查
+
+每次更新原生 SDK、宿主运行时或其他原生依赖，都要检查最终安装包：
+
+```sh
+npm run android:alignment
+python3 scripts/check_android_alignment.py /本机路径/release.apk --report unpackage/validation/android-16kb.json
+```
+
+默认检查锁定版本的 SDK AAR 和 `unpackage/debug/android_debug.apk`。检查覆盖所有 ARM64 / x86_64 动态库的 ELF LOAD 对齐、虚拟地址与文件偏移的一致性、RELRO 是否与后续可写数据共用 16KB 页，以及 APK 内未压缩动态库的数据偏移。压缩存储的库仍必须通过 ELF 检查。`android:run` 在安装前执行同一检查，失败时停止安装。
+
+根目录 uni-app 示例设置 `app-plus.distribute.android.enableOAID: false`，排除默认 OAID SDK。该 SDK 的 `lib39285EFA.so` 在旧基座中未通过 RELRO 检查；本示例的人脸采集、加密保存和 1:1 验证不依赖 OAID。本地打包也应从宿主移除未使用的 OAID AAR。独立 uni-app x 宿主以及业务 App 仍需检查各自最终 APK，插件 AAR 通过不代表整个 App 通过。[DCloud 官方说明](https://uniapp.dcloud.net.cn/tutorial/android-16kb.html#oaid)
+
+还应使用 Android SDK Build-Tools 35+ 的 `zipalign -c -P 16 4 app.apk` 复核，随后在真实 16KB 环境中运行。用 `adb shell getconf PAGE_SIZE` 确认环境：`16384` 才是 16KB；`4096` 手机上的正常运行只能证明 4KB 环境下的兼容性。[Android 官方检查方法](https://developer.android.com/guide/practices/page-sizes)
 
 ## iOS
 

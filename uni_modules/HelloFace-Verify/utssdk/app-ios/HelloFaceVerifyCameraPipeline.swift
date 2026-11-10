@@ -15,6 +15,7 @@ final class HelloFaceVerifyCameraPipeline: NSObject, AVCaptureVideoDataOutputSam
     }
     func start() { queue.async { [self] in configure() } }
     func pause() { queue.async { [self] in session.stopRunning() } }
+    func resume() { queue.async { [self] in session.startRunning() } }
     func close(_ completion: @escaping @MainActor @Sendable () -> Void) {
         queue.async { [self] in
             session.stopRunning(); sdk.close()

@@ -13,10 +13,12 @@ final class HelloFaceVerifyCameraController: UIViewController {
     }
     private var preview: AVCaptureVideoPreviewLayer?
     private var request: FaceRequest?
-    private let status = UILabel()
-    private let confirmButton = UIButton(type: .system)
+    private lazy var screen = HelloFaceVerifyCameraView(enrollment: method == "enrollFace")
     private var captured: FaceFlowResult?
     private var ended = false
+    private var saving = false
+    private var generation = 0
+    private var previousIdleTimer: Bool?
     private var backgroundObserver: NSObjectProtocol?
     private var isFront: Bool { (params["camera"] as? String ?? "front") == "front" }
 
@@ -28,29 +30,12 @@ final class HelloFaceVerifyCameraController: UIViewController {
     }
     required init?(coder: NSCoder) { fatalError("Use the designated initializer") }
 
+    override func loadView() { view = screen }
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .black
-        status.text = "请正对镜头，保持人脸在画面中央"
-        status.textColor = .white; status.textAlignment = .center; status.numberOfLines = 3
-        status.translatesAutoresizingMaskIntoConstraints = false
-        let cancelButton = UIButton(type: .system)
-        cancelButton.setTitle("取消", for: .normal)
-        cancelButton.addTarget(self, action: #selector(cancel), for: .touchUpInside)
-        cancelButton.translatesAutoresizingMaskIntoConstraints = false
-        confirmButton.setTitle("确认录入", for: .normal)
-        confirmButton.addTarget(self, action: #selector(confirm), for: .touchUpInside)
-        confirmButton.isHidden = true; confirmButton.translatesAutoresizingMaskIntoConstraints = false
-        [status, cancelButton, confirmButton].forEach { view.addSubview($0) }
-        NSLayoutConstraint.activate([
-            status.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            status.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
-            status.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 20),
-            cancelButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 30),
-            cancelButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -24),
-            confirmButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -30),
-            confirmButton.bottomAnchor.constraint(equalTo: cancelButton.bottomAnchor)
-        ])
+        screen.onCancel = { [weak self] in self?.cancel() }
+        screen.onRetake = { [weak self] in self?.retake() }
+        screen.onConfirm = { [weak self] in self?.confirm() }
         backgroundObserver = NotificationCenter.default.addObserver(forName: UIApplication.didEnterBackgroundNotification,
             object: nil, queue: .main) { [weak self] _ in self?.cancel() }
         switch AVCaptureDevice.authorizationStatus(for: .video) {
@@ -66,6 +51,15 @@ final class HelloFaceVerifyCameraController: UIViewController {
         }
     }
     override var supportedInterfaceOrientations: UIInterfaceOrientationMask { .portrait }
+    override var preferredStatusBarStyle: UIStatusBarStyle { .darkContent }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        if !ended && previousIdleTimer == nil {
+            previousIdleTimer = UIApplication.shared.isIdleTimerDisabled
+            UIApplication.shared.isIdleTimerDisabled = true
+        }
+    }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
@@ -73,34 +67,14 @@ final class HelloFaceVerifyCameraController: UIViewController {
     }
     override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
+        restoreIdleTimer()
         if !ended { cancel() }
     }
 
     private func begin() {
         guard !ended else { return }
         do {
-            let callbacks = FaceFlowCallbacks(onProgress: { [weak self] progress in self?.progress(progress) },
-                onResult: { [weak self] result in self?.result(result) },
-                onError: { [weak self] error in self?.fail(Self.errorName(error.code), error.message) })
-            if method == "enrollFace" {
-                request = pipeline.sdk.startCameraCapture(callbacks: callbacks)
-            } else {
-                let actions = try (params["actions"] as? [String] ?? []).map { action -> FaceAction in
-                    switch action {
-                    case "blink": return .blink
-                    case "openMouth": return .openMouth
-                    case "shakeHead": return .shakeHead
-                    case "nodHead": return .nodHead
-                    default: throw HelloFaceVerifyBridgeError.failure("INVALID_ARGUMENT", "Unknown action")
-                    }
-                }
-                let configuration = try FaceVerificationConfiguration(referenceFeature: reference ?? "",
-                    threshold: (params["threshold"] as? NSNumber)?.floatValue ?? 0.80,
-                    requiresSilentLiveness: params["silentLiveness"] as? Bool ?? true, actions: actions,
-                    actionTimeoutMilliseconds: (params["actionTimeoutMs"] as? NSNumber)?.int64Value ?? 10000,
-                    faceAcquisitionTimeoutMilliseconds: (params["faceTimeoutMs"] as? NSNumber)?.int64Value ?? 15000)
-                request = pipeline.sdk.startCameraVerification(configuration: configuration, callbacks: callbacks)
-            }
+            try startRequest()
             let layer = AVCaptureVideoPreviewLayer(session: pipeline.session)
             layer.videoGravity = .resizeAspectFill; layer.frame = view.bounds
             view.layer.insertSublayer(layer, at: 0); preview = layer
@@ -108,11 +82,44 @@ final class HelloFaceVerifyCameraController: UIViewController {
         } catch { fail("INVALID_ARGUMENT", error.localizedDescription) }
     }
 
+    private func startRequest() throws {
+        generation += 1
+        let attempt = generation
+        let callbacks = FaceFlowCallbacks(onProgress: { [weak self] progress in
+            guard let self = self, self.generation == attempt else { return }; self.progress(progress)
+        }, onResult: { [weak self] result in
+            guard let self = self, self.generation == attempt else { return }; self.result(result)
+        }, onError: { [weak self] error in
+            guard let self = self, self.generation == attempt else { return }
+            self.fail(Self.errorName(error.code), error.message)
+        })
+        if method == "enrollFace" {
+            request = pipeline.sdk.startCameraCapture(callbacks: callbacks)
+        } else {
+            let actions = try (params["actions"] as? [String] ?? []).map { action -> FaceAction in
+                switch action {
+                case "blink": return .blink
+                case "openMouth": return .openMouth
+                case "shakeHead": return .shakeHead
+                case "nodHead": return .nodHead
+                default: throw HelloFaceVerifyBridgeError.failure("INVALID_ARGUMENT", "Unknown action")
+                }
+            }
+            let configuration = try FaceVerificationConfiguration(referenceFeature: reference ?? "",
+                threshold: (params["threshold"] as? NSNumber)?.floatValue ?? 0.80,
+                requiresSilentLiveness: params["silentLiveness"] as? Bool ?? true, actions: actions,
+                actionTimeoutMilliseconds: (params["actionTimeoutMs"] as? NSNumber)?.int64Value ?? 10000,
+                faceAcquisitionTimeoutMilliseconds: (params["faceTimeoutMs"] as? NSNumber)?.int64Value ?? 15000)
+            request = pipeline.sdk.startCameraVerification(configuration: configuration, callbacks: callbacks)
+        }
+    }
+
     private func progress(_ value: FaceFlowProgress) {
-        guard !ended else { return }
+        guard !ended, captured == nil else { return }
         let action = value.action.map { Self.actionName($0) }
         let stage = Self.stageName(value.stage)
-        status.text = Self.guidance(stage, action)
+        screen.showProgress(stage: stage, action: action, step: Int(value.stepNumber), count: Int(value.stepCount),
+                            guidance: Self.guidance(stage, action))
         onProgress(["stage": stage, "action": action as Any? ?? NSNull(),
                     "stepNumber": value.stepNumber, "stepCount": value.stepCount])
     }
@@ -121,33 +128,36 @@ final class HelloFaceVerifyCameraController: UIViewController {
         if method == "enrollFace", value.passed, value.feature != nil {
             captured = value
             pipeline.pause()
-            status.text = "采集完成，请确认录入"
+            var photo: UIImage?
             if let image = value.alignedFace?.makeCGImage() {
-                let imageView = UIImageView(image: UIImage(cgImage: image))
-                imageView.contentMode = .scaleAspectFit
-                imageView.translatesAutoresizingMaskIntoConstraints = false
-                view.addSubview(imageView)
-                NSLayoutConstraint.activate([imageView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-                    imageView.centerYAnchor.constraint(equalTo: view.centerYAnchor),
-                    imageView.widthAnchor.constraint(equalTo: view.widthAnchor, multiplier: 0.75),
-                    imageView.heightAnchor.constraint(equalTo: view.heightAnchor, multiplier: 0.55)])
+                photo = UIImage(cgImage: image)
             }
-            confirmButton.isHidden = false
+            screen.showConfirmation(image: photo, mirrored: isFront)
         } else {
             var data = Self.data(value)
             if method == "verifyFace" { data.removeValue(forKey: "feature") }
             finish(HelloFaceVerifyOperation.envelope("result", "OK", "", data))
         }
     }
+    private func retake() {
+        guard !ended, !saving, captured != nil else { return }
+        generation += 1
+        request?.cancel(); request = nil; captured = nil
+        screen.showLive()
+        do { try startRequest(); pipeline.resume() }
+        catch { fail("INVALID_ARGUMENT", error.localizedDescription) }
+    }
     @objc private func confirm() {
-        guard !ended, let value = captured, let feature = value.feature, let faceID = params["faceID"] as? String else { return }
+        guard !ended, !saving, let value = captured, let feature = value.feature, let faceID = params["faceID"] as? String else { return }
+        saving = true; screen.showSaving()
         do { try ReferenceStore.save(faceID, feature); finish(HelloFaceVerifyOperation.envelope("result", "OK", "", Self.data(value))) }
         catch { fail("STORAGE_ERROR", error.localizedDescription) }
     }
-    @objc func cancel() { fail("CANCELLED", "Face operation cancelled") }
+    @objc func cancel() { if !saving { fail("CANCELLED", "Face operation cancelled") } }
     private func fail(_ code: String, _ message: String) { finish(HelloFaceVerifyOperation.envelope("error", code, message)) }
     private func finish(_ response: String) {
         guard !ended else { return }; ended = true
+        generation += 1; restoreIdleTimer(); screen.clearPhoto()
         captured = nil; request?.cancel(); request = nil
         if let observer = backgroundObserver { NotificationCenter.default.removeObserver(observer) }
         pipeline.close { [self] in
@@ -155,6 +165,9 @@ final class HelloFaceVerifyCameraController: UIViewController {
                 dismiss(animated: true) { [completion] in completion(response) }
             } else { completion(response) }
         }
+    }
+    private func restoreIdleTimer() {
+        if let previous = previousIdleTimer { UIApplication.shared.isIdleTimerDisabled = previous; previousIdleTimer = nil }
     }
     private static func data(_ value: FaceFlowResult) -> [String: Any] {
         ["passed": value.passed, "outcome": outcomeName(value.outcome),

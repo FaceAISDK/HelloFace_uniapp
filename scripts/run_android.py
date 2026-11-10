@@ -8,8 +8,10 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 import xml.etree.ElementTree as ET
 import zipfile
+from check_android_alignment import require_alignment
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -32,6 +34,7 @@ def executable(candidates, name):
 
 def inspect_apk(apk, appid):
     """Reject a standard base or compressed models before installing on a device."""
+    require_alignment(apk)
     with zipfile.ZipFile(apk) as archive:
         names = archive.namelist()
         models = [item for item in archive.infolist() if item.filename.endswith('.bphfm')]
@@ -63,6 +66,38 @@ def exported_resources(project, appid):
     return directory
 
 
+def sync_resources(target, package, appid, resources, api):
+    """Preserve runtime-owned directories instead of creating shell-owned ones."""
+    if api < 30:
+        destination = f'/storage/emulated/0/Android/data/{package}/apps/{appid}/www/'
+        command(target + ['shell', 'mkdir', '-p', destination])
+        command(target + ['push', str(resources) + '/.', destination])
+        return
+    uid = command(target + ['shell', 'run-as', package, 'id', '-u'], capture=True)
+    if not uid.isdigit():
+        raise RuntimeError('Resource synchronization requires a debuggable custom base.')
+    apps = f'/storage/emulated/0/Android/data/{package}/apps'
+    stat = subprocess.run(target + ['shell', 'stat', '-c', '%u', apps], capture_output=True, text=True)
+    if stat.returncode == 0 and stat.stdout.strip() != uid:
+        names = command(target + ['shell', 'ls', apps], capture=True).split()
+        if names != [appid]:
+            raise RuntimeError('The legacy resource directory contains other AppIDs; clean this base in HBuilderX.')
+        command(target + ['shell', 'mv', apps, apps + f'.shell-backup-{time.time_ns()}'])
+    # First launch extracts bundled resources as the app, including their directories.
+    command(target + ['shell', 'am', 'start', '-W', '-n', f'{package}/io.dcloud.PandoraEntry'], capture=True)
+    destination = f'{apps}/{appid}/www/'
+    directories = [resources] + [p for p in resources.rglob('*') if p.is_dir()]
+    for directory in directories:
+        path = destination + directory.relative_to(resources).as_posix()
+        owner = subprocess.run(target + ['shell', 'stat', '-c', '%u', path], capture_output=True, text=True)
+        if owner.returncode or owner.stdout.strip() != uid:
+            raise RuntimeError('The base has not created app-owned page directories. Use HBuilderX standard sync '
+                               'or install a full APK; new page directories must not be created by ADB shell.')
+    command(target + ['shell', 'am', 'force-stop', package])
+    command(target + ['push', str(resources) + '/.', destination])
+    print('Synchronized resources while preserving app-owned directories.', flush=True)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--project', type=Path, default=ROOT, help='Root Vue or independent uvue example')
@@ -91,9 +126,11 @@ def main():
 
     hbuilder = Path(os.environ.get('HBUILDERX_PATH', '/Applications/HBuilderX.app/Contents/HBuilderX'))
     cli = executable([hbuilder / 'cli', hbuilder / 'cli.exe', hbuilder.parent / 'MacOS/cli'], 'HBuilderX CLI')
-    sdk = Path(os.environ.get('ANDROID_HOME') or os.environ.get('ANDROID_SDK_ROOT') or
-               str(Path.home() / 'Library/Android/sdk'))
-    adb = executable([shutil.which('adb'), sdk / 'platform-tools/adb', sdk / 'platform-tools/adb.exe'], 'ADB')
+    candidates = [os.environ.get('ANDROID_HOME'), os.environ.get('ANDROID_SDK_ROOT'),
+                  str(Path.home() / 'Library/Android/sdk')]
+    sdk = next((Path(value) for value in candidates if value and
+                any((Path(value) / 'platform-tools' / name).is_file() for name in ['adb', 'adb.exe'])), Path('.'))
+    adb = executable([sdk / 'platform-tools/adb', sdk / 'platform-tools/adb.exe', shutil.which('adb')], 'ADB')
     command([sys.executable, ROOT / 'scripts/install_sdk.py', '--check', '--platform', 'android'])
     apk = project / 'unpackage/debug/android_debug.apk'
     if not apk.is_file():
@@ -144,15 +181,13 @@ def main():
             raise RuntimeError('The custom base is not installed. Run again without --skip-install.')
     else:
         print('Installing the custom base. Confirm the system installation prompt on the phone.', flush=True)
-        command(target + ['install', '-r', '-t', apk], timeout=180)
+        command(target + ['install', '--no-incremental', '-r', '-t', apk], timeout=180)
     if args.sync_resources:
         # A custom base contains native code but needs the compiled page resources as well.
         command([cli, 'publish', 'app-android', '--type', 'appResource', '--project', project])
         resources = exported_resources(project, appid)
-        destination = f'/storage/emulated/0/Android/data/{package}/apps/{appid}/www/'
         command(target + ['shell', 'am', 'force-stop', package])
-        command(target + ['shell', 'mkdir', '-p', destination])
-        command(target + ['push', str(resources) + '/.', destination])
+        sync_resources(target, package, appid, resources, api)
         output = command(target + ['shell', 'am', 'start', '-W',
                                    '-n', f'{package}/io.dcloud.PandoraEntry'], capture=True)
         print(output, flush=True)

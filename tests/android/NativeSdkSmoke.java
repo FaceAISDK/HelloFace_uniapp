@@ -3,7 +3,9 @@ package dev.helloface.smoke;
 import android.app.Activity;
 import android.app.Instrumentation;
 import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
+import android.view.WindowManager;
 import org.json.JSONObject;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
@@ -75,6 +77,16 @@ public final class NativeSdkSmoke extends Instrumentation {
         int status = Activity.RESULT_CANCELED;
         try {
             target = getTargetContext().getApplicationContext();
+            // Ask the ADB runner to foreground the host with its shell identity.
+            // This avoids background-launch restrictions and UiAutomation races.
+            Intent launcher = target.getPackageManager().getLaunchIntentForPackage(target.getPackageName());
+            if (launcher != null && launcher.getComponent() != null) {
+                ActivityMonitor host = addMonitor(launcher.getComponent().getClassName(), null, false);
+                report("READY: launch target host " + launcher.getComponent().flattenToString());
+                Activity launched = waitForMonitorWithTimeout(host, 15000);
+                removeMonitor(host);
+                if (launched == null) throw new IllegalStateException("Target host did not open");
+            }
             ClassLoader loader = getTargetContext().getClassLoader();
             functionType = Class.forName("kotlin.jvm.functions.Function1", true, loader);
             nativeInvoke = Class.forName("uts.sdk.modules.HelloFaceVerify.HelloFaceVerifyNative", true, loader)
@@ -116,6 +128,37 @@ public final class NativeSdkSmoke extends Instrumentation {
             expect(call("cancel", new JSONObject()).terminal(), "OK", "cancel request acknowledged");
             expect(active.terminal(), "CANCELLED", "active request cancelled");
             expect(call("getFaceFeature", identity).terminal(), "OK", "operation slot released after cancel");
+            ActivityMonitor monitor = addMonitor("uts.sdk.modules.HelloFaceVerify.HelloFaceVerifyCameraActivity", null, false);
+            Pending enrollment = call("enrollFace", new JSONObject().put("faceID", faceID).put("overwrite", true).put("camera", "front"));
+            final Activity captureActivity = waitForMonitorWithTimeout(monitor, 10000);
+            removeMonitor(monitor);
+            if (captureActivity == null) throw new IllegalStateException("Enrollment Activity did not open");
+            if ((captureActivity.getWindow().getAttributes().flags & WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) == 0)
+                throw new IllegalStateException("Camera page must keep its own window awake");
+            checks++; report("PASS camera window stays awake without changing system settings");
+            final String unchangedFeature = fixture.getString("feature");
+            final Throwable[] retakeError = new Throwable[1];
+            runOnMainSync(new Runnable() {
+                @Override public void run() {
+                    try {
+                        // Inject only the confirmation state. No image is recognized or saved by this UI test.
+                        java.lang.reflect.Field field = captureActivity.getClass().getDeclaredField("capturedFeature");
+                        field.setAccessible(true); field.set(captureActivity, unchangedFeature);
+                        Method retake = captureActivity.getClass().getDeclaredMethod("retake");
+                        retake.setAccessible(true); retake.invoke(captureActivity);
+                    } catch (Throwable error) { retakeError[0] = error; }
+                }
+            });
+            if (retakeError[0] != null) throw new IllegalStateException("Retake failed", retakeError[0]);
+            waitForIdleSync();
+            expect(call("getFaceFeature", identity).terminal(), "BUSY", "retake keeps the enrollment operation active");
+            expect(call("cancel", new JSONObject()).terminal(), "OK", "retaken capture can be cancelled");
+            expect(enrollment.terminal(), "CANCELLED", "old capture callbacks do not finish the new attempt");
+            JSONObject afterRetake = call("getFaceFeature", identity).terminal();
+            if (!afterRetake.optString("code").equals("OK") ||
+                !afterRetake.getJSONObject("data").getString("feature").equals(unchangedFeature))
+                throw new IllegalStateException("Retake changed the saved reference without confirmation");
+            checks++; report("PASS retake preserves the saved reference until confirmation");
             expect(call("deleteFace", identity).terminal(), "OK", "reference deletion");
             created = false;
             expect(call("getFaceFeature", identity).terminal(), "NOT_FOUND", "deleted reference absent");

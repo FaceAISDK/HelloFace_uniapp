@@ -8,6 +8,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import threading
 import xml.etree.ElementTree as ET
 import zipfile
 
@@ -22,6 +23,33 @@ def run(args, env=None, timeout=180):
     if result.returncode:
         raise RuntimeError(output.strip() or f'Command failed: {args[0]}')
     return output
+
+
+def instrument(target, package):
+    args = target + ['shell', 'am', 'instrument', '-w', '-r',
+                     TEST_PACKAGE + '/dev.helloface.smoke.NativeSdkSmoke']
+    process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    timer = threading.Timer(180, process.kill)
+    timer.start()
+    output = []
+    try:
+        for line in process.stdout:
+            line = re.sub(r'HF1:[A-Za-z0-9_-]+', '[test feature]', line)
+            output.append(line)
+            print(line, end='', flush=True)
+            if 'READY: launch target host' in line:
+                component = line.split('READY: launch target host ', 1)[1].strip()
+                if not component.startswith(package + '/') or not re.fullmatch(r'[A-Za-z0-9_.$/]+', component):
+                    raise RuntimeError('The native test requested an invalid host component.')
+                run(target + ['shell', 'am', 'start', '-W', '-n', component], timeout=20)
+        if process.wait():
+            raise RuntimeError('Native instrumentation stopped or timed out.')
+    finally:
+        timer.cancel()
+        if process.poll() is None:
+            process.kill()
+            process.wait()
+    return ''.join(output)
 
 
 def main():
@@ -52,7 +80,10 @@ def main():
     android = max(platforms, key=lambda p: int(p.name.split('-')[1])) / 'android.jar'
     tools = max(tools, key=lambda p: tuple(map(int, p.name.split('.'))))
     suffix = '.exe' if os.name == 'nt' else ''
-    adb = shutil.which('adb') or str(sdk / 'platform-tools' / ('adb' + suffix))
+    sdk_adb = sdk / 'platform-tools' / ('adb' + suffix)
+    adb = str(sdk_adb) if sdk_adb.is_file() else shutil.which('adb')
+    if not adb:
+        raise RuntimeError('Install Android SDK platform-tools first.')
     devices = [row.split()[0] for row in run([adb, 'devices']).splitlines()[1:]
                if len(row.split()) >= 2 and row.split()[1] == 'device']
     serial = args.device or (devices[0] if len(devices) == 1 else None)
@@ -61,6 +92,10 @@ def main():
     target = [adb, '-s', serial]
     if not run(target + ['shell', 'pm', 'path', args.package]).strip().startswith('package:'):
         raise RuntimeError('Install the complete target debug base first.')
+    try:
+        run(target + ['shell', 'run-as', args.package, 'id', '-u'])
+    except RuntimeError:
+        raise RuntimeError('Native instrumentation requires a debuggable custom base; do not target a release APK.') from None
     fixture = json.loads(args.feature_file.read_text())
     if fixture.get('featureSpaceId') != 'jdx-feature-v1':
         raise RuntimeError('Use upstream test data from feature space jdx-feature-v1.')
@@ -99,12 +134,10 @@ def main():
              '--ks-key-alias', args.alias, '--ks-pass', 'env:HELLOFACE_TEST_STOREPASS',
              '--key-pass', 'env:HELLOFACE_TEST_KEYPASS', '--out', signed, unsigned], env)
         print('Installing temporary checks; confirm the phone prompt if shown.', flush=True)
-        run(target + ['install', '-r', '-t', signed])
+        run(target + ['install', '--no-incremental', '-r', '-t', signed])
         try:
-            output = run(target + ['shell', 'am', 'instrument', '-w', '-r',
-                                   TEST_PACKAGE + '/dev.helloface.smoke.NativeSdkSmoke'])
-            print(output, flush=True)
-            if 'INSTRUMENTATION_CODE: -1' not in output or 'PASS: 12 native integration checks.' not in output:
+            output = instrument(target, args.package)
+            if 'INSTRUMENTATION_CODE: -1' not in output or 'PASS: 17 native integration checks.' not in output:
                 raise RuntimeError('Native SDK integration checks failed; inspect the target app logcat.')
         finally:
             run(target + ['uninstall', TEST_PACKAGE])

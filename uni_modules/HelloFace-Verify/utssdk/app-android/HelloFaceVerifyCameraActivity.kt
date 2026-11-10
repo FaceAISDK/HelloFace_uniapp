@@ -6,11 +6,9 @@ import android.graphics.Bitmap
 import android.graphics.Matrix
 import android.os.Bundle
 import android.util.Size
-import android.view.Gravity
-import android.widget.Button
-import android.widget.FrameLayout
-import android.widget.ImageView
-import android.widget.TextView
+import android.os.Build
+import android.view.View
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
@@ -46,8 +44,7 @@ class HelloFaceVerifyCameraActivity : ComponentActivity() {
     internal var jobID = ""
     private lateinit var current: CameraJob
     private lateinit var preview: PreviewView
-    private lateinit var status: TextView
-    private lateinit var root: FrameLayout
+    private lateinit var screen: HelloFaceVerifyCameraView
     private var sdk: HiFaceSdk? = null
     private var request: FaceRequest? = null
     private var provider: ProcessCameraProvider? = null
@@ -55,6 +52,8 @@ class HelloFaceVerifyCameraActivity : ComponentActivity() {
     private var displayPreview: Preview? = null
     private val analyzer = Executors.newSingleThreadExecutor()
     private var aligned: Bitmap? = null
+    private var capturedFeature: String? = null
+    private var generation = 0
     private var stopping = false
     private val permission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (active()) {
@@ -74,20 +73,28 @@ class HelloFaceVerifyCameraActivity : ComponentActivity() {
                 if (!current.committing) fail("CANCELLED", "Face operation cancelled")
             }
         })
-        root = FrameLayout(this).apply { setBackgroundColor(0xff000000.toInt()) }
-        preview = PreviewView(this).apply { implementationMode = PreviewView.ImplementationMode.COMPATIBLE }
-        root.addView(preview, FrameLayout.LayoutParams(-1, -1))
-        status = TextView(this).apply {
-            text = "请正对镜头，保持人脸在画面中央"
-            setTextColor(0xffffffff.toInt()); textSize = 18f; gravity = Gravity.CENTER
-            setBackgroundColor(0x88000000.toInt()); setPadding(dp(20), dp(24), dp(20), dp(24))
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        // Use platform APIs available since API 23; HBuilderX's native source
+        // checker may resolve an older AndroidX Core stub than the packaged AAR.
+        window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
+            View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
+            View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or
+            (if (Build.VERSION.SDK_INT >= 26) View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR else 0)
+        window.statusBarColor = HelloFaceVerifyCameraView.BACKGROUND
+        window.navigationBarColor = if (Build.VERSION.SDK_INT >= 26) HelloFaceVerifyCameraView.BACKGROUND else 0xff19324f.toInt()
+        screen = HelloFaceVerifyCameraView(this, current.method == "enrollFace",
+            { fail("CANCELLED", "Face operation cancelled") }, { retake() }, { confirm() })
+        preview = screen.preview
+        setContentView(screen)
+        screen.setOnApplyWindowInsetsListener { _, insets ->
+            val cutout = if (Build.VERSION.SDK_INT >= 28) insets.displayCutout else null
+            screen.setSafeInsets(maxOf(insets.systemWindowInsetLeft, cutout?.safeInsetLeft ?: 0),
+                maxOf(insets.systemWindowInsetTop, cutout?.safeInsetTop ?: 0),
+                maxOf(insets.systemWindowInsetRight, cutout?.safeInsetRight ?: 0),
+                maxOf(insets.systemWindowInsetBottom, cutout?.safeInsetBottom ?: 0))
+            insets
         }
-        root.addView(status, FrameLayout.LayoutParams(-1, -2, Gravity.TOP))
-        val cancel = Button(this).apply { text = "取消"; setOnClickListener { fail("CANCELLED", "Face operation cancelled") } }
-        root.addView(cancel, FrameLayout.LayoutParams(dp(120), dp(56), Gravity.BOTTOM or Gravity.START).apply {
-            leftMargin = dp(20); bottomMargin = dp(32)
-        })
-        setContentView(root)
+        screen.requestApplyInsets()
         if (checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) begin()
         else permission.launch(Manifest.permission.CAMERA)
     }
@@ -95,14 +102,15 @@ class HelloFaceVerifyCameraActivity : ComponentActivity() {
     private fun active() = HelloFaceVerifyNative.job?.id == jobID && !stopping && !isFinishing
     private fun begin() {
         if (!active()) return
+        val attempt = ++generation
         try {
             val instance = HiFaceSdk.builder(this).lifecycleOwner(this).build()
             sdk = instance
             if (current.method == "enrollFace") {
                 request = instance.capture().startCameraCapture(object : FaceCaptureListener {
-                    override fun onProgress(progress: FaceFlowProgress) = update(progress)
-                    override fun onError(error: HiFaceError) = fail(error.code.name, error.message)
-                    override fun onResult(result: FaceCaptureResult) = confirmCapture(result)
+                    override fun onProgress(progress: FaceFlowProgress) { if (active() && generation == attempt) update(progress) }
+                    override fun onError(error: HiFaceError) { if (active() && generation == attempt) fail(error.code.name, error.message) }
+                    override fun onResult(result: FaceCaptureResult) { if (active() && generation == attempt) confirmCapture(result) }
                 })
             } else {
                 val p = current.params
@@ -114,10 +122,10 @@ class HelloFaceVerifyCameraActivity : ComponentActivity() {
                     .actions(actions).actionTimeoutMillis(p.getLong("actionTimeoutMs"))
                     .faceAcquisitionTimeoutMillis(p.getLong("faceTimeoutMs")).allowMultipleFaces(false).build()
                 request = instance.verification().startCameraVerification(config, object : FaceFlowListener {
-                    override fun onProgress(progress: FaceFlowProgress) = update(progress)
-                    override fun onError(error: HiFaceError) = fail(error.code.name, error.message)
+                    override fun onProgress(progress: FaceFlowProgress) { if (active() && generation == attempt) update(progress) }
+                    override fun onError(error: HiFaceError) { if (active() && generation == attempt) fail(error.code.name, error.message) }
                     override fun onResult(result: FaceFlowResult) {
-                        if (!active()) return
+                        if (!active() || generation != attempt) return
                         finishResult(JSONObject().put("passed", result.isPassed).put("outcome", result.outcome.name)
                             .put("similarity", result.similarity ?: JSONObject.NULL)
                             .put("livenessScore", result.livenessScore ?: JSONObject.NULL))
@@ -126,7 +134,7 @@ class HelloFaceVerifyCameraActivity : ComponentActivity() {
             }
             val future = ProcessCameraProvider.getInstance(this)
             future.addListener({
-                if (!active()) return@addListener
+                if (!active() || generation != attempt) return@addListener
                 try {
                     val cameraProvider = future.get(); provider = cameraProvider
                     val front = current.params.optString("camera", "front") == "front"
@@ -156,11 +164,11 @@ class HelloFaceVerifyCameraActivity : ComponentActivity() {
                                     val error = result.requireError()
                                     // Readiness and backpressure skip this frame without ending the request.
                                     if (error.code != HiFaceErrorCode.NOT_READY && error.code != HiFaceErrorCode.BUSY) {
-                                        runOnUiThread { fail(error.code.name, error.message) }
+                                        runOnUiThread { if (active() && generation == attempt) fail(error.code.name, error.message) }
                                     }
                                 }
                             } catch (error: Exception) {
-                                runOnUiThread { fail("CAMERA_ERROR", error.message ?: "Unable to process camera frame") }
+                                runOnUiThread { if (active() && generation == attempt) fail("CAMERA_ERROR", error.message ?: "Unable to process camera frame") }
                             } finally { image.close() }
                         }
                     })
@@ -174,13 +182,7 @@ class HelloFaceVerifyCameraActivity : ComponentActivity() {
         if (!active()) return
         val action = progress.action?.let { actionName(it) }
         val stage = progress.stage.name
-        status.text = if (stage == "PERFORM_ACTION") when (action) {
-            "blink" -> "请眨眨眼"; "openMouth" -> "请张张嘴"; "shakeHead" -> "请摇摇头"; "nodHead" -> "请点点头"
-            else -> "请完成提示动作"
-        } else when (stage) {
-            "MULTIPLE_FACES" -> "请保持画面中只有一人"; "FACE_TOO_SMALL" -> "请靠近一些"
-            "HOLD_STILL", "FACE_UNSTABLE" -> "请保持不动"; else -> "请正对镜头"
-        }
+        screen.showProgress(stage, action, progress.stepNumber, progress.stepCount)
         HelloFaceVerifyNative.progress(jobID, JSONObject().put("stage", stage).put("action", action ?: JSONObject.NULL)
             .put("stepNumber", progress.stepNumber).put("stepCount", progress.stepCount))
     }
@@ -189,28 +191,30 @@ class HelloFaceVerifyCameraActivity : ComponentActivity() {
         if (!active()) return
         stopAnalysis()
         aligned = result.alignedFace // The SDK creates a Bitmap; read it only once.
-        val image = ImageView(this).apply { setImageBitmap(aligned); scaleType = ImageView.ScaleType.FIT_CENTER }
-        root.addView(image, FrameLayout.LayoutParams(-1, -1).apply { topMargin = dp(100); bottomMargin = dp(120) })
-        status.text = "采集完成，请确认录入"
-        val confirm = Button(this).apply {
-            text = "确认录入"
-            setOnClickListener {
-                if (!active() || current.committing) return@setOnClickListener
-                current.committing = true; isEnabled = false
-                HelloFaceVerifyNative.worker.execute {
-                    try {
-                        ReferenceStore(applicationContext).save(current.params.getString("faceID"), result.feature)
-                        HelloFaceVerifyNative.finish(jobID, HelloFaceVerifyNative.envelope(data = JSONObject()
-                            .put("feature", result.feature).put("passed", true).put("outcome", "PASSED")))
-                    } catch (error: Exception) {
-                        HelloFaceVerifyNative.finish(jobID, HelloFaceVerifyNative.envelope("error", "STORAGE_ERROR", error.message ?: "Unable to save reference"))
-                    }
-                }
+        capturedFeature = result.feature
+        screen.showConfirmation(aligned, current.params.optString("camera", "front") == "front")
+    }
+    private fun retake() {
+        if (!active() || current.committing || capturedFeature == null) return
+        generation++ // Ignore cancellation and queued progress from the completed attempt.
+        request?.cancel(); request = null
+        stopAnalysis(); sdk?.close(); sdk = null
+        screen.clearPhoto(); aligned = null; capturedFeature = null
+        screen.showLive(); begin()
+    }
+    private fun confirm() {
+        val feature = capturedFeature ?: return
+        if (!active() || current.committing) return
+        current.committing = true; screen.showSaving()
+        HelloFaceVerifyNative.worker.execute {
+            try {
+                ReferenceStore(applicationContext).save(current.params.getString("faceID"), feature)
+                HelloFaceVerifyNative.finish(jobID, HelloFaceVerifyNative.envelope(data = JSONObject()
+                    .put("feature", feature).put("passed", true).put("outcome", "PASSED")))
+            } catch (error: Exception) {
+                HelloFaceVerifyNative.finish(jobID, HelloFaceVerifyNative.envelope("error", "STORAGE_ERROR", error.message ?: "Unable to save reference"))
             }
         }
-        root.addView(confirm, FrameLayout.LayoutParams(dp(140), dp(56), Gravity.BOTTOM or Gravity.END).apply {
-            rightMargin = dp(20); bottomMargin = dp(32)
-        })
     }
     private fun finishResult(data: JSONObject) {
         if (!active()) return
@@ -229,7 +233,8 @@ class HelloFaceVerifyCameraActivity : ComponentActivity() {
     }
     override fun onDestroy() {
         shutdownCamera()
-        aligned?.recycle(); aligned = null
+        if (::screen.isInitialized) screen.clearPhoto()
+        aligned = null; capturedFeature = null
         if (::current.isInitialized && HelloFaceVerifyNative.job?.id == jobID && !current.committing) {
             HelloFaceVerifyNative.finish(jobID, HelloFaceVerifyNative.envelope("error", "CANCELLED", "Camera closed"))
         }
@@ -239,15 +244,16 @@ class HelloFaceVerifyCameraActivity : ComponentActivity() {
         analysis?.clearAnalyzer()
         val owned = listOfNotNull<UseCase>(displayPreview, analysis)
         if (owned.isNotEmpty()) provider?.unbind(*owned.toTypedArray())
+        displayPreview = null; analysis = null
     }
     internal fun shutdownCamera() {
         stopping = true
+        generation++
         request?.cancel(); request = null
         stopAnalysis()
         sdk?.close(); sdk = null
         analyzer.shutdown()
     }
-    private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
     private fun action(value: String): FaceAction = when (value) {
         "blink" -> FaceAction.BLINK; "openMouth" -> FaceAction.MOUTH_OPEN
         "shakeHead" -> FaceAction.SHAKE_HEAD; "nodHead" -> FaceAction.NOD_HEAD
