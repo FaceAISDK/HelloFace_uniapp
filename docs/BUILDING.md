@@ -52,6 +52,14 @@ python3 scripts/install_sdk.py --platform harmony
 
 根目录示例已配置本仓库演示用 AppID；独立 uvue 示例仍使用占位 AppID。集成到自己的应用时需配置自己的 AppID、包名和签名。插件唯一源码位于 `uni_modules/HelloFace-Verify`；修改后重新执行 `npm run demo:prepare`，把插件与已安装的原生依赖同步到 uvue 示例。
 
+当前工程标识如下，DCloud AppID 与操作系统包名不是同一种标识：
+
+| 平台 | 根目录 Vue 示例 | 独立 uvue 示例 |
+| --- | --- | --- |
+| Android 包名 | `dev.helloface.uniapp.demo` | `dev.helloface.uniappx.demo` |
+| HarmonyOS Bundle Name | `dev.helloface.uniapp.demo` | 当前也为 `dev.helloface.uniapp.demo`，同时安装前应配置为不同标识 |
+| iOS Bundle ID | 尚未在 manifest 固定，打包时按签名配置 | 尚未在 manifest 固定，打包时按签名配置 |
+
 ## Android
 
 ### 真机调试入口
@@ -72,7 +80,7 @@ npm run android:logs -- --follow
 
 Vue 默认由 App 进程替换页面资源，相同基座会自动跳过安装。`--device 序列号` 可明确选择设备；`--skip-install` 严格核对手机与本机 APK。`--hbuilder` 使用 HBuilderX 自身运行通道。uvue 使用 `--project examples/uni-app-x`，由 HBuilderX 原生编译运行；先配置自身 AppID、执行 `demo:prepare` 并制作对应基座。
 
-运行前检查 SDK、源码指纹、基座版本、AppID/包名、API/ABI、模型不压缩和 16KB 对齐。原生代码或宿主配置改变后要求重建。运行过程不卸载 App；本机录入数据保留。签名配置、资源同步协议、缓存迁移、日志和排错见 [Android 调试与实现](ANDROID_DEBUG.md)。
+这些命令行工具运行前检查 SDK、源码指纹、基座版本、AppID/包名、API/ABI、模型不压缩和 16KB 对齐，并在原生代码或宿主配置改变后要求重建。这是页面同步工具的保守策略；源码日常调试可直接使用 HBuilderX 本地联编，不必每次云打包。运行过程不卸载 App；本机录入数据保留。签名配置、断点操作、资源同步协议、缓存迁移、日志和排错见 [Android 调试与实现](ANDROID_DEBUG.md)。
 
 脚本优先使用 `ANDROID_HOME` / `ANDROID_SDK_ROOT` 对应的有效 ADB，再尝试常见 SDK 目录和 PATH。`HBUILDERX_PATH` 指向 `Contents/HBuilderX`；macOS 默认使用 `/Applications/HBuilderX.app`。
 

@@ -13,16 +13,18 @@ internal class CameraJob(val id: String, val method: String, val params: JSONObj
     val callback: (String) -> Unit, var reference: String? = null, var committing: Boolean = false)
 
 object HelloFaceVerifyNative {
-    internal val main = Handler(Looper.getMainLooper())
-    internal val worker = Executors.newSingleThreadExecutor()
-    @Volatile internal var job: CameraJob? = null
-    internal var camera = WeakReference<HelloFaceVerifyCameraActivity>(null)
+    // Keep JVM names stable across the cloud base and HBuilderX's local module.
+    // Plain internal accessors are mangled with different module-name suffixes.
+    @PublishedApi internal val main = Handler(Looper.getMainLooper())
+    @PublishedApi internal val worker = Executors.newSingleThreadExecutor()
+    @PublishedApi @Volatile internal var job: CameraJob? = null
+    @PublishedApi internal var camera = WeakReference<HelloFaceVerifyCameraActivity>(null)
 
-    internal fun envelope(event: String = "result", code: String = "OK", message: String = "",
+    @PublishedApi internal fun envelope(event: String = "result", code: String = "OK", message: String = "",
         data: JSONObject = JSONObject()): String = JSONObject().put("event", event).put("code", code)
         .put("message", message).put("data", data).toString()
 
-    internal fun finish(id: String, response: String) {
+    @PublishedApi internal fun finish(id: String, response: String) {
         main.post {
             val current = job
             if (current?.id != id) return@post
@@ -33,7 +35,7 @@ object HelloFaceVerifyNative {
         }
     }
 
-    internal fun progress(id: String, data: JSONObject) {
+    @PublishedApi internal fun progress(id: String, data: JSONObject) {
         main.post { job?.takeIf { it.id == id }?.callback?.invoke(envelope("progress", data = data)) }
     }
 

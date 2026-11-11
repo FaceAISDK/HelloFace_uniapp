@@ -1,6 +1,22 @@
 # Android 调试与实现
 
-根目录 Vue2/Vue3 示例提供“编译页面 → 应用内同步 → 重启示例”的调试通道。只修改页面时复用已安装基座；修改 Android 原生源码、UTS 接口或 SDK 二进制后重建基座。uvue 继续使用 HBuilderX 的原生编译通道。
+根目录 Vue2/Vue3 示例提供“编译页面 → 应用内同步 → 重启示例”的命令行调试通道；该通道只同步页面，对原生源码采用严格指纹校验，源码变更会要求重建基座。日常修改 `.uts` / `.kt` 查看效果，使用 HBuilderX 自身的本地编译运行通道即可，不必每次云打包。uvue 同样使用 HBuilderX 原生编译通道。
+
+## 在 HBuilderX 中调试插件功能
+
+1. 打开工程根目录 `HelloFace_uniapp`，这是 Vue 示例；要调试 uvue 则单独打开 `examples/uni-app-x`，先执行 `npm run demo:prepare` 同步插件。两个示例使用各自的 AppID 和基座。
+2. 本工程包含第三方人脸 SDK，首次运行或 SDK、依赖、资源、Manifest 改动后需要自定义基座，不能选择标准基座。确认 HBuilderX 登录账号拥有当前 `manifest.json` 的 AppID 权限；执行 `npm run android:base` 自动制作并校验基座，或先执行 `npm run android:prepare`，再从 HBuilderX“运行 → 运行到手机或模拟器 → 制作自定义调试基座”制作。
+3. 手机连接 USB 并授权调试。在 HBuilderX 选择“运行 → 运行到手机或模拟器 → 运行到 Android App 基座”，选小米并勾选“使用自定义基座运行”。已有最新版基座时可选“已安装的基座”，包名为 `dev.helloface.uniapp.demo`；使用本地基座时文件为根工程 `unpackage/debug/android_debug.apk`。
+4. 运行成功后，在底部运行控制台点击红色虫子图标，选择“调试”；如需调试 App 初始化，开启后再点击旁边的“重启应用”。双击代码行号添加断点，然后在手机点击录入/验证按钮触发。
+5. 按调用链设置断点：`pages/index/index.vue` 的 `enroll` / `verify` → `utssdk/app-android/index.uts` 的参数创建与原生调用 → `HelloFaceVerifyNative.kt` 的 `invoke` → `HelloFaceVerifyCameraActivity.kt` 的进度、采集、保存回调 → `shared.uts` 的结果分发。调试 Kotlin 时按 HBuilderX 提示安装 `kotlin-language` 插件。SDK AAR 内部源码未随本工程提供，可在调用前后检查参数、结果和日志。
+
+HBuilderX 的“设置 → 运行配置”应配置 Android SDK、Gradle 和 Gradle JDK。本机已验证的组合是 JDK 17、Gradle 8.14.3、Android SDK `/Users/zlb/Library/Android/sdk`；不要使用不存在的旧 SDK 路径。环境配置见 [官方 Android UTS 运行说明](https://uniapp.dcloud.net.cn/tutorial/run/uts-development-android.html)，断点操作见 [官方 UTS/Kotlin 调试说明](https://uniapp.dcloud.net.cn/tutorial/debug/uni-uts-debug.html)。
+
+页面改动可保存后刷新。已有包含 SDK/依赖的基座后，修改插件 `.uts` 或混编 `.kt` 可由 HBuilderX 本地联编、重新运行，不需要云打包；不要用只同步页面的 `android:dev` 来更新原生代码。本工程命令行入口（包括 `android:run -- --hbuilder`）会先校验完整源码指纹，开发中需要绕过这一保守检查时，应直接从 HBuilderX 运行菜单启动，而不是跳过 SDK/依赖校验。官方说明见 [UTS 原生混编](https://uniapp.dcloud.net.cn/plugin/uts-plugin-hybrid.html)。
+
+更换 AAR/JAR/SO、修改依赖/Gradle、Manifest 权限或 Activity 声明、添加原生资源、更换应用图标时，需要重制基座或用完整本地原生工程重新构建；这不表示必须使用云端。`.java` 修改不属于上述 Kotlin 混编的直接联编范围，也需要重建。普通源码调试和正式安装包发布应分开：发布时仍要完整打包。
+
+推荐在 `success` / `fail` 回调检查 `passed`、`outcome`、`errCode`、`sdkCode`；`complete` 仅用于恢复按钮状态。相机逐帧分析和动作活体期间应尽量使用日志，长时间停在断点可能使真实超时或人脸丢失判定触发。原生操作日志可另外执行 `npm run android:logs -- --follow --device 手机序列号`，不要把完整人脸特征或照片写入控制台。
 
 ## 接口改动后的本地编译检查
 
@@ -10,6 +26,8 @@ npm run android:uts-check -- --uni-app-x       # uni-app x 的 UTS 桥接 + Kotl
 ```
 
 这两项使用已安装的 HBuilderX Android UTS 扩展实际生成并编译插件，补充 `uts:check` 的三端源码转换检查。不打包、不签名、不安装 App，也不需要云端 AppID 权限；仍不能代替完整基座与真机验证。
+
+编译后还会检查 DEX 中的桥接 JVM 方法名。0.1.5 起，跨文件访问的 Kotlin `internal` 桥接成员使用 `@PublishedApi` 保持名称稳定，避免本地 `main` 模块与云端 `HelloFace_Verify_release` 模块产生不同后缀而触发 `NoSuchMethodError`。从旧版升级需要重新制作一次基座，之后普通混编源码仍可本地联编。
 
 需要 Android SDK、兼容的 JDK（本工程使用 17）与 Gradle 8。脚本优先使用环境变量，再查找常用 SDK 路径、本机 JDK 和 Gradle wrapper 缓存。非默认安装位置可设置 `HBUILDERX_PATH`、`ANDROID_HOME`、`GRADLE_JAVA_HOME`、`GRADLE_HOME`、`USER_DATA_PATH`（HBuilderX 用户数据目录）。首次解析第三方依赖时可能需要 Maven 网络访问。产物仅写入 `unpackage` 和工具链缓存。
 

@@ -187,4 +187,4 @@ options 可省略，直接调用 `cancel()`。cancel 只取消相机任务，不
 
 三端均保留原始 SDK outcome/error，初始化期间 NOT_READY、临时帧 BUSY 只跳过当前帧；SDK 真正的错误正常回传。相机进入后台会终止未提交的操作。插件不上传图片/特征、不落盘采集图；业务自行同步基准时负责账号关联、传输与存储。
 
-修改原生代码、interface.uts 或共享 UTS 实现后，需要重新编译包含插件的基座；只更新示例页面不需要。完整构建与真机验证范围见 [验证记录](VALIDATION.md)，配置见 [打包指南](BUILDING.md)。
+已有包含 SDK/依赖的基座后，修改插件 `.uts`、`interface.uts`、共享 UTS 或混编 `.kt`，可用 HBuilderX 本地联编并重新运行；修改原生依赖、Manifest 或资源时需要重制基座。仓库命令行页面同步工具对源码采用更保守的指纹检查，不能用页面同步代替原生编译。完整构建与真机验证范围见 [验证记录](VALIDATION.md)，配置见 [打包指南](BUILDING.md)。

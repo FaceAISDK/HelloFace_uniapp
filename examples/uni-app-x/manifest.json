@@ -2,8 +2,8 @@
   "name": "HelloFaceVerify uvue Demo",
   "appid": "__UNI__HELLOFACE",
   "description": "HelloFaceVerify 离线人脸识别与 1:1 人脸比对 UTS 示例",
-  "versionName": "0.1.4",
-  "versionCode": "104",
+  "versionName": "0.1.5",
+  "versionCode": "105",
   "app-harmony": {
     "distribute": {
       "bundleName": "dev.helloface.uniapp.demo",

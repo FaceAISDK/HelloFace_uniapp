@@ -95,7 +95,7 @@ npm run android:run
 npm run android:dev
 ```
 
-多台在线手机连接时使用 `--device 设备序列号`。Vue 默认通过 App 进程安全替换页面资源，复用相同基座；修改原生代码会要求重建。uvue 继续使用 HBuilderX 原生运行通道。手工制作基座前先执行 `npm run android:prepare`。签名、完整流程与实现细节见 [Android 调试说明](docs/ANDROID_DEBUG.md)。
+多台在线手机连接时使用 `--device 设备序列号`。上述命令行工具为 Vue 同步页面资源，复用相同基座，并对原生源码采用严格指纹校验；它们会在源码变化时要求重建。日常修改 `.uts` / `.kt` 请直接使用 HBuilderX 运行菜单本地联编，已有 SDK/依赖的基座无需每次云打包；更换依赖、资源或 Manifest 时才需重制基座或本地完整构建。uvue 使用 HBuilderX 原生运行通道。手工制作基座前先执行 `npm run android:prepare`。签名、断点步骤和适用范围见 [Android 调试说明](docs/ANDROID_DEBUG.md)。
 
 集成到已有工程时，复制**安装完成后的** `uni_modules/HelloFace-Verify`。Android 宿主还需合并下面的模型打包配置：
 

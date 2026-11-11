@@ -60,6 +60,9 @@ async function main() {
     isX, isPlugin: true, isSingleThread: true
   })
   if (!result || result.errMsg) throw new Error(result?.errMsg || 'The compiler returned no result.')
+  require('./check_android_bridge_abi.cjs').assertBridgeAbi(path.join(process.env.UNI_OUTPUT_DIR,
+    'uni_modules/HelloFace-Verify/utssdk/app-android/classes.dex'))
+  console.log('PASS stable Android bridge JVM names')
   console.log('PASS official UTS + Kotlin compilation: ' + (isX ? 'uni-app x' : 'uni-app'))
 }
 // The compiler owns persistent worker handles; close this CLI once compilation ends.

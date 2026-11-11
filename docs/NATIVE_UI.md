@@ -36,6 +36,6 @@ Android 原生 XML 中应使用 `app:scaleType="fitCenter"`，对应命名空间
 
 确认照片本身是 SDK 产生的对齐人脸区域，可能比实时预览紧凑；等比显示避免的是二次裁剪，不会把 SDK 人脸图还原为完整相机场景。
 
-Android 的界面位于 `HelloFaceVerifyCameraView.kt`，iOS 位于 `HelloFaceVerifyCameraView.swift`，鸿蒙位于 `HelloFaceVerifyCamera.ets`。外部集成仍直接调用原插件 API，Vue/uvue 示例不增加界面封装层。修改这些原生文件后须重建相应基座；仅同步页面资源不会更新原生界面。
+Android 的界面位于 `HelloFaceVerifyCameraView.kt`，iOS 位于 `HelloFaceVerifyCameraView.swift`，鸿蒙位于 `HelloFaceVerifyCamera.ets`。外部集成仍直接调用原插件 API，Vue/uvue 示例不增加界面封装层。调整共用配置后执行 `ui:build`，然后通过 HBuilderX 的相应平台本地工具链重新编译运行；已具备 SDK/依赖时无需仅为混编源码改动重新云打包。iOS 需要兼容的 Xcode，鸿蒙需要 DevEco。仅同步 Vue 页面资源不会更新原生界面；SDK、原生资源或 Manifest 变更仍需重建基座/宿主。
 
 编译、设备及算法验收范围见 [验证记录](VALIDATION.md)。

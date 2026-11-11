@@ -1,6 +1,20 @@
 # 验证记录
 
-更新日期：2026-11-10。原生 SDK 0.8.8，上游提交 `572751458a3ea9d85ca422cecec56d115be71e4e`。
+更新日期：2026-11-11。原生 SDK 0.8.8，上游提交 `572751458a3ea9d85ca422cecec56d115be71e4e`。
+
+## 2026-11-11 完整 Android 示例与本地联编 0.1.5
+
+用户切换到有现有 AppID 权限的 HBuilderX 账号后，完整自定义基座云打包成功；AppID 保持 `__UNI__DC2611F`。小米已从 0.1.1 更新到完整 uni-app 示例 0.1.5（versionCode 105），使用更新安装而非卸载重装。
+
+- 排查到旧调试产物与云基座混用时，Kotlin 跨文件 `internal` 访问器分别带有 `$main`、`$HelloFace_Verify_release` 后缀，曾触发 `NoSuchMethodError`。桥接成员加 `@PublishedApi` 保持 JVM 名称稳定；旧本地产物和旧云 DEX 被新增 ABI 检查拦截，修复后的 uni-app、uni-app x 本地 DEX 与新云基座均通过。
+- `npm run check` 通过 80 项检查、37 个 SDK 文件校验及三端 UTS 转换；两个 Android 官方 UTS/Kotlin 编译检查通过，并检查真实 DEX 的桥接名称。
+- 新基座 SDK、模型不压缩、源码指纹、16KB 静态对齐校验通过；APK SHA-256 为 `457fb2668175de757ea999b56ec1d27f7c1a0b262aa93a6c47b638e898f63e7e`，原生指纹为 `hfv1:6330b73fee6187b284b6d461477983bc3f3f355908adc58ed23c07812bccd65d`。设备仍为 4KB 页，不增加真实 16KB 页运行结论。
+- 在完整示例中打开真实录入相机。用户操作后的页面观察到 `enrollFace:ok / passed: true / PASSED`；本轮不据此推导人脸比对准确率或活体攻击防护效果。
+- 临时将 `HelloFaceVerifyCameraView.kt` 的页脚改成“本地源码调试”，经 HBuilderX 真机运行后，真实原生相机页面显示该文字；本地 DEX 也包含该标识，期间 APK 哈希不变，未再次云打包。随后逐字节恢复正式源码，确认重编译 DEX 不再包含临时标识。这证明已有依赖基座后，混编 Kotlin 源码可本地更新。
+- 正式文案恢复后，完整 Vue 示例通过 UTS 打开录入和验证页面，取消录入正常收尾；在镜头未检测到人脸时，验证正常返回 `verifyFace:ok / passed: false / NO_FACE_TIMEOUT`。当前进程未发现 `FATAL EXCEPTION`，未把无人脸超时当成身份验证成功。
+- 最终截图保存在忽略目录 `unpackage/screenshots/xiaomi-0.1.5-*.png`，本地联编证据为 `xiaomi-0.1.5-local-probe.png`；截图和用户特征不提交到 Git。原始相机画面、阈值、活体设置和 License 未修改。
+
+本轮仅确认鸿蒙设备 ALN-AL80 / API 26 的 HDC 连接，尚未将完整鸿蒙示例安装到该设备；iOS 完整构建的工具链限制继续适用。
 
 ## 2026-11-10 三端一致性 0.1.4
 

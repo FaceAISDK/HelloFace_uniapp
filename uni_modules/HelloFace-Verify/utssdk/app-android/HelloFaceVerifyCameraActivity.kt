@@ -41,7 +41,7 @@ import java.lang.ref.WeakReference
 import java.util.concurrent.Executors
 
 class HelloFaceVerifyCameraActivity : ComponentActivity() {
-    internal var jobID = ""
+    @PublishedApi internal var jobID = ""
     private lateinit var current: CameraJob
     private lateinit var preview: PreviewView
     private lateinit var screen: HelloFaceVerifyCameraView
@@ -246,7 +246,7 @@ class HelloFaceVerifyCameraActivity : ComponentActivity() {
         if (owned.isNotEmpty()) provider?.unbind(*owned.toTypedArray())
         displayPreview = null; analysis = null
     }
-    internal fun shutdownCamera() {
+    @PublishedApi internal fun shutdownCamera() {
         stopping = true
         generation++
         request?.cancel(); request = null
