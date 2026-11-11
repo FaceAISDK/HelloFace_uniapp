@@ -281,6 +281,7 @@ class HelloFaceVerifyCameraActivity : ComponentActivity() {
     }
     @PublishedApi internal fun shutdownCamera() {
         stopping = true
+        if (::screen.isInitialized) screen.clearPhoto()
         restoreBrightness()
         generation++
         request?.cancel(); request = null

@@ -4,7 +4,7 @@
 
 ## 首次准备
 
-1. 安装 HBuilderX 的鸿蒙运行扩展及 DevEco Studio，在 HBuilderX「设置 → 运行配置」中配置 DevEco 路径。本机为 `/Applications/DevEco-Studio.app`，HBuilderX 5.34。插件使用真实 SDK 0.8.8，要求 ARM64、API 20+；不能仅按 uni-app 框架更低的最低 API 配置宿主。
+1. 安装 HBuilderX 的鸿蒙运行扩展及 DevEco Studio，在 HBuilderX「设置 → 运行配置」中配置 DevEco 路径。本机为 `/Applications/DevEco-Studio.app`，HBuilderX 5.34。插件使用真实 SDK 0.8.11，要求 ARM64、API 20+；不能仅按 uni-app 框架更低的最低 API 配置宿主。
 
    两套示例已在 `manifest.json` 的 `app-harmony.distribute` 设置 `"compatibleSdkVersion": "6.0.0(20)"`，HBuilderX 会把它应用到生成工程的各个 product。API 20 对应 HarmonyOS 6.0.0，作为最低版本时不支持鸿蒙 5；较新系统满足最低版本条件，功能仍需真机验收。不要降低真实 SDK HAR 的最低版本声明，也不要只修改会被覆盖的 `unpackage` 文件。这个配置解决 `00306004` / `MergeProfile` 的 API 13 与 20 冲突；签名证书需另行配置。
 2. 在手机开启开发者模式与 USB 调试，通过 USB 连接并在手机确认调试授权。以下命令应列出设备；本次为 Mate 60 Pro / ALN-AL80 / API 26。
@@ -90,6 +90,16 @@ hdc shell hilog -P 12345
 
 先验证缺少基准的返回，再验证相机授权、预览、取消、无人脸超时、重复调用、后台退出和恢复。真人录入确认、重启后的持久化、本人/他人验证和动作活体，需要操作者配合。`success` 只表示接口完成，只有 `passed === true` 才是验证通过。
 
-2026-11-11 已完成匹配签名，完整根 Vue3 示例已构建、安装并在 Mate 60 Pro（系统 `OpenHarmony-7.0.0.111` / API 26）运行。已实际检查缺少基准、权限拒绝/允许、原生相机入口、外部图片/特征同步、重启后基准持久化、无人脸超时、取消、重复点击、后台恢复及删除确认。真人确认照片颜色修复、录入保存、稳定圆环、本人静默验证和动作活体均完成复验，结果见 [验证记录](VALIDATION.md) 最新一节；尚未测试他人比对，没有 HarmonyOS 6 实机结果，也未验收独立 uvue 完整 App。
+2026-11-11 已完成匹配签名，当前 SDK 0.8.11 的完整根 Vue3 示例已在 Mate 60 Pro（系统 `OpenHarmony-7.0.0.111` / API 26）构建、安装和运行。本轮样式检查完成小图弹窗、重拍/关闭、缺图禁用、保存按钮及返回保护，并在正式示例复测授权、录入打开、取消和无基准处理。临时预览安装后原 `demo-user` 基准未保留，尚未恢复；本轮未新增真人保存、本人/他人比对、活体或无人脸超时验收。先前颜色、稳定圆环、本人静默和动作活体通过的历史记录保留于 [验证记录](VALIDATION.md)，不能当作本轮通过。没有 HarmonyOS 6 实机结果，也未验收独立 uvue 完整 App。
 
 颜色排错依据：[ImageKit 初始化选项](https://developer.huawei.com/consumer/cn/doc/harmonyos-references/arkts-apis-image-i/) 中 `srcPixelFormat` 默认值为 BGRA，而 `pixelFormat` 是生成 PixelMap 的格式；两者含义不同。该输入格式选项自 API 12 提供，本修复不提高当前 API 20 的最低系统要求。
+
+录入成功采集后，确认图在居中卡片中按最大 188vp 显示，保持比例，右上角可取消，底部可重拍/确认。`CapturePhoto` / `ConfirmationDialog` 的断点可检查 `alignedSide`、显示边长和保存禁用状态；图库大小属于 SDK 输出，显示区域大小由 `native-ui.json` 统一维护。
+
+升级后若编译提示找不到 `@dcloudio/uni-app-runtime`、`@uni_modules/helloface-verify` 等，先检查生成工程的 `oh_modules` 是否存在。本次通过在 DevEco 终端的生成工程根目录执行 `ohpm install --all` 恢复依赖，再从 HBuilderX 正常重新运行解决；无需改 AppID、Bundle Name 或签名。不要在并行构建中清理其他运行通道正在使用的生成目录。
+
+## 调试安装与用户数据
+
+2026-11-11 样式复查中，同包名临时 UI 宿主安装后发现原 `demo-user` 基准未保留；当前偏好文件缺失、具体重置环节未确定，详情见 [验证记录](VALIDATION.md)。不要在已有真人基准的包名上安装临时 UI 宿主；界面预览应使用独立 Bundle 与沙箱。
+
+完整示例更新前后要核对 Bundle、签名、安装时间、UID 和基准能否读取。[HDC 官方文档](https://developer.huawei.com/consumer/cn/doc/harmonyos-guides/hdc/)说明 `hdc install -r` 表示覆盖安装，但安装命令成功本身不能证明用户数据保留；不要为了处理签名/安装错误直接卸载。基准使用 HUKS 不可导出密钥，单独复制密文不能保证卸载后可恢复。本轮没有用示例特征覆盖原真人标识。

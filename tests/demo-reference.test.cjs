@@ -18,6 +18,6 @@ test('demo image, Base64 and SDK-extracted external feature refer to one 200x200
   assert.equal(constants.demoFeature, reference.feature)
   assert.match(reference.feature, /^HF1:[A-Za-z0-9_-]{600}$/)
   assert.equal(constants.demoFeatureSpaceID, 'jdx-feature-v1')
-  assert.equal(reference.sdkVersion, '0.8.8')
+  assert.equal(reference.sdkVersion, '0.8.11')
   assert.equal(reference.sdkVersion, JSON.parse(fs.readFileSync(path.join(root, 'sdk-artifacts.json'))).version)
 })

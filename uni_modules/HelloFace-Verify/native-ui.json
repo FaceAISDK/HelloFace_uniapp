@@ -43,7 +43,8 @@
     "savingDetail": "即将完成，请稍候",
     "savingButton": "正在保存…",
     "actionFallback": "请按提示完成动作",
-    "stageFallback": "请正对镜头"
+    "stageFallback": "请正对镜头",
+    "cancelCapture": "取消录入"
   },
   "metrics": {
     "sideInset": 24,
@@ -84,7 +85,16 @@
     "outerRingGap": 7,
     "ringWidth": 3,
     "borderWidth": 1,
-    "dividerHeight": 20
+    "dividerHeight": 20,
+    "dialogMaxWidth": 360,
+    "dialogInset": 24,
+    "dialogPadding": 24,
+    "dialogRadius": 20,
+    "dialogPhotoSide": 188,
+    "dialogPhotoRadius": 16,
+    "dialogGap": 16,
+    "dialogHeadingHeight": 32,
+    "dialogCloseSize": 32
   },
   "fonts": {
     "back": 32,
@@ -97,11 +107,14 @@
     "confirmation": 13,
     "button": 15,
     "privacy": 12,
-    "brand": 11
+    "brand": 11,
+    "dialogHeading": 18,
+    "dialogClose": 24
   },
   "values": {
     "circleRatio": 0.8,
-    "disabledAlpha": 0.55
+    "disabledAlpha": 0.55,
+    "dialogScrimAlpha": 0.62
   },
   "stages": {
     "WAITING_FOR_FACE": "请正对镜头",

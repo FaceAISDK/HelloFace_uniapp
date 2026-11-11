@@ -2,7 +2,7 @@
 
 **HelloFaceVerify** 是面向 **uni-app / uni-app x** 的离线人脸识别 UTS 插件，专注**人脸录入、1:1 人脸比对、静默活体检测和动作活体检测**。支持 **Android、iOS、HarmonyOS 鸿蒙**原生相机采集，适配 **Vue2、Vue3、uvue**，便于评估 App 登录确认、签到核验与设备端人员验证等场景。
 
-识别在设备端离线完成，无需调用云端人脸识别 API。用户确认录入后，基准特征加密保存在本机；业务可按 `faceID` 读取、同步和删除。底层使用 [FaceSDKPro/HelloFace](https://github.com/FaceSDKPro/HelloFace) 原生 SDK 0.8.8。
+识别在设备端离线完成，无需调用云端人脸识别 API。用户确认录入后，基准特征加密保存在本机；业务可按 `faceID` 读取、同步和删除。底层使用 [FaceSDKPro/HelloFace](https://github.com/FaceSDKPro/HelloFace) 原生 SDK 0.8.11。
 
 插件发布 ID 为 `HelloFace-Verify`（作者前缀 `HelloFace`，插件名 `Verify`），展示名称为 `HelloFaceVerify`。目录与导入入口为 `uni_modules/HelloFace-Verify`；从早期 `HelloFace` 或 `HelloFaceVerify` 目录升级时，更新导入路径并重新构建包含插件的原生基座。接口方法与参数相同，当前错误主题为 `HelloFaceVerify`，本机特征存储键延续原有值。
 

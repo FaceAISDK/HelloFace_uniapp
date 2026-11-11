@@ -10,3 +10,5 @@
 生成工具：内置 imagegen（非 CLI）。生成提示：
 
 > Use case: photorealistic-natural. Asset type: face SDK demo fixture. Generate one square, realistic ID-style headshot of a completely fictional adult East Asian person about 30 years old, straight-on facing camera, neutral expression, eyes open, closed mouth, no glasses, no hat, face unobstructed. Plain light gray background, even soft lighting, sharp natural facial landmarks. Head occupies about 75% of image height, full chin and forehead visible with small margin, no hands. Intended final deliverable 200 by 200 pixels; make a square clean portrait suitable for resizing. No text, logos or watermark.
+
+2026-11-11 使用锁定提交 `dc60c7b15ebf8038fb73a752bcea3590bbd86eaf` 的 SDK 0.8.11，在鸿蒙 API 26 完整签名示例中重新提取最终 PNG 的特征。通过公开同步/读取/删除 API 使用随机测试标识，测试基准已删除；JSON 记录此次提取平台，Vue/uvue 常量已重新生成。模型文件未改变，但新提取值与旧版不同，未仅修改版本标签沿用旧特征。

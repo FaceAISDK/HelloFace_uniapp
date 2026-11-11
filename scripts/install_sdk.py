@@ -10,6 +10,7 @@ import shutil
 import tempfile
 import time
 import subprocess
+import re
 
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN = ROOT / 'uni_modules' / 'HelloFace-Verify' / 'utssdk'
@@ -64,6 +65,31 @@ def install(artifact, lock, source=None, check=False):
         staging.unlink(missing_ok=True)
 
 
+def retire_obsolete(artifacts, root=ROOT, check=False):
+    """Keep obsolete versioned SDK libraries out of the compiler; retain a rollback copy."""
+    plugin = Path(root) / 'uni_modules/HelloFace-Verify/utssdk'
+    expected = {plugin / a['destination'] for a in artifacts}
+    directories = {p.parent for p in expected if p.suffix in ('.aar', '.har')}
+    retired = []
+    for directory in directories:
+        for path in directory.glob('hiface-*'):
+            if path in expected or not path.is_file() or not re.fullmatch(r'hiface-\d+\.\d+\.\d+(?:[.-][A-Za-z0-9]+)*\.(aar|har)', path.name):
+                continue
+            if check:
+                raise RuntimeError('Obsolete SDK library still included: ' + path.name + '. Run sdk:install to retire it.')
+            digest = hashlib.sha256(path.read_bytes()).hexdigest()
+            backup = Path(root) / '.sdk-cache/retired-sdk' / (digest + '-' + path.name)
+            backup.parent.mkdir(parents=True, exist_ok=True)
+            if backup.exists():
+                if hashlib.sha256(backup.read_bytes()).hexdigest() != digest:
+                    raise RuntimeError('Retired SDK backup mismatch: ' + backup.name)
+                path.unlink()
+            else:
+                shutil.move(str(path), str(backup))
+            retired.append(path.name)
+    return retired
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--platform', choices=['all', 'android', 'ios', 'harmony'], default='all')
@@ -83,6 +109,8 @@ def main():
                 print('ERROR: ' + str(error), flush=True)
     if failures:
         raise SystemExit(1)
+    for name in retire_obsolete(selected, check=args.check):
+        print('Retired obsolete ' + name + ' to .sdk-cache/retired-sdk (backup retained).')
     print(f"Verified {len(selected)} files, HelloFace {lock['version']} ({lock['commit'][:12]}).")
 
 

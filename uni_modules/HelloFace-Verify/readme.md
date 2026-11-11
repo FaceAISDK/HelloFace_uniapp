@@ -10,7 +10,7 @@
 
 | 能力 | 使用方式 |
 | --- | --- |
-| 人脸采集与录入 | 打开原生相机，自动采集并展示预览，用户确认后保存 |
+| 人脸采集与录入 | 打开原生相机，自动采集后在小图确认弹窗展示预览，用户确认后保存 |
 | 1:1 人脸识别 / 人脸比对 | 按指定 `faceID` 读取基准，验证当前人脸是否匹配 |
 | 静默活体检测 | 验证时默认开启，由原生 SDK 给出活体结论 |
 | 动作活体检测 | 支持眨眼、张嘴、摇头、点头，最多 4 个动作，可重复 |
@@ -81,9 +81,9 @@ enrollFace({
 })
 ```
 
-`faceID` 为 1–64 个 UTF-16 单元，去除两端空白，不接受 NUL。重复录入默认保留已有特征；确认需要覆盖时传 `overwrite: true`。确认之前退出不会保存。
+`faceID` 为 1–64 个 UTF-16 单元，去除两端空白，不接受 NUL。重复录入默认保留已有特征；确认需要覆盖时传 `overwrite: true`。确认弹窗使用最大 188×188 的逻辑尺寸显示 SDK 对齐图，保留完整比例，不再铺满采集圆框。三端统一标题、遮罩、图片及按钮尺寸；标题和操作栏固定，小屏中间内容可滚动。可重新采集或点右上角取消；缺图禁止确认，保存期间禁用操作，确认之前退出不会保存。录入时稳定圆环约 0.7 秒，动画本身不触发采集或成功。
 
-当前 SDK 0.8.8 在单人、大小和正脸稳定性满足要求后，等待约 700 毫秒再采集；检测与特征提取也需要时间，因此不是打开相机后固定 1 秒完成。鸿蒙和 iOS 录入页在 `HOLD_STILL` 阶段显示稳定等待圆环，偏头、晃动或丢失人脸时重置；圆环走满后仍等待 SDK 的实际结果，再展示照片供用户确认。iOS 的功能对照、静态检查及待真机项目见 [iOS 功能与调试](https://github.com/FaceAISDK/HelloFace_uniapp/blob/main/docs/IOS_DEBUG.md)。
+当前 SDK 0.8.11 在单人、大小和正脸稳定性满足要求后，等待约 700 毫秒再采集；检测与特征提取也需要时间，因此不是打开相机后固定 1 秒完成。鸿蒙和 iOS 录入页在 `HOLD_STILL` 阶段显示稳定等待圆环，偏头、晃动或丢失人脸时重置；圆环走满后仍等待 SDK 的实际结果，再展示照片供用户确认。iOS 的功能对照、静态检查及待真机项目见 [iOS 功能与调试](https://github.com/FaceAISDK/HelloFace_uniapp/blob/main/docs/IOS_DEBUG.md)。
 
 ## 1:1 人脸识别与活体检测
 
@@ -177,7 +177,7 @@ verifyFace({
 
 ## 版本与验证说明
 
-当前插件版本 **0.1.5**，底层为 HelloFace 原生 SDK **0.8.8**。Android 原生 Kotlin 编译、鸿蒙原生 HAR 构建及三端 UTS 转换已通过；iOS 当前仅完成 Swift 语法检查，完整编译和三端真机联合运行仍需按 [验证记录](https://github.com/FaceAISDK/HelloFace_uniapp/blob/main/docs/VALIDATION.md) 验收。
+当前插件版本 **0.1.5**，底层为 HelloFace 原生 SDK **0.8.11 Beta**。Android 两套 UTS/Kotlin 编译及新基座校验通过，鸿蒙完整签名示例已在 API 26 真机运行并以新 SDK 实际提取 Demo 图片特征。iOS 完成语法、状态与平台类型检查，真实 SDK 完整编译仍受本机 Xcode 版本限制；详细真机边界见 [验证记录](https://github.com/FaceAISDK/HelloFace_uniapp/blob/main/docs/VALIDATION.md)。
 
 从 `HelloFace` 或 `HelloFaceVerify` 目录升级时，改为 `HelloFace-Verify` 并更新导入入口，重新构建包含本插件的原生基座。当前错误主题为 `HelloFaceVerify`，原有接口方法、参数与本机特征存储键延续使用。
 

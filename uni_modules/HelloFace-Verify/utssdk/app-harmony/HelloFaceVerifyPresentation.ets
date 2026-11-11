@@ -43,6 +43,7 @@ export class HelloFaceVerifyPresentation {
     static readonly savingButton: string = "正在保存…";
     static readonly actionFallback: string = "请按提示完成动作";
     static readonly stageFallback: string = "请正对镜头";
+    static readonly cancelCapture: string = "取消录入";
     static readonly sideInset: number = 24;
     static readonly headerInset: number = 8;
     static readonly backInset: number = 12;
@@ -82,6 +83,15 @@ export class HelloFaceVerifyPresentation {
     static readonly ringWidth: number = 3;
     static readonly borderWidth: number = 1;
     static readonly dividerHeight: number = 20;
+    static readonly dialogMaxWidth: number = 360;
+    static readonly dialogInset: number = 24;
+    static readonly dialogPadding: number = 24;
+    static readonly dialogRadius: number = 20;
+    static readonly dialogPhotoSide: number = 188;
+    static readonly dialogPhotoRadius: number = 16;
+    static readonly dialogGap: number = 16;
+    static readonly dialogHeadingHeight: number = 32;
+    static readonly dialogCloseSize: number = 32;
     static readonly fontBack: number = 32;
     static readonly fontHeading: number = 17;
     static readonly fontLocal: number = 11;
@@ -93,8 +103,11 @@ export class HelloFaceVerifyPresentation {
     static readonly fontButton: number = 15;
     static readonly fontPrivacy: number = 12;
     static readonly fontBrand: number = 11;
+    static readonly fontDialogHeading: number = 18;
+    static readonly fontDialogClose: number = 24;
     static readonly circleRatio: number = 0.8;
     static readonly disabledAlpha: number = 0.55;
+    static readonly dialogScrimAlpha: number = 0.62;
 
     static guidance(stage: string, action: string | undefined): string {
         if (stage === 'PERFORM_ACTION') {

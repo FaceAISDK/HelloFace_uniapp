@@ -45,6 +45,7 @@ enum HelloFaceVerifyPresentation {
     static let savingButton = "正在保存…"
     static let actionFallback = "请按提示完成动作"
     static let stageFallback = "请正对镜头"
+    static let cancelCapture = "取消录入"
     static let sideInset: CGFloat = 24
     static let headerInset: CGFloat = 8
     static let backInset: CGFloat = 12
@@ -84,6 +85,15 @@ enum HelloFaceVerifyPresentation {
     static let ringWidth: CGFloat = 3
     static let borderWidth: CGFloat = 1
     static let dividerHeight: CGFloat = 20
+    static let dialogMaxWidth: CGFloat = 360
+    static let dialogInset: CGFloat = 24
+    static let dialogPadding: CGFloat = 24
+    static let dialogRadius: CGFloat = 20
+    static let dialogPhotoSide: CGFloat = 188
+    static let dialogPhotoRadius: CGFloat = 16
+    static let dialogGap: CGFloat = 16
+    static let dialogHeadingHeight: CGFloat = 32
+    static let dialogCloseSize: CGFloat = 32
     static let fontBack: CGFloat = 32
     static let fontHeading: CGFloat = 17
     static let fontLocal: CGFloat = 11
@@ -95,8 +105,11 @@ enum HelloFaceVerifyPresentation {
     static let fontButton: CGFloat = 15
     static let fontPrivacy: CGFloat = 12
     static let fontBrand: CGFloat = 11
+    static let fontDialogHeading: CGFloat = 18
+    static let fontDialogClose: CGFloat = 24
     static let circleRatio: CGFloat = 0.8
     static let disabledAlpha: CGFloat = 0.55
+    static let dialogScrimAlpha: CGFloat = 0.62
 
     static func guidance(stage: String, action: String?) -> String {
         if stage == "PERFORM_ACTION" {

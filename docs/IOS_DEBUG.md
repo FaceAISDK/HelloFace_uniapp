@@ -18,7 +18,7 @@
 | 相机被占用、会话中断或运行异常 | 本次补齐通知监听并返回错误/取消，统一释放资源 | AVFoundation 类型检查通过，实际系统中断待真机 |
 | 页面满亮、退出恢复、保持常亮 | 已有；确认/重拍保留原始亮度快照，后台及离页恢复 | iOS 待真机，不能沿用 Android/鸿蒙的真机结果 |
 
-三端确认照片仍由 SDK 0.8.8 提供固定 333×333 对齐预览。高清预览、确认后再提取特征属于共同的流程扩展，不是本次 iOS 功能缺项；本次未更换 SDK、模型、阈值、License 或存储格式。
+三端确认照片仍由 SDK 0.8.11 提供固定 333×333 对齐预览。高清预览、确认后再提取特征属于共同的流程扩展，不是本次 iOS 功能缺项；SDK 已升级至 0.8.11；模型、阈值、用户 License 和存储格式保持不变。
 
 ## 本机能执行的检查
 
@@ -45,7 +45,7 @@ npm run ios:check -- --full
 
 `--full` 使用已安装的真实 HiFace/HiFaceNative framework 类型检查全部源码，失败会返回非零状态。2026-11-11 本机仍为 Xcode 15.2，不支持 SDK 所需的 Swift 6，完整 SDK 类型检查受阻。局部类型检查、UTS 转换、完整 App 链接/签名和真机验收分别记录，不能互相替代。
 
-平台类型检查同时开启严格并发诊断，通知处理和 UTS 回调显式路由到主 actor，并保留 iOS 15 的最低版本。旧 iOS 17.2 SDK 的 `UIAccessibilityTraits.updatesFrequently` 声明仍触发一条共享全局状态警告；该读取在 UIKit 视图的主 actor 内，保留可访问性提示，待兼容新版 Xcode 的完整检查复核。
+平台类型检查同时开启严格并发诊断，通知处理和 UTS 回调显式路由到主 actor，并保留 iOS 15 的最低版本。旧 iOS 17.2 SDK 的 `UIAccessibilityTraits.updatesFrequently` 与 `UIAccessibility.Notification.screenChanged` 声明仍触发共享全局状态警告；该读取在 UIKit 视图的主 actor 内，保留可访问性提示，待兼容新版 Xcode 的完整检查复核。
 
 ## 构建与断点
 

@@ -1,8 +1,10 @@
 {
-  "feature": "HF1:GOdCoarMMVk4eQnMF4vaLZEK8qTw5VGVVZPWqeLCuObkt84ZTILKalgyocB5wdDZVCDTQK2caLUPwIsOM9fMEyKRSlyXDo9Bk05OB1PgR0U96wZ2IawWvhvmFFs9jO6h9y0lPkdJrCZQmy9rFeK7r9--WvWtlU9txRExy8ioF9JwznSbFpk_TuEy1I5dT1raAqKSscKktiHpG6YulxI7dXelJHMKXNuQ5rt9SAMGMitNcRLrKhGT1V69K5hUJUBvJZpYqqNSxy7sONUPw1lhU3cN5U1pKZUU-Z-zkqWHB-drPYeN4zWp4uuhadyd6F5AuJ1yOrEOw46pZafOaU-LEYd5tl7xWp3sWhAYxlrqhQZtpcJxNfR8lmEgjITjpi_vw4zeyziTHkQY7lXo7RrcZzJsZe2kvIT6TZpR8bdw8nN2z9fHqMnLSXAiTpEV1WhPmCigyqM_B6klVUrLaQ8pRITFtSPqJE2QyeKIVKTMVLnZmHebwUbiINb6J7rHcWRYh5wmeSEDxSxgPaT_M-lXlkKgxhuYZ-HMeMts6fLYJnrSCnVum7OBKfT3kKdNnzZ86NBZsGxVtKeVpb1vCXUqDSNI",
+  "feature": "HF1:GP9CnarsEho4fwncF0waLY8O6rTw5VGXWYvmieHDtOLUl65Yy4LKalhSob93vdjZE-FSQq2UaLRPwIkOK-gsEyCNQlSnDw9Bk0ZF91PfyEU54wZ14a0YwiP109u8iO6SBy1lPEc5pAZwm7BpFerLz-A-XPWtpU_sxhExw8iIF9N01nya9tm_SuFC1M3dT1zqAsLScUGkuhnpO2YulRIzhTelpHUGTMtQ5juBSAMGMerOcRLjKhFU1WLBM5hz5MBzJaJoqmLRxy7sKLUQxFllS6cN5U5pLZUFOR-zkKWHGAeqvYWJ60WqY2mhbeSd594_uJ1ySpDPxIytbcfN6dGLDYd5lh9wWp3sSi-YxlTqdQaN5kBxLexsleCjioDTpk-uwYze0yiTXkQa8k347ZteZTJsZe2kPIj-VXpRsLdy7muGr1dHqMnLWXBiTpEV3VhP16mgzqM-x-imVUbDWO8pxYTNtSQp482SyeKoNKTMVr3RuFdbwETqIOb557nFdWRYiFupeyEL1WxgPqUDI_lX1sOeziOYZ-HLesds2lLYqXjSEoVu27KFLfT30GdMnzJ0-LAZsW5ZtJeV5j1tEYUprSLH",
   "featureSpaceID": "jdx-feature-v1",
   "imageSha256": "d02a54e1b86cd1495b2bebbedb93474010aa21dbb8b6a12494a4168eeffb5c8a",
-  "sdkVersion": "0.8.8",
+  "sdkVersion": "0.8.11",
   "extractionAPI": "Android SDK capture().extractFeatureBlocking",
-  "source": "AI-generated fictional adult; 200x200 PNG compressed with TinyPNG"
+  "source": "AI-generated fictional adult; 200x200 PNG compressed with TinyPNG",
+  "sdkCommit": "dc60c7b15ebf8038fb73a752bcea3590bbd86eaf",
+  "extractionPlatform": "HarmonyOS API 26"
 }

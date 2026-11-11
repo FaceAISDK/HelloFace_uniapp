@@ -2,5 +2,5 @@
 package uts.sdk.modules.HelloFaceVerify
 
 internal object HelloFaceVerifyBuildInfo {
-    const val FINGERPRINT = "hfv1:9f104ac612e27cbf649e423bb6b98385171e78c6c4144e1ef67f3c884c262f75"
+    const val FINGERPRINT = "hfv1:146d7845f6e1f99288592fbf621225b1457a2baf933b1e7938922c0ec33cd7de"
 }

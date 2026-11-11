@@ -77,3 +77,40 @@ test('Harmony capture ring: verification does not start it, leaving the camera r
   pendingTick()
   assert.equal(overlay.draws, 1)
 })
+
+test('Harmony confirmation: preview is bounded to 188vp and fits a narrow dialog', () => {
+  const source = fs.readFileSync(path.resolve(__dirname, '../uni_modules/HelloFace-Verify/utssdk/app-harmony/HelloFaceVerifyCamera.ets'), 'utf8')
+  const methods = source.slice(source.indexOf('  private confirmationWidth('), source.indexOf('  @Builder\n  private ConfirmationDialog('))
+  const compiled = ts.transpileModule('exports.Dialog = class {' + methods + '}', {
+    compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS }
+  }).outputText
+  const exports = {}
+  vm.runInNewContext(compiled, { exports, UI: { dialogMaxWidth: 360, dialogInset: 24, dialogPadding: 24, dialogPhotoSide: 188 } })
+  for (const [width, expected] of [[420, 188], [800, 188], [200, 104]]) {
+    const dialog = new exports.Dialog()
+    Object.assign(dialog, { viewportWidth: width, safeLeft: 0, safeRight: 0 })
+    assert.equal(dialog.confirmationPhotoSide(), expected)
+    assert.ok(dialog.confirmationPhotoSide() + 48 <= dialog.confirmationWidth())
+  }
+})
+
+test('Harmony confirmation: missing preview releases space and short screens keep a scrollable body', () => {
+  const source = fs.readFileSync(path.resolve(__dirname, '../uni_modules/HelloFace-Verify/utssdk/app-harmony/HelloFaceVerifyCamera.ets'), 'utf8')
+  const methods = source.slice(source.indexOf('  private confirmationWidth('), source.indexOf('  @Builder\n  private ConfirmationDialog('))
+  const spec = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../uni_modules/HelloFace-Verify/native-ui.json'), 'utf8'))
+  const exports = {}
+  vm.runInNewContext(ts.transpileModule('exports.Dialog = class {' + methods + '}', {
+    compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS }
+  }).outputText, { exports, UI: spec.metrics })
+  const dialog = new exports.Dialog()
+  Object.assign(dialog, { viewportWidth: 390, viewportHeight: 844, safeLeft: 0, safeRight: 0, safeTop: 47, safeBottom: 34, photo: {} })
+  const full = dialog.confirmationBodyHeight()
+  dialog.photo = undefined
+  assert.equal(full - dialog.confirmationBodyHeight(), 188 + 16)
+  dialog.photo = {}
+  dialog.viewportHeight = 360
+  const body = dialog.confirmationBodyHeight()
+  const fixed = 24 * 2 + 32 + 16 * 2 + 50
+  assert.ok(body > 0 && body < full)
+  assert.ok(body + fixed + 24 * 2 + 47 + 34 <= 360)
+})

@@ -15,7 +15,7 @@ const CAMERA_INK: string = UI.colorInk;
 const CAMERA_MUTED: string = UI.colorMuted;
 const CAMERA_BLUE: string = UI.colorBlue;
 const CAMERA_GREEN: string = UI.colorGreen;
-// 与 SDK 0.8.8 的引导录入稳定窗口及原生 Demo 一致，仅用于视觉提示。
+// 与 SDK 0.8.11 的引导录入稳定窗口及原生 Demo 一致，仅用于视觉提示。
 const CAPTURE_HOLD_MILLIS: number = 700;
 const CAPTURE_PROGRESS_INTERVAL_MILLIS: number = 33;
 interface DialogParams { flow: CameraFlow; }
@@ -86,7 +86,7 @@ struct FaceCameraDialog {
   private circleY(): number { return this.titleY() + UI.circleOffset; }
   private diameter(): number {
     return Math.max(UI.minCircle, Math.min(this.contentWidth(), (this.viewportWidth - this.safeLeft - this.safeRight) * UI.circleRatio,
-      this.viewportHeight - this.safeBottom - (this.captured ? UI.captureReserve : UI.liveReserve) - this.circleY()));
+      this.viewportHeight - this.safeBottom - UI.liveReserve - this.circleY()));
   }
   private phaseY(): number { return this.circleY() + this.diameter() + UI.phaseOffset; }
   private privacyY(): number { return this.viewportHeight - this.safeBottom - UI.footerInset; }
@@ -141,12 +141,64 @@ struct FaceCameraDialog {
   @Builder
   private CapturePhoto(photo: image.PixelMap) {
     Image(photo).objectFit(ImageFit.Contain).backgroundColor(CAMERA_BACKGROUND)
-      .width(this.diameter()).height(this.diameter())
-      .borderRadius(this.diameter() / 2).clip(true)
+      .width(this.confirmationPhotoSide()).height(this.confirmationPhotoSide())
+      .borderRadius(UI.dialogPhotoRadius).clip(true)
       .scale({ x: this.flow?.isFrontCamera() === false ? 1 : -1, y: 1 })
-      .position({ x: this.centerX() - this.diameter() / 2, y: this.circleY() })
       .accessibilityText(UI.photoLabel)
       .onDisAppear((): void => { this.flow?.releasePreview(photo); })
+  }
+  private confirmationWidth(): number {
+    return Math.max(1, Math.min(UI.dialogMaxWidth, this.viewportWidth - this.safeLeft - this.safeRight - UI.dialogInset * 2));
+  }
+  private confirmationPhotoSide(): number {
+    return Math.max(1, Math.min(UI.dialogPhotoSide, this.confirmationWidth() - UI.dialogPadding * 2));
+  }
+  private confirmationBodyHeight(): number {
+    const photoHeight = this.photo === undefined ? 0 : this.confirmationPhotoSide() + UI.dialogGap;
+    const content = photoHeight + UI.detailHeight + UI.dialogGap + UI.confirmationHeight;
+    const available = this.viewportHeight - this.safeTop - this.safeBottom - UI.dialogInset * 2 - UI.dialogPadding * 2 -
+      UI.dialogHeadingHeight - UI.dialogGap * 2 - UI.buttonHeight;
+    return Math.min(content, Math.max(1, available));
+  }
+  @Builder
+  private ConfirmationDialog() {
+    Stack({ alignContent: Alignment.Center }) {
+      Column().width('100%').height('100%').backgroundColor(Color.Black).opacity(UI.dialogScrimAlpha).onClick((): void => {})
+      Column({ space: UI.dialogGap }) {
+        Row() {
+          Text(this.saving ? UI.savingTitle : (this.photo === undefined ? UI.missingTitle : UI.confirmTitle))
+            .fontSize(UI.fontDialogHeading).fontWeight(FontWeight.Medium).fontColor(CAMERA_INK).layoutWeight(1).maxLines(2)
+            .textAlign(TextAlign.Start)
+          Button('×', { type: ButtonType.Normal }).width(UI.dialogCloseSize).height(UI.dialogCloseSize)
+            .padding(0)
+            .fontSize(UI.fontDialogClose).fontColor(CAMERA_INK).backgroundColor(Color.Transparent).accessibilityText(UI.cancelCapture)
+            .enabled(!this.saving).opacity(this.saving ? UI.disabledAlpha : 1)
+            .onClick((): void => { this.flow?.cancel(); })
+        }.width('100%').height(UI.dialogHeadingHeight)
+        Scroll() {
+          Column({ space: UI.dialogGap }) {
+            if (this.photo !== undefined) { this.CapturePhoto(this.photo) }
+            Text(this.saving ? UI.savingDetail : (this.photo === undefined ? UI.missingDetail : UI.confirmDetail))
+              .fontSize(UI.fontDetail).fontColor(CAMERA_MUTED).textAlign(TextAlign.Center).width('100%').height(UI.detailHeight).maxLines(2)
+            Text(UI.confirmation).fontSize(UI.fontConfirmation).fontColor(CAMERA_MUTED)
+              .textAlign(TextAlign.Center).width('100%').height(UI.confirmationHeight).maxLines(2)
+          }.width('100%')
+        }.width('100%').height(this.confirmationBodyHeight()).scrollBar(BarState.Auto)
+        Row({ space: UI.buttonGap }) {
+          Button(UI.retake, { type: ButtonType.Normal }).layoutWeight(1).height(UI.buttonHeight)
+            .fontSize(UI.fontButton).fontWeight(FontWeight.Medium).fontColor(CAMERA_INK).backgroundColor(Color.White)
+            .border({ width: UI.borderWidth, color: UI.colorButtonBorder })
+            .borderRadius(UI.buttonRadius)
+            .enabled(!this.saving).opacity(this.saving ? UI.disabledAlpha : 1).onClick((): void => { this.flow?.retake(); })
+          Button(this.saving ? UI.savingButton : UI.confirm, { type: ButtonType.Normal }).layoutWeight(1)
+            .height(UI.buttonHeight).borderRadius(UI.buttonRadius).fontSize(UI.fontButton).fontWeight(FontWeight.Medium)
+            .fontColor(Color.White).backgroundColor(CAMERA_BLUE).enabled(!this.saving && this.photo !== undefined)
+            .opacity(this.saving || this.photo === undefined ? UI.disabledAlpha : 1)
+            .onClick((): void => { this.saving = true; this.flow?.confirm(); })
+        }.width('100%')
+      }.width(this.confirmationWidth()).padding(UI.dialogPadding).backgroundColor(Color.White).borderRadius(UI.dialogRadius)
+        .translate({ x: (this.safeLeft - this.safeRight) / 2, y: (this.safeTop - this.safeBottom) / 2 })
+    }.width('100%').height('100%')
   }
   build() {
     Stack({ alignContent: Alignment.TopStart }) {
@@ -158,7 +210,6 @@ struct FaceCameraDialog {
           this.controller.setXComponentSurfaceRotation({ lock: true });
           this.flow?.start(this.controller.getXComponentSurfaceId());
         })
-      if (this.captured && this.photo !== undefined) { this.CapturePhoto(this.photo) }
       Canvas(this.canvas).width('100%').height('100%').hitTestBehavior(HitTestMode.None)
         .onReady((): void => { this.canvasReady = true; this.drawMask(); })
       Button('‹', { type: ButtonType.Normal }).width(UI.backSize).height(UI.backSize).fontSize(UI.fontBack)
@@ -171,7 +222,7 @@ struct FaceCameraDialog {
       Text(UI.localLabel).fontSize(UI.fontLocal).fontColor(CAMERA_GREEN).textAlign(TextAlign.Center)
         .backgroundColor(UI.colorLocalFill).borderRadius(UI.pillRadius).width(UI.localWidth).height(UI.localHeight)
         .position({ x: this.contentLeft() + this.contentWidth() - UI.localWidth, y: this.safeTop + UI.headerInset + UI.localOffset })
-      Text(this.guidance).fontSize(UI.fontTitle).fontWeight(FontWeight.Medium).fontColor(CAMERA_INK)
+      Text(this.saving ? UI.savingTitle : this.guidance).fontSize(UI.fontTitle).fontWeight(FontWeight.Medium).fontColor(CAMERA_INK)
         .textAlign(TextAlign.Center).maxLines(2).width(this.contentWidth()).height(UI.titleHeight)
         .position({ x: this.contentLeft(), y: this.titleY() })
       Text(this.saving ? UI.savingDetail : (this.captured ?
@@ -182,21 +233,7 @@ struct FaceCameraDialog {
       Text(this.phase).fontSize(UI.fontPhase).fontColor(CAMERA_BLUE).textAlign(TextAlign.Center)
         .backgroundColor(UI.colorPhaseFill).borderRadius(UI.pillRadius).width(Math.min(this.contentWidth(), UI.phaseWidth)).height(UI.phaseHeight)
         .position({ x: this.centerX() - Math.min(this.contentWidth(), UI.phaseWidth) / 2, y: this.phaseY() })
-      if (this.captured) {
-        Text(UI.confirmation).fontSize(UI.fontConfirmation).fontColor(CAMERA_MUTED)
-          .textAlign(TextAlign.Center).maxLines(2).width(this.contentWidth()).height(UI.confirmationHeight)
-          .position({ x: this.contentLeft(), y: this.privacyY() - UI.buttonOffset - UI.confirmationOffset })
-        Row({ space: UI.buttonGap }) {
-          Button(UI.retake, { type: ButtonType.Normal }).layoutWeight(1).height(UI.buttonHeight).borderRadius(UI.buttonRadius)
-            .fontSize(UI.fontButton).fontWeight(FontWeight.Medium).fontColor(CAMERA_INK).backgroundColor(Color.White).border({ width: UI.borderWidth, color: UI.colorButtonBorder })
-            .opacity(this.saving ? UI.disabledAlpha : 1).enabled(!this.saving).onClick((): void => { this.flow?.retake(); })
-          Button(this.saving ? UI.savingButton : UI.confirm, { type: ButtonType.Normal })
-            .layoutWeight(1).height(UI.buttonHeight).borderRadius(UI.buttonRadius).fontSize(UI.fontButton).fontWeight(FontWeight.Medium).fontColor(Color.White).backgroundColor(CAMERA_BLUE)
-            .opacity(this.saving || this.photo === undefined ? UI.disabledAlpha : 1)
-            .enabled(!this.saving && this.photo !== undefined)
-            .onClick((): void => { this.saving = true; this.guidance = UI.savingTitle; this.flow?.confirm(); })
-        }.width(this.contentWidth()).position({ x: this.contentLeft(), y: this.privacyY() - UI.buttonOffset })
-      } else {
+      if (!this.captured) {
         Row() {
           Text(UI.tipCenter).fontSize(UI.fontTip).fontColor(CAMERA_INK).textAlign(TextAlign.Center).layoutWeight(1)
           Divider().vertical(true).height(UI.dividerHeight).color(UI.colorDivider)
@@ -210,6 +247,7 @@ struct FaceCameraDialog {
         .width(this.contentWidth()).height(UI.privacyHeight).position({ x: this.contentLeft(), y: this.privacyY() })
       Text(UI.brand).fontSize(UI.fontBrand).fontColor(UI.colorBrand).textAlign(TextAlign.Center)
         .width(this.contentWidth()).height(UI.brandHeight).position({ x: this.contentLeft(), y: this.privacyY() + UI.brandOffset })
+      if (this.captured) { this.ConfirmationDialog() }
     }.width('100%').height('100%').backgroundColor(CAMERA_BACKGROUND)
       .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
       .onAreaChange((_, area): void => {

@@ -45,6 +45,7 @@ internal object HelloFaceVerifyPresentation {
     const val savingButton: String = "正在保存…"
     const val actionFallback: String = "请按提示完成动作"
     const val stageFallback: String = "请正对镜头"
+    const val cancelCapture: String = "取消录入"
     const val sideInset: Int = 24
     const val headerInset: Int = 8
     const val backInset: Int = 12
@@ -84,6 +85,15 @@ internal object HelloFaceVerifyPresentation {
     const val ringWidth: Int = 3
     const val borderWidth: Int = 1
     const val dividerHeight: Int = 20
+    const val dialogMaxWidth: Int = 360
+    const val dialogInset: Int = 24
+    const val dialogPadding: Int = 24
+    const val dialogRadius: Int = 20
+    const val dialogPhotoSide: Int = 188
+    const val dialogPhotoRadius: Int = 16
+    const val dialogGap: Int = 16
+    const val dialogHeadingHeight: Int = 32
+    const val dialogCloseSize: Int = 32
     const val fontBack: Float = 32.0f
     const val fontHeading: Float = 17.0f
     const val fontLocal: Float = 11.0f
@@ -95,8 +105,11 @@ internal object HelloFaceVerifyPresentation {
     const val fontButton: Float = 15.0f
     const val fontPrivacy: Float = 12.0f
     const val fontBrand: Float = 11.0f
+    const val fontDialogHeading: Float = 18.0f
+    const val fontDialogClose: Float = 24.0f
     const val circleRatio: Float = 0.8f
     const val disabledAlpha: Float = 0.55f
+    const val dialogScrimAlpha: Float = 0.62f
 
     fun guidance(stage: String, action: String?): String {
         if (stage == "PERFORM_ACTION") return when (action) {

@@ -12,6 +12,7 @@ import hashlib
 import xml.etree.ElementTree as ET
 import zipfile
 from check_android_alignment import require_alignment
+from install_sdk import matches
 from android_debug import adb_path, app_pids, select_device, require_current_base, fingerprint, host_fingerprint, broadcast, sync_resources as app_sync
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -33,6 +34,35 @@ def executable(candidates, name):
     raise RuntimeError(f'{name} not found. Install it or configure its path.')
 
 
+def verify_sdk_libraries(archive, root=ROOT):
+    """Derive native libraries from the locked AAR, including backend name changes."""
+    root = Path(root)
+    lock = json.loads((root / 'sdk-artifacts.json').read_text())
+    artifact = next(a for a in lock['artifacts'] if a['platform'] == 'android')
+    aar = root / 'uni_modules/HelloFace-Verify/utssdk' / artifact['destination']
+    if not matches(aar, artifact):
+        raise RuntimeError('Install and verify the locked Android SDK before checking the base.')
+    expected = {}
+    with zipfile.ZipFile(aar) as sdk:
+        for name in sdk.namelist():
+            if name.startswith('jni/') and name.endswith('.so'):
+                _, abi, library = name.split('/')
+                expected.setdefault(abi, {})[library] = hashlib.sha256(sdk.read(name)).digest()
+    library_names = {name for libs in expected.values() for name in libs}
+    names = set(archive.namelist())
+    abis = {name.split('/')[1] for name in names if name.startswith('lib/') and name.split('/')[-1] in library_names}
+    if not abis:
+        raise RuntimeError('The base is missing the HelloFace native libraries. Build a custom base.')
+    for abi in abis:
+        if abi not in expected:
+            raise RuntimeError(f'The base has a missing or stale SDK ABI: {abi}. Rebuild the custom base.')
+        for library, digest in expected.get(abi, {}).items():
+            name = f'lib/{abi}/{library}'
+            if name not in names or hashlib.sha256(archive.read(name)).digest() != digest:
+                raise RuntimeError(f'The base has a missing or stale SDK library: {name}. Rebuild the custom base.')
+    return abis
+
+
 def inspect_apk(apk, appid):
     """Reject a standard base or compressed models before installing on a device."""
     require_alignment(apk)
@@ -41,11 +71,7 @@ def inspect_apk(apk, appid):
         models = [item for item in archive.infolist() if item.filename.endswith('.bphfm')]
         if not models or any(item.compress_type != zipfile.ZIP_STORED for item in models):
             raise RuntimeError('The base needs uncompressed .bphfm models. Rebuild with the manifest aaptOptions.')
-        abis = {name.split('/')[1] for name in names if name.startswith('lib/') and
-                name.endswith('/libhiface_core.so') and
-                name.replace('libhiface_core.so', 'libhiface_ncnn.so') in names}
-        if not abis:
-            raise RuntimeError('The base is missing the HelloFace native libraries. Build a custom base.')
+        abis = verify_sdk_libraries(archive)
         activity = b'Luts/sdk/modules/HelloFaceVerify/HelloFaceVerifyCameraActivity;'
         if not any(activity in archive.read(name) for name in names if name.endswith('.dex')):
             raise RuntimeError('The base is missing the HelloFaceVerify camera Activity.')

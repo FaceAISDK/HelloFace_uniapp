@@ -15,6 +15,13 @@ final class HelloFaceVerifyCameraView: UIView {
     private let progressRing = CAShapeLayer()
     private let outerRing = CAShapeLayer()
     private let photo = UIImageView()
+    private let confirmationOverlay = UIView()
+    private let confirmationCard = UIView()
+    private let confirmationBody = UIScrollView()
+    private let confirmationContent = UIView()
+    private let dialogTitle = UILabel()
+    private let dialogDetail = UILabel()
+    private let closeConfirmation = UIButton(type: .system)
     private let back = UIButton(type: .system)
     private let heading = UILabel()
     private let local = UILabel()
@@ -40,7 +47,6 @@ final class HelloFaceVerifyCameraView: UIView {
         photo.contentMode = .scaleAspectFit; photo.clipsToBounds = true
         photo.backgroundColor = Self.background
         photo.accessibilityLabel = UI.photoLabel; photo.isAccessibilityElement = true
-        addSubview(photo)
         cutoutMask.fillColor = Self.background.cgColor; cutoutMask.fillRule = .evenOdd
         ring.fillColor = UIColor.clear.cgColor; ring.strokeColor = blue.cgColor; ring.lineWidth = UI.ringWidth
         outerRing.fillColor = UIColor.clear.cgColor
@@ -91,8 +97,24 @@ final class HelloFaceVerifyCameraView: UIView {
         confirm.addTarget(self, action: #selector(confirmTapped), for: .touchUpInside)
         style(privacy, text: UI.privacy, size: UI.fontPrivacy, color: muted)
         style(brand, text: UI.brand, size: UI.fontBrand, color: UI.colorBrand)
-        [back, heading, local, title, detail, phase, tips, confirmation, retake, confirm, privacy, brand]
+        [back, heading, local, title, detail, phase, tips, privacy, brand]
             .forEach { addSubview($0) }
+        confirmationOverlay.backgroundColor = UIColor.black.withAlphaComponent(UI.dialogScrimAlpha)
+        confirmationOverlay.accessibilityViewIsModal = true
+        confirmationCard.backgroundColor = .white
+        confirmationCard.layer.cornerRadius = UI.dialogRadius; confirmationCard.clipsToBounds = true
+        style(dialogTitle, text: UI.confirmTitle, size: UI.fontDialogHeading, color: ink, weight: .medium)
+        dialogTitle.textAlignment = .left
+        style(dialogDetail, text: UI.confirmDetail, size: UI.fontDetail, color: muted)
+        closeConfirmation.setTitle("×", for: .normal); closeConfirmation.setTitleColor(ink, for: .normal)
+        closeConfirmation.titleLabel?.font = .systemFont(ofSize: UI.fontDialogClose)
+        closeConfirmation.accessibilityLabel = UI.cancelCapture
+        closeConfirmation.addTarget(self, action: #selector(cancelTapped), for: .touchUpInside)
+        [photo, dialogDetail, confirmation].forEach { confirmationContent.addSubview($0) }
+        confirmationBody.addSubview(confirmationContent)
+        [dialogTitle, closeConfirmation, confirmationBody, retake, confirm].forEach { confirmationCard.addSubview($0) }
+        confirmationOverlay.addSubview(confirmationCard)
+        addSubview(confirmationOverlay)
         showLive()
     }
     required init?(coder: NSCoder) { fatalError("Use init(enrollment:)") }
@@ -100,11 +122,12 @@ final class HelloFaceVerifyCameraView: UIView {
     func showLive() {
         resetCaptureProgress()
         captured = false; photo.image = nil; photo.isHidden = true
+        confirmationOverlay.isHidden = true
         title.text = UI.liveTitle; detail.text = UI.liveDetail
         phase.text = UI.phase(enrollment: enrollment)
         tips.isHidden = false
         [confirmation, retake, confirm].forEach { $0.isHidden = true }
-        [back, retake, confirm].forEach { $0.isEnabled = true; $0.alpha = 1 }
+        [back, retake, confirm, closeConfirmation].forEach { $0.isEnabled = true; $0.alpha = 1 }
         confirm.setTitle(UI.confirm, for: .normal)
         ring.strokeColor = (enrollment ? UI.colorOuterRing : blue).cgColor; setNeedsLayout()
     }
@@ -125,23 +148,31 @@ final class HelloFaceVerifyCameraView: UIView {
     func showConfirmation(image: UIImage?, mirrored: Bool) {
         resetCaptureProgress()
         captured = true; photo.image = image; photo.isHidden = image == nil
+        ring.strokeColor = green.cgColor
         photo.transform = CGAffineTransform(scaleX: mirrored ? -1 : 1, y: 1)
-        title.text = image == nil ? UI.missingTitle : UI.confirmTitle
-        detail.text = image == nil ? UI.missingDetail : UI.confirmDetail
+        dialogTitle.text = image == nil ? UI.missingTitle : UI.confirmTitle
+        dialogDetail.text = image == nil ? UI.missingDetail : UI.confirmDetail
+        title.text = dialogTitle.text; detail.text = dialogDetail.text; phase.text = UI.confirmPhase
+        tips.isHidden = true
+        [back, retake, closeConfirmation].forEach { $0.isEnabled = true; $0.alpha = 1 }
+        confirm.setTitle(UI.confirm, for: .normal)
         confirm.isEnabled = image != nil
         confirm.alpha = image != nil ? 1 : UI.disabledAlpha
-        phase.text = UI.confirmPhase; ring.strokeColor = green.cgColor
-        tips.isHidden = true
+        confirmationOverlay.isHidden = false
+        confirmationBody.setContentOffset(.zero, animated: false)
         [confirmation, retake, confirm].forEach { $0.isHidden = false }
         setNeedsLayout()
+        UIAccessibility.post(notification: .screenChanged, argument: dialogTitle)
     }
 
     func showSaving() {
+        dialogTitle.text = UI.savingTitle; dialogDetail.text = UI.savingDetail
         title.text = UI.savingTitle; detail.text = UI.savingDetail
         confirm.setTitle(UI.savingButton, for: .normal)
-        [back, retake, confirm].forEach { $0.isEnabled = false; $0.alpha = UI.disabledAlpha }
+        [back, retake, confirm, closeConfirmation].forEach { $0.isEnabled = false; $0.alpha = UI.disabledAlpha }
+        setNeedsLayout()
     }
-    func clearPhoto() { resetCaptureProgress(); photo.image = nil }
+    func clearPhoto() { resetCaptureProgress(); photo.image = nil; confirmationOverlay.isHidden = true }
 
     override func didMoveToWindow() {
         super.didMoveToWindow()
@@ -182,10 +213,8 @@ final class HelloFaceVerifyCameraView: UIView {
         detail.frame = CGRect(x: left, y: titleY + UI.detailOffset, width: width, height: UI.detailHeight)
         let circleTop = titleY + UI.circleOffset
         let diameter = max(UI.minCircle, min(width, (w - safe.left - safe.right) * UI.circleRatio,
-                                    h - safe.bottom - (captured ? UI.captureReserve : UI.liveReserve) - circleTop))
+                                    h - safe.bottom - UI.liveReserve - circleTop))
         let circle = CGRect(x: center - diameter / 2, y: circleTop, width: diameter, height: diameter)
-        photo.bounds = CGRect(origin: .zero, size: circle.size); photo.center = CGPoint(x: circle.midX, y: circle.midY)
-        photo.layer.cornerRadius = diameter / 2
         let cutout = UIBezierPath(rect: bounds); cutout.append(UIBezierPath(ovalIn: circle))
         CATransaction.begin(); CATransaction.setDisableActions(true)
         cutoutMask.frame = bounds; cutoutMask.path = cutout.cgPath
@@ -200,12 +229,46 @@ final class HelloFaceVerifyCameraView: UIView {
         let privacyY = h - safe.bottom - UI.footerInset
         privacy.frame = CGRect(x: left, y: privacyY, width: width, height: UI.privacyHeight)
         brand.frame = CGRect(x: left, y: privacyY + UI.brandOffset, width: width, height: UI.brandHeight)
-        if captured {
-            let buttonY = privacyY - UI.buttonOffset, buttonWidth = (width - UI.buttonGap) / 2
-            confirmation.frame = CGRect(x: left, y: buttonY - UI.confirmationOffset, width: width, height: UI.confirmationHeight)
-            retake.frame = CGRect(x: left, y: buttonY, width: buttonWidth, height: UI.buttonHeight)
-            confirm.frame = CGRect(x: left + buttonWidth + UI.buttonGap, y: buttonY, width: buttonWidth, height: UI.buttonHeight)
-        } else { tips.frame = CGRect(x: left, y: phaseY + UI.tipsOffset, width: width, height: UI.tipsHeight) }
+        tips.frame = CGRect(x: left, y: phaseY + UI.tipsOffset, width: width, height: UI.tipsHeight)
+        layoutConfirmation()
+    }
+
+    private func layoutConfirmation() {
+        confirmationOverlay.frame = bounds
+        let safe = safeAreaInsets, padding = UI.dialogPadding
+        let width = max(0, min(UI.dialogMaxWidth, bounds.width - safe.left - safe.right - UI.dialogInset * 2))
+        let contentWidth = max(1, width - padding * 2)
+        let side = photo.image == nil ? 0 : min(UI.dialogPhotoSide, contentWidth)
+        dialogTitle.frame = CGRect(x: padding, y: padding, width: contentWidth - UI.dialogCloseSize, height: UI.dialogHeadingHeight)
+        closeConfirmation.frame = CGRect(x: width - padding - UI.dialogCloseSize, y: padding, width: UI.dialogCloseSize, height: UI.dialogHeadingHeight)
+        var y: CGFloat = 0
+        if side > 0 {
+            photo.bounds = CGRect(x: 0, y: 0, width: side, height: side)
+            photo.center = CGPoint(x: contentWidth / 2, y: y + side / 2)
+            photo.layer.cornerRadius = UI.dialogPhotoRadius
+            y += side + UI.dialogGap
+        }
+        for label in [dialogDetail, confirmation] {
+            let height = max(label === dialogDetail ? UI.detailHeight : UI.confirmationHeight,
+                ceil(label.sizeThatFits(CGSize(width: contentWidth, height: .greatestFiniteMagnitude)).height))
+            label.frame = CGRect(x: 0, y: y, width: contentWidth, height: height)
+            y += height + UI.dialogGap
+        }
+        let contentHeight = y - UI.dialogGap
+        let availableHeight = max(1, bounds.height - safe.top - safe.bottom - UI.dialogInset * 2)
+        let fixedHeight = padding * 2 + UI.dialogHeadingHeight + UI.dialogGap * 2 + UI.buttonHeight
+        let bodyHeight = min(contentHeight, max(1, availableHeight - fixedHeight))
+        let height = fixedHeight + bodyHeight
+        confirmationCard.frame = CGRect(x: safe.left + (bounds.width - safe.left - safe.right - width) / 2,
+            y: safe.top + (bounds.height - safe.top - safe.bottom - height) / 2, width: width, height: height)
+        // 固定标题和操作栏，仅滚动图片与说明，避免小屏上操作按钮被挤走。
+        confirmationBody.frame = CGRect(x: padding, y: padding + UI.dialogHeadingHeight + UI.dialogGap,
+            width: contentWidth, height: bodyHeight)
+        confirmationContent.frame = CGRect(x: 0, y: 0, width: contentWidth, height: contentHeight)
+        confirmationBody.contentSize = CGSize(width: contentWidth, height: contentHeight)
+        let buttonWidth = (contentWidth - UI.buttonGap) / 2, buttonY = height - padding - UI.buttonHeight
+        retake.frame = CGRect(x: padding, y: buttonY, width: buttonWidth, height: UI.buttonHeight)
+        confirm.frame = CGRect(x: padding + buttonWidth + UI.buttonGap, y: buttonY, width: buttonWidth, height: UI.buttonHeight)
     }
 
     private func style(_ label: UILabel, text: String, size: CGFloat, color: UIColor, weight: UIFont.Weight = .regular) {

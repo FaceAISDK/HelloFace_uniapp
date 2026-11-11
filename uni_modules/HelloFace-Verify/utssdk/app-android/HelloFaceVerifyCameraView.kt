@@ -1,6 +1,8 @@
 package uts.sdk.modules.HelloFaceVerify
 
 import uts.sdk.modules.HelloFaceVerify.HelloFaceVerifyPresentation as UI
+import android.app.Dialog
+import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -14,17 +16,22 @@ import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.view.View
 import android.view.ViewOutlineProvider
+import android.view.ViewGroup
+import android.view.Window
+import android.view.WindowManager
+import android.view.animation.LinearInterpolator
 import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import androidx.camera.view.PreviewView
 import kotlin.math.min
 
 /** Presentation only: the circular opening never crops frames submitted to the SDK. */
 internal class HelloFaceVerifyCameraView(context: Context, private val enrollment: Boolean,
-    onCancel: () -> Unit, onRetake: () -> Unit, onConfirm: () -> Unit) : FrameLayout(context) {
+    private val onCancel: () -> Unit, private val onRetake: () -> Unit, private val onConfirm: () -> Unit) : FrameLayout(context) {
     val preview = PreviewView(context).apply {
         implementationMode = PreviewView.ImplementationMode.COMPATIBLE
         scaleType = PreviewView.ScaleType.FIT_CENTER
@@ -37,7 +44,9 @@ internal class HelloFaceVerifyCameraView(context: Context, private val enrollmen
         contentDescription = UI.photoLabel
         clipToOutline = true
         outlineProvider = object : ViewOutlineProvider() {
-            override fun getOutline(view: View, outline: Outline) { outline.setOval(0, 0, view.width, view.height) }
+            override fun getOutline(view: View, outline: Outline) {
+                outline.setRoundRect(0, 0, view.width, view.height, dp(UI.dialogPhotoRadius).toFloat())
+            }
         }
         visibility = GONE
     }
@@ -74,11 +83,21 @@ internal class HelloFaceVerifyCameraView(context: Context, private val enrollmen
     private var safeRight = 0
     private var safeBottom = 0
     private var captured = false
+    private var saving = false
+    private var confirmationDialog: Dialog? = null
+    private val dialogTitle = label(UI.confirmTitle, UI.fontDialogHeading, INK, true).apply {
+        gravity = Gravity.START or Gravity.CENTER_VERTICAL
+    }
+    private val dialogDetail = label(UI.confirmDetail, UI.fontDetail, MUTED)
+    private val closeConfirmation = button("×", Color.TRANSPARENT, INK).apply {
+        textSize = UI.fontDialogClose
+        contentDescription = UI.cancelCapture; setOnClickListener { onCancel() }
+    }
 
     init {
         setBackgroundColor(BACKGROUND)
-        addView(preview); addView(photo); addView(mask)
-        listOf(back, heading, local, title, detail, phase, tips, confirmation, retake, confirm, privacy, brand)
+        addView(preview); addView(mask)
+        listOf(back, heading, local, title, detail, phase, tips, privacy, brand)
             .forEach { addView(it) }
         showLive()
     }
@@ -89,6 +108,9 @@ internal class HelloFaceVerifyCameraView(context: Context, private val enrollmen
     }
 
     fun showLive() {
+        dismissConfirmation()
+        mask.resetProgress()
+        saving = false
         captured = false; photo.setImageDrawable(null); photo.visibility = GONE
         title.text = UI.liveTitle; detail.text = UI.liveDetail
         phase.text = UI.phase(enrollment)
@@ -96,7 +118,7 @@ internal class HelloFaceVerifyCameraView(context: Context, private val enrollmen
         listOf(confirmation, retake, confirm).forEach { it.visibility = GONE }
         back.isEnabled = true; retake.isEnabled = true; confirm.isEnabled = true
         back.alpha = 1f; retake.alpha = 1f; confirm.alpha = 1f
-        confirm.text = UI.confirm; mask.tint = BLUE; requestLayout()
+        confirm.text = UI.confirm; mask.tint = if (enrollment) UI.colorOuterRing else BLUE; requestLayout()
     }
 
     fun showProgress(stage: String, action: String?, step: Int, count: Int) {
@@ -105,29 +127,92 @@ internal class HelloFaceVerifyCameraView(context: Context, private val enrollmen
         if (title.text != instruction) title.text = instruction
         val phaseText = UI.phase(enrollment, stage, step, count)
         if (phase.text != phaseText) phase.text = phaseText
-        mask.tint = if (UI.isWarning(stage)) AMBER else BLUE
+        mask.updateProgress(enrollment && stage == "HOLD_STILL")
+        mask.tint = if (UI.isWarning(stage)) AMBER else if (enrollment) UI.colorOuterRing else BLUE
     }
 
     fun showConfirmation(bitmap: Bitmap?, mirrored: Boolean) {
+        dismissConfirmation()
+        mask.resetProgress()
+        saving = false
         captured = true; photo.setImageBitmap(bitmap); photo.scaleX = if (mirrored) -1f else 1f
+        mask.tint = GREEN
         photo.visibility = if (bitmap == null) GONE else VISIBLE
-        title.text = if (bitmap == null) UI.missingTitle else UI.confirmTitle
-        detail.text = if (bitmap == null) UI.missingDetail else UI.confirmDetail
+        dialogTitle.text = if (bitmap == null) UI.missingTitle else UI.confirmTitle
+        dialogDetail.text = if (bitmap == null) UI.missingDetail else UI.confirmDetail
+        title.text = dialogTitle.text; detail.text = dialogDetail.text; phase.text = UI.confirmPhase
+        tips.visibility = GONE
+        confirm.text = UI.confirm; retake.isEnabled = true; retake.alpha = 1f
         confirm.isEnabled = bitmap != null
         confirm.alpha = if (bitmap != null) 1f else UI.disabledAlpha
-        phase.text = UI.confirmPhase; mask.tint = GREEN
-        tips.visibility = GONE
         listOf(confirmation, retake, confirm).forEach { it.visibility = VISIBLE }
-        requestLayout()
+        val column = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(UI.dialogPadding), dp(UI.dialogPadding), dp(UI.dialogPadding), dp(UI.dialogPadding))
+        }
+        val header = FrameLayout(context).apply {
+            addView(dialogTitle, FrameLayout.LayoutParams(-1, -1).apply { rightMargin = dp(UI.dialogCloseSize) })
+            addView(closeConfirmation, FrameLayout.LayoutParams(dp(UI.dialogCloseSize), -1, Gravity.END))
+        }
+        column.addView(header, LinearLayout.LayoutParams(-1, dp(UI.dialogHeadingHeight)))
+        val dialogWidth = min(dp(UI.dialogMaxWidth), width.takeIf { it > 0 }
+            ?.minus(safeLeft + safeRight + dp(UI.dialogInset * 2))
+            ?: (resources.displayMetrics.widthPixels - dp(UI.dialogInset * 2))).coerceAtLeast(1)
+        val body = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL }
+        val photoSide = min(dp(UI.dialogPhotoSide), (dialogWidth - dp(UI.dialogPadding * 2)).coerceAtLeast(1))
+        body.addView(photo, LinearLayout.LayoutParams(photoSide, photoSide))
+        body.addView(dialogDetail, LinearLayout.LayoutParams(-1, dp(UI.detailHeight)).apply {
+            if (bitmap != null) topMargin = dp(UI.dialogGap)
+        })
+        body.addView(confirmation, LinearLayout.LayoutParams(-1, dp(UI.confirmationHeight)).apply { topMargin = dp(UI.dialogGap) })
+        val bodyHeight = (if (bitmap == null) 0 else photoSide + dp(UI.dialogGap)) +
+            dp(UI.detailHeight + UI.dialogGap + UI.confirmationHeight)
+        val available = (height.takeIf { it > 0 } ?: resources.displayMetrics.heightPixels) - safeTop - safeBottom -
+            dp(UI.dialogInset * 2 + UI.dialogPadding * 2 + UI.dialogHeadingHeight + UI.dialogGap * 2 + UI.buttonHeight)
+        // 只滚动图片和说明，窄屏上关闭、重拍、确认始终可见。
+        column.addView(ScrollView(context).apply { isFillViewport = false; addView(body) },
+            LinearLayout.LayoutParams(-1, min(bodyHeight, available.coerceAtLeast(1))).apply { topMargin = dp(UI.dialogGap) })
+        val buttons = LinearLayout(context).apply {
+            addView(retake, LinearLayout.LayoutParams(0, dp(UI.buttonHeight), 1f).apply { rightMargin = dp(UI.buttonGap) })
+            addView(confirm, LinearLayout.LayoutParams(0, dp(UI.buttonHeight), 1f))
+        }
+        column.addView(buttons, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(UI.dialogGap) })
+        column.background = rounded(Color.WHITE, UI.dialogRadius.toFloat()); column.clipToOutline = true
+        val dialog = Dialog(context)
+        confirmationDialog = dialog
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+        dialog.setContentView(column)
+        dialog.setCanceledOnTouchOutside(false)
+        dialog.setOnCancelListener { if (!saving) onCancel() }
+        dialog.show()
+        dialog.window?.apply {
+            setBackgroundDrawableResource(android.R.color.transparent)
+            setLayout(dialogWidth, -2)
+            addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+            setDimAmount(UI.dialogScrimAlpha)
+            addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            attributes = attributes.apply { screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_FULL }
+        }
     }
 
     fun showSaving() {
+        saving = true; confirmationDialog?.setCancelable(false)
+        dialogTitle.text = UI.savingTitle; dialogDetail.text = UI.savingDetail
         title.text = UI.savingTitle; detail.text = UI.savingDetail
         confirm.text = UI.savingButton; confirm.isEnabled = false; retake.isEnabled = false; back.isEnabled = false
-        listOf(back, retake, confirm).forEach { it.alpha = UI.disabledAlpha }
+        closeConfirmation.isEnabled = false
+        listOf(back, retake, confirm, closeConfirmation).forEach { it.alpha = UI.disabledAlpha }
     }
 
-    fun clearPhoto() { photo.setImageDrawable(null) }
+    fun clearPhoto() { mask.resetProgress(); dismissConfirmation(); photo.setImageDrawable(null) }
+    private fun dismissConfirmation() {
+        confirmationDialog?.setOnCancelListener(null)
+        confirmationDialog?.dismiss(); confirmationDialog = null
+        listOf(photo, confirmation, retake, confirm, dialogTitle, dialogDetail, closeConfirmation).forEach {
+            (it.parent as? ViewGroup)?.removeView(it)
+        }
+        closeConfirmation.isEnabled = true; closeConfirmation.alpha = 1f
+    }
 
     override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
         val w = right - left; val h = bottom - top
@@ -143,11 +228,10 @@ internal class HelloFaceVerifyCameraView(context: Context, private val enrollmen
         place(title, contentLeft, titleY, width, dp(UI.titleHeight))
         place(detail, contentLeft, titleY + dp(UI.detailOffset), width, dp(UI.detailHeight))
         val circleTop = titleY + dp(UI.circleOffset)
-        val footerReserve = dp(if (captured) UI.captureReserve else UI.liveReserve)
+        val footerReserve = dp(UI.liveReserve)
         val diameter = min(min(width.toFloat(), (w - safeLeft - safeRight) * UI.circleRatio),
             (h - safeBottom - footerReserve - circleTop).toFloat()).coerceAtLeast(dp(UI.minCircle).toFloat()).toInt()
         val circleLeft = center - diameter / 2
-        place(photo, circleLeft, circleTop, diameter, diameter)
         mask.setCircle(RectF(circleLeft.toFloat(), circleTop.toFloat(), (circleLeft + diameter).toFloat(),
             (circleTop + diameter).toFloat()))
         val phaseY = circleTop + diameter + dp(UI.phaseOffset)
@@ -155,13 +239,7 @@ internal class HelloFaceVerifyCameraView(context: Context, private val enrollmen
         place(phase, center - phaseWidth / 2, phaseY, phaseWidth, dp(UI.phaseHeight))
         val privacyY = h - safeBottom - dp(UI.footerInset)
         place(privacy, contentLeft, privacyY, width, dp(UI.privacyHeight)); place(brand, contentLeft, privacyY + dp(UI.brandOffset), width, dp(UI.brandHeight))
-        if (captured) {
-            val buttonY = privacyY - dp(UI.buttonOffset)
-            place(confirmation, contentLeft, buttonY - dp(UI.confirmationOffset), width, dp(UI.confirmationHeight))
-            val buttonWidth = (width - dp(UI.buttonGap)) / 2
-            place(retake, contentLeft, buttonY, buttonWidth, dp(UI.buttonHeight))
-            place(confirm, contentLeft + buttonWidth + dp(UI.buttonGap), buttonY, buttonWidth, dp(UI.buttonHeight))
-        } else place(tips, contentLeft, phaseY + dp(UI.tipsOffset), width, dp(UI.tipsHeight))
+        place(tips, contentLeft, phaseY + dp(UI.tipsOffset), width, dp(UI.tipsHeight))
     }
 
     private fun place(view: View, x: Int, y: Int, w: Int, h: Int) {
@@ -189,6 +267,22 @@ internal class HelloFaceVerifyCameraView(context: Context, private val enrollmen
         private val hole = RectF()
         private val path = Path()
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        private var holding = false
+        private var progress = 0f
+        private var animator: ValueAnimator? = null
+        fun updateProgress(stable: Boolean) {
+            if (!stable) { resetProgress(); return }
+            if (holding) return
+            holding = true
+            // 动画只提示稳定等待；走满后仍须等待 SDK 的真实采集结果。
+            animator = ValueAnimator.ofFloat(0f, 1f).apply {
+                duration = 700; interpolator = LinearInterpolator()
+                addUpdateListener { progress = it.animatedValue as Float; invalidate() }
+                start()
+            }
+        }
+        fun resetProgress() { animator?.cancel(); animator = null; holding = false; progress = 0f; invalidate() }
+        override fun onDetachedFromWindow() { resetProgress(); super.onDetachedFromWindow() }
         var tint = BLUE
             set(value) { if (field != value) { field = value; invalidate() } }
         fun setCircle(value: RectF) { if (hole != value) { hole.set(value); invalidate() } }
@@ -200,6 +294,12 @@ internal class HelloFaceVerifyCameraView(context: Context, private val enrollmen
             paint.style = Paint.Style.FILL; paint.color = BACKGROUND; canvas.drawPath(path, paint)
             paint.style = Paint.Style.STROKE; paint.strokeWidth = resources.displayMetrics.density * UI.ringWidth
             paint.color = tint; canvas.drawOval(hole, paint)
+            if (progress > 0) {
+                paint.color = BLUE; paint.strokeWidth = resources.displayMetrics.density * (UI.ringWidth + 1)
+                paint.strokeCap = Paint.Cap.ROUND
+                canvas.drawArc(hole, -90f, 360f * progress, false, paint)
+                paint.strokeCap = Paint.Cap.BUTT
+            }
             val outer = RectF(hole); outer.inset(-resources.displayMetrics.density * UI.outerRingGap, -resources.displayMetrics.density * UI.outerRingGap)
             paint.strokeWidth = resources.displayMetrics.density; paint.color = UI.colorOuterRing; canvas.drawOval(outer, paint)
         }

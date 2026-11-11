@@ -1,5 +1,5 @@
 // Compile-only boundary for checking real UIKit/AVFoundation integration with an older Xcode.
-// Signatures follow the locked SDK 0.8.8 interface. Every callable member traps: never link this into an App.
+// Signatures follow the locked SDK 0.8.11 interface. Every callable member traps: never link this into an App.
 import Foundation
 import CoreGraphics
 import CoreVideo

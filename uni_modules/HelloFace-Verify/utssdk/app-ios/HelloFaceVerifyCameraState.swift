@@ -2,7 +2,7 @@ import Foundation
 
 /// 仅管理录入圆环的视觉阶段，不触发采集、保存或识别成功。
 struct HelloFaceVerifyCaptureProgress {
-    static let duration: TimeInterval = 0.7 // SDK 0.8.8 的引导录入稳定窗口。
+    static let duration: TimeInterval = 0.7 // SDK 0.8.11 的引导录入稳定窗口。
     private(set) var holding = false
 
     mutating func update(enrollment: Bool, stage: String) -> Bool {
