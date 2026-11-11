@@ -1,6 +1,7 @@
 import { common } from '@kit.AbilityKit';
 import { camera } from '@kit.CameraKit';
 import { image } from '@kit.ImageKit';
+import { systemDateTime } from '@kit.BasicServicesKit';
 import { ComponentContent, window, display, promptAction, ImmersiveMode } from '@kit.ArkUI';
 import { HiFaceSdk, FaceRequest, FaceFlowListener, FaceFlowProgress, FaceFlowResult,
   FaceFlowStage, FaceFlowOutcome, FaceAction, HiFaceError, HiFaceErrorCode,
@@ -14,6 +15,9 @@ const CAMERA_INK: string = UI.colorInk;
 const CAMERA_MUTED: string = UI.colorMuted;
 const CAMERA_BLUE: string = UI.colorBlue;
 const CAMERA_GREEN: string = UI.colorGreen;
+// 与 SDK 0.8.8 的引导录入稳定窗口及原生 Demo 一致，仅用于视觉提示。
+const CAPTURE_HOLD_MILLIS: number = 700;
+const CAPTURE_PROGRESS_INTERVAL_MILLIS: number = 33;
 interface DialogParams { flow: CameraFlow; }
 
 @Builder
@@ -38,8 +42,13 @@ struct FaceCameraDialog {
   private controller: XComponentController = new XComponentController();
   private canvas: CanvasRenderingContext2D = new CanvasRenderingContext2D(new RenderingContextSettings(true));
   private canvasReady: boolean = false;
+  private visible: boolean = false;
+  private captureProgress: number = 0;
+  private captureStartedAt: number = -1;
+  private captureTimer: number = -1;
 
   aboutToAppear(): void {
+    this.visible = true;
     const flow = this.flow;
     if (flow === undefined) return;
     this.safeTop = flow.safeTop; this.safeBottom = flow.safeBottom;
@@ -48,20 +57,26 @@ struct FaceCameraDialog {
     this.phase = UI.phase(flow.isEnrollment());
     flow.onPreviewSize = (width: number, height: number): void => { this.previewRatio = width / height; };
     flow.onStatus = (stage: string, action: string | undefined, step: number, count: number): void => {
-      if (this.captured) return;
+      if (!this.visible || this.captured) return;
       this.guidance = UI.guidance(stage, action);
       this.phase = UI.phase(flow.isEnrollment(), stage, step, count);
-      const warning = UI.isWarning(stage);
-      if (this.warning !== warning) { this.warning = warning; this.drawMask(); }
+      this.warning = UI.isWarning(stage);
+      this.updateCaptureProgress(stage);
+      this.drawMask();
     };
     flow.onCapture = (value: image.PixelMap | undefined, ready: boolean): void => {
+      if (!this.visible) return;
+      this.resetCaptureProgress();
       this.photo = value; this.captured = ready; this.saving = false; this.warning = false;
       this.guidance = ready ? (value === undefined ? UI.missingTitle : UI.confirmTitle) : UI.liveTitle;
       this.phase = ready ? UI.confirmPhase : UI.phase(flow.isEnrollment());
       this.drawMask();
     };
   }
-  aboutToDisappear(): void { this.canvasReady = false; this.flow?.cancel(); }
+  aboutToDisappear(): void {
+    this.visible = false; this.canvasReady = false;
+    this.resetCaptureProgress(); this.flow?.cancel();
+  }
   private contentLeft(): number { return this.safeLeft + UI.sideInset; }
   private contentWidth(): number { return Math.max(UI.minCircle, this.viewportWidth - this.safeLeft - this.safeRight - UI.sideInset * 2); }
   private centerX(): number { return this.contentLeft() + this.contentWidth() / 2; }
@@ -77,6 +92,28 @@ struct FaceCameraDialog {
   private privacyY(): number { return this.viewportHeight - this.safeBottom - UI.footerInset; }
   private previewWidth(): number { return Math.min(this.viewportWidth, this.viewportHeight * this.previewRatio); }
   private previewHeight(): number { return this.previewWidth() / this.previewRatio; }
+  private updateCaptureProgress(stage: string): void {
+    if (this.flow?.isEnrollment() !== true || stage !== 'HOLD_STILL') {
+      this.resetCaptureProgress(); return;
+    }
+    // 同一稳定阶段的重复回调不能重启计时；偏头、晃动或丢脸后重新累计。
+    if (this.captureStartedAt >= 0) return;
+    this.captureStartedAt = systemDateTime.getUptime(systemDateTime.TimeType.STARTUP);
+    this.captureTimer = setInterval((): void => {
+      if (!this.visible || this.captured) { this.resetCaptureProgress(); return; }
+      const elapsed = systemDateTime.getUptime(systemDateTime.TimeType.STARTUP) - this.captureStartedAt;
+      this.captureProgress = Math.min(1, Math.max(0, elapsed / CAPTURE_HOLD_MILLIS));
+      this.drawMask();
+      if (this.captureProgress >= 1) {
+        clearInterval(this.captureTimer); this.captureTimer = -1;
+        // 圆环走满只表示稳定等待提示结束，确认页仍由 SDK 的结果回调触发。
+      }
+    }, CAPTURE_PROGRESS_INTERVAL_MILLIS);
+  }
+  private resetCaptureProgress(): void {
+    if (this.captureTimer >= 0) clearInterval(this.captureTimer);
+    this.captureTimer = -1; this.captureStartedAt = -1; this.captureProgress = 0;
+  }
   private drawMask(): void {
     if (!this.canvasReady) return;
     const context = this.canvas; const radius = this.diameter() / 2;
@@ -90,8 +127,16 @@ struct FaceCameraDialog {
     context.lineWidth = UI.borderWidth; context.strokeStyle = UI.colorOuterRing;
     context.beginPath(); context.arc(x, y, radius + UI.outerRingGap, 0, Math.PI * 2); context.stroke();
     context.lineWidth = UI.ringWidth;
-    context.strokeStyle = this.captured ? CAMERA_GREEN : (this.warning ? UI.colorAmber : CAMERA_BLUE);
-    context.beginPath(); context.arc(x, y, radius, 0, Math.PI * 2); context.stroke(); context.restore();
+    const enrollment = this.flow?.isEnrollment() === true;
+    context.strokeStyle = this.captured ? CAMERA_GREEN : (this.warning ? UI.colorAmber :
+      (enrollment ? UI.colorOuterRing : CAMERA_BLUE));
+    context.beginPath(); context.arc(x, y, radius, 0, Math.PI * 2); context.stroke();
+    if (enrollment && !this.captured && !this.warning && this.captureProgress > 0) {
+      context.lineWidth = UI.ringWidth + 1; context.lineCap = 'round'; context.strokeStyle = CAMERA_BLUE;
+      context.beginPath(); context.arc(x, y, radius, -Math.PI / 2,
+        -Math.PI / 2 + Math.PI * 2 * this.captureProgress); context.stroke();
+    }
+    context.restore();
   }
   @Builder
   private CapturePhoto(photo: image.PixelMap) {
@@ -206,6 +251,8 @@ export class CameraFlow {
   private screenTask: Promise<void> = Promise.resolve();
   private previousKeepScreenOn: boolean = false;
   private changedKeepScreenOn: boolean = false;
+  private previousBrightness: number = -1;
+  private changedBrightness: boolean = false;
   viewportWidth: number = 360;
   viewportHeight: number = 640;
   safeTop: number = 0;
@@ -217,7 +264,9 @@ export class CameraFlow {
   onCapture: (photo: image.PixelMap | undefined, ready: boolean) => void = (): void => {};
   onPreviewSize: (width: number, height: number) => void = (): void => {};
   private readonly visibility = (event: window.WindowEventType): void => {
-    if (event === window.WindowEventType.WINDOW_HIDDEN) this.cancel();
+    if (event === window.WindowEventType.WINDOW_HIDDEN) {
+      this.restoreScreen(); this.cancel();
+    }
   };
 
   constructor(context: common.UIAbilityContext, mainWindow: window.Window, sdk: HiFaceSdk, method: string,
@@ -238,9 +287,8 @@ export class CameraFlow {
       this.safeBottom = ui.px2vp(Math.max(bars.bottomRect.height, navigation.bottomRect.height));
       this.safeLeft = ui.px2vp(bars.leftRect.width); this.safeRight = ui.px2vp(bars.rightRect.width);
       this.previousKeepScreenOn = properties.isKeepScreenOn;
-      this.screenTask = this.mainWindow.setWindowKeepScreenOn(true).then((): void => {
-        this.changedKeepScreenOn = true;
-      }, (): void => {});
+      this.previousBrightness = properties.brightness;
+      this.screenTask = this.prepareScreen();
       const params: DialogParams = { flow: this };
       this.dialog = new ComponentContent<DialogParams>(ui, wrapBuilder(cameraDialog), params);
       const options: promptAction.BaseDialogOptions = { autoCancel: false, alignment: DialogAlignment.Center,
@@ -256,6 +304,23 @@ export class CameraFlow {
   }
   isEnrollment(): boolean { return this.method === 'enrollFace'; }
   isFrontCamera(): boolean { return this.params.camera !== 'back'; }
+  private async prepareScreen(): Promise<void> {
+    try { await this.mainWindow.setWindowKeepScreenOn(true); this.changedKeepScreenOn = true; } catch (_) {}
+    if (this.ended) return;
+    try { await this.mainWindow.setWindowBrightness(1); this.changedBrightness = true; } catch (_) {}
+  }
+  private restoreScreen(): Promise<void> {
+    // 与进入时的异步设置串行，快速取消也要等“调亮”完成后再恢复，防止迟到操作覆盖原值。
+    this.screenTask = this.screenTask.then(async (): Promise<void> => {
+      if (this.changedBrightness) {
+        try { await this.mainWindow.setWindowBrightness(this.previousBrightness); this.changedBrightness = false; } catch (_) {}
+      }
+      if (this.changedKeepScreenOn) {
+        try { await this.mainWindow.setWindowKeepScreenOn(this.previousKeepScreenOn); this.changedKeepScreenOn = false; } catch (_) {}
+      }
+    });
+    return this.screenTask;
+  }
   private checkActive(): void { if (this.ended) throw new BridgeError('CANCELLED', 'Camera closed'); }
   private async setup(surfaceID: string): Promise<void> {
     const attempt = ++this.generation;
@@ -390,6 +455,8 @@ export class CameraFlow {
           try {
             this.photo = await image.createPixelMap(value.alignedRgba, {
               size: { width: value.alignedSide, height: value.alignedSide },
+              // SDK 提供 RGBA；省略输入格式时系统按 BGRA 读取，确认照片会红蓝互换。
+              srcPixelFormat: image.PixelMapFormat.RGBA_8888,
               pixelFormat: image.PixelMapFormat.RGBA_8888, editable: false });
             this.previews.push(this.photo);
           } catch (_) {
@@ -424,6 +491,7 @@ export class CameraFlow {
   }
   confirm(): void {
     if (this.ended || this.committing || this.captured?.feature === undefined) return;
+    // 保存进入提交阶段后不接受取消，避免已写入基准却向业务报告“已取消”。
     this.committing = true;
     const value = this.captured;
     new ReferenceStore(this.context).save(this.params.faceID, value.feature ?? '').then((): void => {
@@ -438,7 +506,9 @@ export class CameraFlow {
   private fail(error: Error): void { this.finish(errorEnvelope(error)); }
   private finish(response: string): void {
     if (this.ended) return;
+    // 先屏蔽旧事件，再释放相机/窗口；释放完成后才能归还原生操作槽。
     this.ended = true; this.generation++; this.accepting = false; this.request?.cancel();
+    this.restoreScreen();
     this.shutdown().then((): void => { this.completion(response); }, (): void => { this.completion(response); });
   }
   private stopCamera(): Promise<void> {
@@ -447,6 +517,7 @@ export class CameraFlow {
   }
   private async stopResources(): Promise<void> {
     this.accepting = false;
+    // 等待正在分析的帧结束后再释放输出和接收器，防止后台任务使用已释放的资源。
     try { await this.session?.stop(); } catch (_) {}
     try { await this.frameTask; } catch (_) {}
     try { await this.session?.release(); } catch (_) {}
@@ -467,10 +538,7 @@ export class CameraFlow {
       try { await this.mainWindow.getUIContext().getPromptAction().closeCustomDialog(this.dialog); } catch (_) {}
       this.dialog.dispose(); this.dialog = undefined;
     }
-    if (this.changedKeepScreenOn) {
-      try { await this.mainWindow.setWindowKeepScreenOn(this.previousKeepScreenOn); } catch (_) {}
-      this.changedKeepScreenOn = false;
-    }
+    await this.restoreScreen();
     this.previews.slice().forEach((photo: image.PixelMap): void => { this.releasePreview(photo); });
     this.photo = undefined; this.captured = undefined;
   }

@@ -113,6 +113,17 @@ for (const platform of ['app-android', 'app-ios', 'app-harmony']) {
     assert.equal(successes[0].livenessScore, null)
     assert.equal(completed.length, 1)
   })
+  test(`${platform}: optional progress action and absent enrollment feature are explicit null`, () => {
+    const { api, calls } = load(platform)
+    let progress, result
+    api.enrollFace({ faceID: 'u', onProgress: value => { progress = value }, success: value => { result = value } })
+    calls[0].reply(JSON.stringify({ event: 'progress', code: 'OK', data: { stage: 'WAITING_FOR_FACE' } }))
+    assert.strictEqual(progress.action, null)
+    calls[0].reply(JSON.stringify({ event: 'result', code: 'OK', data: { passed: false, outcome: 'NO_FACE_TIMEOUT' } }))
+    assert.strictEqual(result.feature, null)
+    assert.strictEqual(result.passed, false)
+    assert.strictEqual(result.similarity, null)
+  })
   test(`${platform}: rejects invalid input before opening native UI`, () => {
     const { api, calls } = load(platform)
     for (const options of [{ faceID: '' }, { faceID: 'a\0b' }, { faceID: 'x'.repeat(65) },

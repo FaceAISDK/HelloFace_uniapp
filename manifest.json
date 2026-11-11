@@ -64,6 +64,7 @@
   "app-harmony": {
     "distribute": {
       "bundleName": "dev.helloface.uniapp.demo",
+      "compatibleSdkVersion": "6.0.0(20)",
       "icons": {
         "foreground": "app-icons/harmony/foreground.png",
         "background": "app-icons/harmony/background.png"

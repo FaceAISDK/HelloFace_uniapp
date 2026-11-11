@@ -2,7 +2,7 @@ import { FaceResult, FaceProgress, FaceSuccess, FaceFailure, FaceComplete, FaceP
 import { HelloFaceVerifyFailImpl } from './unierror.uts'
 import { resultCode, failureCode, statusMessage, legacyErrorCode } from './status.uts'
 
-// The three platform entries share defaults, validation and callback semantics.
+// 三端入口只选择原生适配器；默认值、参数校验和回调收尾统一在这里维护。
 export function createFaceParams(faceID: string): UTSJSONObject {
   return { faceID: typeof faceID == 'string' ? faceID.trim() : '' } as UTSJSONObject
 }
@@ -90,6 +90,19 @@ export function validateParams(method: string, params: UTSJSONObject): string | 
   return null
 }
 
+/** 先校验再进入原生层；参数错误也经过同一分发器，保证 fail 后触发 complete。
+ * 适配器只负责获取平台上下文并调用原生实现，不参与业务判定。
+ */
+export function invokeFaceMethod(method: string, params: UTSJSONObject,
+  success: FaceSuccess | null, fail: FaceFailure | null, complete: FaceComplete | null,
+  onProgress: FaceProgressCallback | null,
+  invoke: (method: string, raw: string, callback: (raw: string) => void) => void): void {
+  const handle = createDispatcher(method, params.getString('faceID') ?? '', success, fail, complete, onProgress)
+  const error = validateParams(method, params)
+  if (error != null) { handle(error); return }
+  invoke(method, JSON.stringify(params), handle)
+}
+
 function isProgress(event: UTSJSONObject | null): boolean {
   return event?.getString('event') == 'progress' && event?.getString('code') == 'OK' && event?.getJSON('data')?.getString('stage') != null
 }
@@ -98,7 +111,7 @@ function score(data: UTSJSONObject | null, key: string): number | null {
   return value != null && Number.isFinite(value) ? value : null
 }
 
-/** A terminal callback is delivered once, including validation failures and malformed native replies. */
+/** 过程事件可多次到达，终态只分发一次；损坏响应转为 BRIDGE_ERROR，不能当成成功。 */
 export function createDispatcher(method: string, faceID: string,
   success: FaceSuccess | null, fail: FaceFailure | null, complete: FaceComplete | null,
   onProgress: FaceProgressCallback | null): (raw: string) => void {
@@ -111,13 +124,13 @@ export function createDispatcher(method: string, faceID: string,
     const cameraMethod = method == 'enrollFace' || method == 'verifyFace'
     if (cameraMethod && isProgress(event)) {
       const progress: FaceProgress = {
-        faceID: faceID, stage: data?.getString('stage') ?? '', action: data?.getString('action'),
+        faceID: faceID, stage: data?.getString('stage') ?? '', action: data?.getString('action') ?? null,
         stepNumber: data?.getNumber('stepNumber') ?? 0, stepCount: data?.getNumber('stepCount') ?? 0
       }
       onProgress?.(progress)
       return
     }
-    ended = true // Set before user code: reentrant and late native events cannot complete twice.
+    ended = true // 先标记再调用业务回调，防止回调重入或迟到事件再次结束任务。
     let code = event?.getString('code') ?? 'BRIDGE_ERROR'
     const validResult = event?.getString('event') == 'result' &&
       (!cameraMethod || (data?.getBoolean('passed') != null && data?.getString('outcome') != null)) &&
@@ -135,13 +148,14 @@ export function createDispatcher(method: string, faceID: string,
       try { fail?.(error) } finally { complete?.(error) }
       return
     }
-    const passed = cameraMethod ? data?.getBoolean('passed') : null
-    const outcome = cameraMethod ? data?.getString('outcome') : null
+    // ArkTS 的可选链还可能产生 undefined；公开字段统一遵循接口中的 null 约定。
+    const passed = cameraMethod ? (data?.getBoolean('passed') ?? null) : null
+    const outcome = cameraMethod ? (data?.getString('outcome') ?? null) : null
     const status = resultCode(passed ?? null, outcome ?? null)
     const result: FaceResult = {
       code: status, msg: statusMessage(status, method),
       errMsg: method + ':ok', faceID: faceID,
-      feature: method == 'enrollFace' || method == 'getFaceFeature' || method == 'setFaceFeature' || method == 'syncFaceFeature' || method == 'syncFaceImage' ? data?.getString('feature') : null,
+      feature: method == 'enrollFace' || method == 'getFaceFeature' || method == 'setFaceFeature' || method == 'syncFaceFeature' || method == 'syncFaceImage' ? (data?.getString('feature') ?? null) : null,
       featureSpaceID: 'jdx-feature-v1',
       passed: passed, outcome: outcome,
       similarity: method == 'verifyFace' ? score(data ?? null, 'similarity') : null,

@@ -20,6 +20,7 @@
     "uts:check": "node scripts/check_uts.cjs",
     "check": "npm run ui:check && npm test && npm run sdk:check && npm run uts:check",
     "android:uts-check": "node scripts/check_android_uts.cjs",
+    "ios:check": "python3 scripts/check_ios_native.py",
     "icons:build": "swift scripts/generate_app_icons.swift",
     "ui:build": "python3 scripts/generate_native_ui.py",
     "ui:check": "python3 scripts/generate_native_ui.py --check"

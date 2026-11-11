@@ -5,7 +5,9 @@ import { cryptoFramework } from '@kit.CryptoArchitectureKit';
 import { huks } from '@kit.UniversalKeystoreKit';
 import { BridgeError } from './BridgeTypes';
 
-/** HUKS owns the nonexportable AES key. Preferences contains only AES-GCM ciphertext. */
+/** AES 密钥由 HUKS 管理且不可导出，Preferences 只保存 AES-GCM 密文。
+ * 格式为版本字节 + 12 字节 nonce + 密文/16 字节标签；AAD 绑定模型与 faceID。
+ */
 export class ReferenceStore {
   private readonly context: common.UIAbilityContext;
   private readonly alias: string = 'helloface.references.aes.v1';

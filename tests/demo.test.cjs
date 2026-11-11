@@ -63,8 +63,9 @@ for (const file of ['pages/index/index.vue', 'examples/uni-app-x/pages/index/ind
     state.verify(true)
     const options = calls[0].options
     assert.equal(options.faceID, 'demo-user')
-    assert.equal(options.threshold, 0.8)
-    assert.equal(options.silentLiveness, true)
+    // Demo 省略默认项，由插件统一提供阈值与静默活体默认值。
+    assert.equal(options.threshold, undefined)
+    assert.equal(options.silentLiveness, undefined)
     assert.deepEqual(Array.from(options.actions), ['blink', 'nodHead'])
     options.success({ code: 202, msg: '活体未通过', errMsg: 'verifyFace:ok', faceID: 'demo-user', passed: false,
       outcome: 'SPOOF_DETECTED', similarity: 0.999, livenessScore: null })
@@ -78,7 +79,7 @@ for (const file of ['pages/index/index.vue', 'examples/uni-app-x/pages/index/ind
     assert.equal(state.busy, false)
     state.verify(false)
     assert.deepEqual(Array.from(calls[1].options.actions), [])
-    assert.equal(calls[1].options.silentLiveness, true)
+    assert.equal(calls[1].options.silentLiveness, undefined)
   })
 
   test(`${file}: enrollment calls the plugin directly without retaining biometric features`, () => {

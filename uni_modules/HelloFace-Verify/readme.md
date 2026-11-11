@@ -19,6 +19,8 @@
 
 Android 使用 CameraX，iOS 使用 AVFoundation，鸿蒙使用 CameraKit。相机帧在原生层处理，前端接收进度与业务结果。基准特征分别由 Android Keystore、iOS Keychain、鸿蒙 HUKS 保护；插件不主动上传人脸图片或特征，也不把采集图保存到相册或文件。
 
+进入录入、静默验证或动作验证的原生相机页时，插件自动把亮度调到最亮，录入确认和重新采集期间保持；完成、取消、报错、离页或进入后台时恢复进入时的亮度。Android/鸿蒙保存并恢复窗口亮度策略（包括跟随系统），iOS 保存并恢复所在屏幕的亮度。无需额外权限或 Demo 调用代码；没有相机页面的基准读写、同步和删除不调整亮度。
+
 ## 平台与环境
 
 | 项目 | 要求 |
@@ -69,8 +71,6 @@ import { enrollFace } from '@/uni_modules/HelloFace-Verify'
 
 enrollFace({
   faceID: 'user-001',
-  camera: 'front',
-  overwrite: false,
   success: result => {
     if (result.passed === true) {
       // 用户已在原生界面确认，基准特征已加密保存在本机。
@@ -83,6 +83,8 @@ enrollFace({
 
 `faceID` 为 1–64 个 UTF-16 单元，去除两端空白，不接受 NUL。重复录入默认保留已有特征；确认需要覆盖时传 `overwrite: true`。确认之前退出不会保存。
 
+当前 SDK 0.8.8 在单人、大小和正脸稳定性满足要求后，等待约 700 毫秒再采集；检测与特征提取也需要时间，因此不是打开相机后固定 1 秒完成。鸿蒙和 iOS 录入页在 `HOLD_STILL` 阶段显示稳定等待圆环，偏头、晃动或丢失人脸时重置；圆环走满后仍等待 SDK 的实际结果，再展示照片供用户确认。iOS 的功能对照、静态检查及待真机项目见 [iOS 功能与调试](https://github.com/FaceAISDK/HelloFace_uniapp/blob/main/docs/IOS_DEBUG.md)。
+
 ## 1:1 人脸识别与活体检测
 
 ```js
@@ -90,10 +92,6 @@ import { verifyFace, cancel } from '@/uni_modules/HelloFace-Verify'
 
 verifyFace({
   faceID: 'user-001',
-  threshold: 0.80,
-  silentLiveness: true,
-  actions: ['blink', 'nodHead'],
-  onProgress: progress => { /* 更新提示：stage、action、stepNumber、stepCount */ },
   success: result => {
     if (result.passed === true) {
       // 1:1 验证通过，继续业务流程。
@@ -107,6 +105,10 @@ verifyFace({
 
 // 页面 onUnload 中调用：cancel()
 ```
+
+默认使用前置相机、阈值 `0.80` 和静默活体；业务只传需要变化的参数。启用动作活体时增加 `actions: ['blink', 'nodHead']` 即可。原生页面已提供采集/动作引导，业务页面无需重复实现相机、权限申请或 SDK 初始化；需要额外的业务进度展示时再提供 `onProgress`。
+
+Demo 的每个按钮直接调用对应 API，`success / fail / complete` 复用页面的结果展示和收尾方法；这些方法只维护页面状态。复制到自己的项目时保留重复点击拦截、删除确认、错误反馈和 `onUnload` 中的取消。内部结构与维护边界见 [代码结构说明](https://github.com/FaceAISDK/HelloFace_uniapp/blob/main/docs/CODE_STRUCTURE.md)，鸿蒙签名、断点和日志见 [鸿蒙调试说明](https://github.com/FaceAISDK/HelloFace_uniapp/blob/main/docs/HARMONY_DEBUG.md)。
 
 | 参数 | 默认值 | 说明 |
 | --- | --- | --- |

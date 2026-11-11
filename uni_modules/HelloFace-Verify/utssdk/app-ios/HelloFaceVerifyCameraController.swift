@@ -8,19 +8,22 @@ final class HelloFaceVerifyCameraController: UIViewController {
     private let reference: String?
     private let onProgress: ([String: Any]) -> Void
     private let completion: (String) -> Void
-    private lazy var pipeline = HelloFaceVerifyCameraPipeline(front: isFront) { [weak self] code, message in
-        self?.fail(code, message)
-    }
+    private var pipeline: HelloFaceVerifyCameraPipeline?
     private var preview: AVCaptureVideoPreviewLayer?
     private var request: FaceRequest?
     private lazy var screen = HelloFaceVerifyCameraView(enrollment: method == "enrollFace")
     private var captured: FaceFlowResult?
-    private var ended = false
+    private var lifecycle = HelloFaceVerifyCameraLifecycle()
+    private var ended: Bool { lifecycle.ended }
     private var saving = false
     var committing: Bool { saving }
     private var generation = 0
     private var previousIdleTimer: Bool?
     private var backgroundObserver: NSObjectProtocol?
+    private var brightnessObservers: [NSObjectProtocol] = []
+    private var brightnessScreen: UIScreen?
+    private var previousBrightness: CGFloat?
+    private var brightnessApplied = false
     private var isFront: Bool { (params["camera"] as? String ?? "front") == "front" }
 
     init(method: String, params: [String: Any], reference: String?,
@@ -38,7 +41,23 @@ final class HelloFaceVerifyCameraController: UIViewController {
         screen.onRetake = { [weak self] in self?.retake() }
         screen.onConfirm = { [weak self] in self?.confirm() }
         backgroundObserver = NotificationCenter.default.addObserver(forName: UIApplication.didEnterBackgroundNotification,
-            object: nil, queue: .main) { [weak self] _ in self?.cancel() }
+            object: nil, queue: .main) { [weak self] _ in
+                guard let self = self else { return }
+                DispatchQueue.main.async { self.cancel() }
+            }
+        // 显式桥接到主 actor，同时兼容 iOS 15；不能用仅 iOS 17+ 的 assumeIsolated。
+        brightnessObservers = [
+            NotificationCenter.default.addObserver(forName: UIApplication.willResignActiveNotification,
+                object: nil, queue: .main) { [weak self] _ in
+                    guard let self = self else { return }
+                    DispatchQueue.main.async { self.restoreBrightness() }
+                },
+            NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification,
+                object: nil, queue: .main) { [weak self] _ in
+                    guard let self = self else { return }
+                    DispatchQueue.main.async { self.maximizeBrightness() }
+                }
+        ]
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized: begin()
         case .notDetermined:
@@ -56,6 +75,7 @@ final class HelloFaceVerifyCameraController: UIViewController {
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        maximizeBrightness()
         if !ended && previousIdleTimer == nil {
             previousIdleTimer = UIApplication.shared.isIdleTimerDisabled
             UIApplication.shared.isIdleTimerDisabled = true
@@ -68,23 +88,50 @@ final class HelloFaceVerifyCameraController: UIViewController {
     }
     override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
+        restoreBrightness()
         restoreIdleTimer()
         if !ended { cancel() }
     }
+    override func viewWillDisappear(_ animated: Bool) {
+        restoreBrightness()
+        super.viewWillDisappear(animated)
+    }
+    private func maximizeBrightness() {
+        guard !ended, viewIfLoaded?.window != nil, UIApplication.shared.applicationState == .active,
+              let display = view.window?.windowScene?.screen else { return }
+        // iOS 亮度作用于屏幕，必须记录一次原值，并在失去前台时及时归还。
+        if previousBrightness == nil { previousBrightness = display.brightness; brightnessScreen = display }
+        brightnessScreen?.brightness = 1
+        brightnessApplied = true
+    }
+    private func restoreBrightness() {
+        guard brightnessApplied, let previous = previousBrightness else { return }
+        brightnessScreen?.brightness = previous
+        brightnessApplied = false
+    }
 
     private func begin() {
-        guard !ended else { return }
+        guard !ended, pipeline == nil else { return }
+        // 授权后才创建 SDK；拒绝授权/提前取消时不为收尾初始化整套相机管线。
+        let pipeline = HelloFaceVerifyCameraPipeline(front: isFront) { [weak self] code, message in self?.fail(code, message) }
+        self.pipeline = pipeline
         do {
             try startRequest()
             let layer = AVCaptureVideoPreviewLayer(session: pipeline.session)
             layer.videoGravity = .resizeAspect; layer.frame = view.bounds
             layer.backgroundColor = HelloFaceVerifyCameraView.background.cgColor
             view.layer.insertSublayer(layer, at: 0); preview = layer
-            pipeline.start()
+            pipeline.start { [weak self] in
+                guard let self = self, !self.ended, let connection = self.preview?.connection else { return }
+                if !HelloFaceVerifyCameraOrientation.configure(connection, mirrored: self.isFront) {
+                    self.fail("CAMERA_ERROR", "Portrait camera preview is unavailable")
+                }
+            }
         } catch { fail("INVALID_ARGUMENT", error.localizedDescription) }
     }
 
     private func startRequest() throws {
+        guard let pipeline = pipeline else { throw HelloFaceVerifyBridgeError.failure("CAMERA_ERROR", "Camera is not initialized") }
         generation += 1
         let attempt = generation
         let callbacks = FaceFlowCallbacks(onProgress: { [weak self] progress in
@@ -128,7 +175,7 @@ final class HelloFaceVerifyCameraController: UIViewController {
         guard !ended, captured == nil else { return }
         if method == "enrollFace", value.passed, value.feature != nil {
             captured = value
-            pipeline.pause()
+            pipeline?.pause()
             var photo: UIImage?
             if let image = value.alignedFace?.makeCGImage() {
                 photo = UIImage(cgImage: image)
@@ -145,7 +192,7 @@ final class HelloFaceVerifyCameraController: UIViewController {
         generation += 1
         request?.cancel(); request = nil; captured = nil
         screen.showLive()
-        do { try startRequest(); pipeline.resume() }
+        do { try startRequest(); pipeline?.resume() }
         catch { fail("INVALID_ARGUMENT", error.localizedDescription) }
     }
     @objc private func confirm() {
@@ -157,15 +204,29 @@ final class HelloFaceVerifyCameraController: UIViewController {
     @objc func cancel() { if !saving { fail("CANCELLED", "Face operation cancelled") } }
     private func fail(_ code: String, _ message: String) { finish(HelloFaceVerifyOperation.envelope("error", code, message)) }
     private func finish(_ response: String) {
-        guard !ended else { return }; ended = true
-        generation += 1; restoreIdleTimer(); screen.clearPhoto()
+        guard lifecycle.finish(response) else { return }
+        generation += 1; restoreBrightness(); restoreIdleTimer(); screen.clearPhoto()
         captured = nil; request?.cancel(); request = nil
         if let observer = backgroundObserver { NotificationCenter.default.removeObserver(observer) }
-        pipeline.close { [self] in
-            if presentingViewController != nil {
-                dismiss(animated: true) { [completion] in completion(response) }
-            } else { completion(response) }
-        }
+        brightnessObservers.forEach { NotificationCenter.default.removeObserver($0) }
+        brightnessObservers.removeAll()
+        if let pipeline = pipeline {
+            pipeline.close { [self] in
+                self.pipeline = nil
+                lifecycle.didClose()
+                completeIfReady()
+            }
+        } else { lifecycle.didClose(); completeIfReady() }
+    }
+    func presentationDidFinish() {
+        lifecycle.didPresent()
+        completeIfReady()
+    }
+    private func completeIfReady() {
+        guard let response = lifecycle.takeResponse() else { return }
+        if presentingViewController != nil {
+            dismiss(animated: true) { [completion] in completion(response) }
+        } else { completion(response) }
     }
     private func restoreIdleTimer() {
         if let previous = previousIdleTimer { UIApplication.shared.isIdleTimerDisabled = previous; previousIdleTimer = nil }

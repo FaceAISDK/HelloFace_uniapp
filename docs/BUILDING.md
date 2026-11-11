@@ -141,7 +141,7 @@ python3 scripts/check_android_alignment.py /本机路径/release.apk --report un
 3. 集成插件 Swift 源码、UTS 编译产物及 `HiFace.xcframework`、`HiFaceNative.xcframework`；保留 SDK 模型资源和隐私清单，按照依赖库类型完成链接/嵌入配置。
 4. 合并插件 `Info.plist` 的相机用途描述，最低部署版本设为 iOS 15，并配置自己的签名、Archive / Export 生成 IPA。
 
-本机此前检测到 Xcode 15.2，因此当前 iOS 仅完成 UTS 转换和 Swift 语法检查。升级 Xcode 后还需执行完整类型检查、链接、签名和真机验证。[iOS UTS 原生工程配置](https://doc.dcloud.net.cn/uni-app-x/native/use/iosuts.html)
+本机当前为 Xcode 15.2。`npm run ios:check` 可执行 Swift 语法、真实 UIKit 视图类型及纯状态检查，并通过仅供编译的 SDK 边界检查平台接入类型；不能据此声称真实 SDK 已编译。选择兼容 Xcode 后执行 `npm run ios:check -- --full`，再完成完整 App 链接、签名和真机验证。功能对照、断点和验收清单见 [iOS 功能与调试](IOS_DEBUG.md)。[iOS UTS 原生工程配置](https://doc.dcloud.net.cn/uni-app-x/native/use/iosuts.html)
 
 ## HarmonyOS 鸿蒙
 
@@ -152,7 +152,9 @@ HBuilderX 官方鸿蒙流程在本机调用 DevEco 工具链完成构建，不�
 3. 确认插件 `utssdk/app-harmony/libs/hiface-0.8.8.har` 已安装，`config.json` 能解析该依赖；相机权限及原因字符串由插件 `module.json5` 和 `resources` 提供。
 4. 在 HBuilderX 中选择鸿蒙真机运行；正式打包使用“发行 → App-Harmony-本地打包 → 生成安装包”，完成本地编译和签名。
 
-当前已通过独立原生 HAR 模块构建，完整 uni-app / uni-app x App 及相机真机流程仍需验收。
+当前已完成根 Vue3 示例的完整 HAP 构建、签名、安装及鸿蒙 API 26 真机运行。本机匹配的调试签名配置在被 Git 忽略的 `harmony-configs/build-profile.json5`，其他电脑需配置自己的身份及匹配 Profile。独立 uni-app x 完整 App、HarmonyOS 6 实机及真人用例的验收边界见 [验证记录](VALIDATION.md)。两套示例的最低鸿蒙版本均固定为 `6.0.0(20)`，以满足真实 HAR 的 API 20 要求。
+
+本工程的设备连接、签名匹配、CLI 运行、断点、日志和修改后重建步骤见 [鸿蒙真机运行与调试](HARMONY_DEBUG.md)。
 
 ## 发布前验证
 

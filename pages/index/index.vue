@@ -46,9 +46,9 @@ export default {
       enrollFace({
         faceID: this.faceID,
         overwrite: true, // 方便重复体验；仍需在原生页面确认保存。
-        success: (result) => { this.showResult(result) },
-        fail: (error) => { this.showError(error) },
-        complete: (_) => { this.busy = false }
+        success: this.showResult,
+        fail: this.showError,
+        complete: this.finish
       })
       // #endif
     },
@@ -57,12 +57,11 @@ export default {
       // #ifdef APP
       verifyFace({
         faceID: this.faceID,
-        threshold: 0.80,
-        silentLiveness: true,
+        // 默认阈值 0.80、静默活体开启；只传本次需要变化的动作。
         actions: withActions ? ['blink', 'nodHead'] : [], // 动作模式同时保留静默活体。
-        success: (result) => { this.showResult(result) },
-        fail: (error) => { this.showError(error) },
-        complete: (_) => { this.busy = false }
+        success: this.showResult,
+        fail: this.showError,
+        complete: this.finish
       })
       // #endif
     },
@@ -72,9 +71,9 @@ export default {
       this.faceID = 'external-demo' // 独立示例标识，保留相机录入的 demo-user。
       syncFaceImage({
         faceID: this.faceID, imageBase64: demoImageBase64, overwrite: true,
-        success: (result) => { this.showResult(result) },
-        fail: (error) => { this.showError(error) },
-        complete: (_) => { this.busy = false }
+        success: this.showResult,
+        fail: this.showError,
+        complete: this.finish
       })
       // #endif
     },
@@ -84,9 +83,9 @@ export default {
       this.faceID = 'external-demo' // 独立示例标识，保留相机录入的 demo-user。
       syncFaceFeature({
         faceID: this.faceID, feature: demoFeature, featureSpaceID: demoFeatureSpaceID, overwrite: true,
-        success: (result) => { this.showResult(result) },
-        fail: (error) => { this.showError(error) },
-        complete: (_) => { this.busy = false }
+        success: this.showResult,
+        fail: this.showError,
+        complete: this.finish
       })
       // #endif
     },
@@ -99,15 +98,17 @@ export default {
           if (!modal.confirm) { this.busy = false; this.resultText = '已取消'; return }
           deleteFace({
             faceID: this.faceID,
-            success: (result) => { this.showResult(result) },
-            fail: (error) => { this.showError(error) },
-            complete: (_) => { this.busy = false }
+            success: this.showResult,
+            fail: this.showError,
+            complete: this.finish
           })
         },
         fail: (_) => { this.busy = false; this.resultText = '操作未完成' }
       })
       // #endif
     },
+    // Vue/uvue 的 methods 保持页面 this 绑定，可直接作为 API 回调。
+    finish() { this.busy = false },
     // 以下仅处理按钮状态与结果展示；不参与 SDK 判定，不保存原始特征。
     begin(message) {
       if (this.busy) return false

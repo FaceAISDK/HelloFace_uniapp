@@ -2,6 +2,85 @@
 
 更新日期：2026-11-11。原生 SDK 0.8.8，上游提交 `572751458a3ea9d85ca422cecec56d115be71e4e`。
 
+## 2026-11-11 iOS 功能对齐（未做真机验证）
+
+- 核对八个公开 API、临时基准、图片/特征同步、返回码、确认/重拍、互斥/取消、Keychain、满亮与恢复：iOS 已有对应实现，本次保留参数、SDK 0.8.8、阈值、License、存储键及格式。三端固定 333×333 确认预览未改成高清流程。
+- 补齐与鸿蒙对应的录入稳定圆环：Core Animation 在 HOLD_STILL 阶段显示 0.7 秒进度；重复阶段不重启，偏头/晃动/丢脸、确认、重拍及离页会重置。满圈只更新显示，仍由 SDK 返回真实采集结果。
+- 统一显式配置竖屏方向和前置预览镜像，输出给 SDK 的帧保持无镜像、携带原有镜像标记。优先 VGA 640×480，不支持时尝试系统 medium 预设；没有支持的配置时返回相机错误。
+- 补齐相机会话中断和运行错误通知；后台中断返回取消，其他中断返回相机错误。配置、帧处理、暂停、关闭在同一串行队列；关闭时解除观察者、帧代理、输入和输出，关闭后的排队任务不能再启动或分析帧。
+- 修复权限拒绝/快速取消可能先于弹出动画完成的收尾窗口：同时等弹出完成和管线关闭，再关闭页面并交还调用槽，避免空白相机页残留或过早重入。SDK 改为授权后创建，拒绝授权或提前取消时不为收尾额外初始化 SDK。补上 Swift 6 所需的通知主 actor 路由与 UTS 回调传递包装，公开回调签名保持不变。
+- 新增 `npm run ios:check`。8 个真实 Swift 文件语法检查通过；20 项直接编译执行的相机状态检查通过；真实 UIKit 视图/圆环类型检查通过。全部 UIKit/AVFoundation/Keychain 接入类型通过编译用 HiFace 边界检查；该边界全部为 `fatalError`，仅在临时检查模块使用，不打入插件或 App，不能作为真实 SDK、识别或活体结果。
+- 通用 `npm run check` 通过 106 项（81 项 JS、25 项 Python）、37 个 SDK 文件校验及三端 UTS 转换。规范 iOS 源码和 uvue 插件副本同步；Demo 接入代码无需修改。
+
+**仍未验收**：用户明确暂不做 iOS 真机验证；相机画面、方向/镜像观感、圆环、权限弹窗、系统中断、亮度恢复、真人录入、本人/他人比对及活体均待真机。真实 SDK 的 `ios:check -- --full` 仍被本机 Xcode 15.2 阻塞（不支持 `-swift-version 6`）；没有新增完整 IPA 构建或链接通过结论。旧 iOS 17.2 SDK 的 `UIAccessibilityTraits.updatesFrequently` 在严格并发诊断下仍有一条共享全局状态警告，使用点位于主 actor 的 UIKit 视图；需在兼容 Xcode 上复核完整检查。
+
+功能差异、构建、断点和待验收清单见 [iOS 功能与调试](IOS_DEBUG.md)。日志为忽略目录 `unpackage/validation/ios-parity-*.log`；纯状态检查不模拟人脸识别成功。
+
+## 2026-11-11 三端原生相机亮度管理
+
+- 录入（含确认与重拍）、静默验证和动作验证共用原生相机页，进入时自动调到最亮，完成、取消、异常、离页和进入后台时恢复。Android 保存本 Activity 的 `screenBrightness`，iOS 保存所在 `UIWindowScene.screen` 的亮度，鸿蒙保存主窗口 `brightness`；Android/鸿蒙保留 `-1` 跟随系统策略。存储、同步等没有相机页面的接口不调亮，Demo 无新增调用。
+- 鸿蒙将设置和恢复串行化，覆盖快速取消发生在异步调亮之前或期间的情况；后台即使处于保存提交阶段也恢复亮度。新增 4 项真实流程方法的回归测试，覆盖默认/自定义/已满亮原值、恢复幂等、快速取消及后台提交场景。`npm run check` 共 106 项通过（81 项 JS、25 项 Python），37 个 SDK 文件校验和三端 UTS 转换通过；uvue 插件副本已同步。
+- Android 的 uni-app、uni-app x 官方 UTS/Kotlin/DEX 编译及桥接 ABI 检查均通过。Samsung SM-S9210 / API 36 使用设备上已有完整 0.1.5 基座，经 HBuilderX 原生联编后，真实录入窗口的系统属性为 `sbrt=1.0`；取消后恢复宿主窗口默认策略，重复进入再次为 1.0；进入后台及回到宿主后均无满亮覆盖。未卸载应用或改动基准。
+- 鸿蒙完整签名 HAP 于 17:49:24 构建成功，17:49:26 安装成功；产物 22,169,788 字节，SHA-256 `5c53c8ac13fc9ca316ba6a8d62ea118c2b7ccacb9d0925e553b0fc79133b7445`。Mate 60 Pro / API 26 依次打开录入、静默验证、动作验证，并分别取消或切后台；原生窗口日志实测亮度顺序为 `1 → -1 → 1 → -1 → 1 → -1`，各次返回 `result: 0`，当前进程无 Fatal 条目。本轮是亮度及退出回归，不新增真人身份/活体判定结论。
+- iOS 已同步功能，7 个 Swift 文件语法检查及真实亮度方法的 UIKit 类型检查通过。按用户指示，没有真机时先保留待验收；未将局部类型检查记为完整 SDK 链接、IPA 构建或 iOS 真机通过。现有 Xcode 15.2 对当前 SDK 的完整链接限制仍在。
+
+证据位于忽略目录 `unpackage/validation/brightness-*.log`、`brightness-android-device-20261111.json`、`brightness-receipt-20261111.json`。原有用户数据、SDK、License、识别阈值和公共 API 均保留。
+
+## 2026-11-11 鸿蒙录入圆环与真人回归
+
+- 核对当前 SDK 的引导录入稳定窗口为 700 毫秒，原生鸿蒙 Demo 也用同一时长绘制稳定提示。单人、面部大小、正脸和稳定性须先满足 SDK 条件，检测及特征提取仍需时间，不能把它描述为打开相机后固定 1 秒完成。
+- 插件鸿蒙相机页新增 `HOLD_STILL` 阶段的蓝色圆环进度，使用单调时钟、33 毫秒重绘；相同阶段不重复起表，偏头、晃动、丢脸等阶段重置。确认、重拍和离页会清理计时器；满圈仅为视觉提示，仍由 SDK 结果触发确认页。Demo 无新增封装或调用参数，识别和活体参数、存储均不改变。
+- 新增真实圆环控制方法的回归检查，覆盖 700 毫秒进度、重复事件、姿态/丢脸重置、验证模式隔离及离页清理。`npm run check` 通过 102 项（77 项 JS、25 项 Python）、37 个 SDK 文件校验及三端 UTS 转换，uvue 插件副本已同步。
+- HBuilderX 5.34 / DevEco 26 于 17:37:15 制作完整运行包成功，17:37:17 安装成功。当前签名 HAP 为 22,170,828 字节，SHA-256 `91fce04e3fe0c1a0592f3aade50bd0332969f33de805ec1274e80c7cce5371eb`。在同一 Mate 60 Pro / API 26 打开真实录入相机，操作者反馈“动画清楚，正常进入确认页”。没有保存真人相机或确认照片。
+- 使用此前录入的 `demo-user` 在更新后打开静默活体身份验证，设备页面实际返回 `code: 0 / msg: 验证通过 / passed: true / similarity: 0.929 / livenessScore: 1.000`；操作者也确认本人验证通过。这同时确认更新后原有基准仍可读取，且圆环结束/离开后能继续调用验证。
+- 动作活体先有一轮未检测到人脸，返回 203 / `passed: false`；后续由操作者完成动作，页面实际返回 `code: 0 / msg: 验证通过 / passed: true / similarity: 0.918 / livenessScore: 1.000`，操作者确认动作验证通过。示例调用配置为 `blink / nodHead`，保留默认静默活体。失败轮次未算作通过，最终成功页面证据为 `harmony-ui-human-action-verification-confirmed.json`。
+
+本轮真人回归已完成：确认照片颜色正常、录入保存、圆环及确认页、本人静默验证、本人动作验证均通过。尚未测试他人比对；这些结果不代表识别准确率或活体攻击防护评测。未新增 HarmonyOS 6 实机或独立 uvue 完整 App 验收。构建日志、UI 文本证据及不含照片/特征的构建收据在忽略目录 `unpackage/validation/harmony-capture-ring-*`、`harmony-ui-human-*`。
+
+## 2026-11-11 匹配签名与完整 Vue3 示例真机验证
+
+- 在 AGC 注册 `HelloFaceVerify Demo`，Bundle Name 为 `dev.helloface.uniapp.demo`；新调试 Profile `HelloFaceVerifyUniappDebug20261111` 匹配该应用及当前已注册设备，沿用现有开发证书和私钥。DCloud AppID、SDK、License 均未改变。私有签名配置仅保存在被忽略的 `harmony-configs/build-profile.json5`；证书和 Profile 不进入仓库。
+- HBuilderX 5.34 / DevEco 26.0.0.851 于 17:14:30 报告完整运行包制作成功，17:14:33 安装成功。真实设备为 Mate 60 Pro / ALN-AL80，API 26，系统 `OpenHarmony-7.0.0.111`；安装版本 0.1.5 / 105。已签名 HAP 为 22,165,838 字节，SHA-256 `007612bc55bbf2c19a164d8edb52698e8879a420072b3b10475f8b36058d0f88`。日志为忽略目录下 `unpackage/validation/harmony-signed-run-20261111.log`。
+- 实际操作返回：缺少基准 105；相机拒绝 102；授权后原生预览入口及取消 103；外部 AI 示例图片与特征同步各为 0。App 强制停止再启动后，直接验证 `external-demo` 能进入原生相机，证明该测试基准持久化；无人脸超时为 203 / `passed: false`。
+- 动作验证打开后切到后台再恢复，返回取消 103，页面可继续操作；连续双击验证仅出现一个原生相机对话框，取消后恢复。该双击验证的是 Demo 的防重入，不代表已在真机覆盖原生并发 BUSY 104。
+- 删除外部测试基准时取消确认，后续仍可打开验证；确认删除后返回 0，再验证返回 105。只删除本轮创建的 `external-demo` 测试基准。当前 App 进程未发现 Fatal 日志；未据此推断所有进程或长期运行无崩溃。
+- 真人操作者已进入录入确认页，并报告照片偏蓝。定位为 SDK `alignedRgba` 是 RGBA，而 `image.createPixelMap` 默认按 BGRA 读取源缓冲区。补充 `srcPixelFormat: RGBA_8888`，仅修复确认照片显示；不改变相机 YUV 转换、特征、活体、阈值或存储。新增真实确认方法的合成红/绿/蓝/白像素回归检查，不保存真人照片。
+- 修复后 `npm run check` 通过 99 项（74 项 JS、25 项 Python）、37 个 SDK 文件校验和三端 UTS 转换。17:28:39 完整运行包制作成功，17:28:41 安装成功；新签名 HAP 为 22,165,764 字节，SHA-256 `d1f497da668ba4343b427de3d994f5881e2e8e9ae7a85979d3a2c426a0c9d7c6`，已核对生成工程包含输入格式修复。重新打开录入相机，当前进程 Fatal 日志为零。日志为 `unpackage/validation/harmony-preview-rgba-{check,run}-20261111.log`，构建收据为同目录 `harmony-preview-rgba-receipt-20261111.json`。
+
+操作者随后明确反馈“颜色正常，已确认录入”，据此记录颜色修复和真人确认保存通过；后续本人验证见最新一节。当前真机结果仅对应根 Vue3 示例和上述 API 26 设备；无 HarmonyOS 6 实机结果，独立 uvue 完整 App 仍未验收。历史签名阻塞已解除；下面保留当时记录供排错。
+
+## 2026-11-11 鸿蒙完整 HAP：最低 API 与 ArkTS 空值修复
+
+- 用户的完整宿主构建暴露 `00306004`：默认 `compatibleSdkVersion` 为 API 13，而真实 hiface HAR 要求 API 20。根 Vue 与独立 uvue 的 `manifest.json` 均持久设置 `app-harmony.distribute.compatibleSdkVersion: "6.0.0(20)"`。HBuilderX 重新生成工程后，default/release 两个 product 都为 20；未降低 SDK 的兼容版本声明。
+- 原 `MergeProfile` 错误消除后，完整 ArkTS 编译发现共享分发器的可选链值可能为 undefined，与公开接口的 `string | null` / `boolean | null` 不匹配。`action / feature / passed / outcome` 缺失值显式归一为 null，保持接口约定和 SDK 判定；新增三端缺失动作/录入特征的回归检查。
+- 先前重试中出现并发 Hvigor 占用和旧插件 ID 缓存；停止重试后，以 `--cleanCache true` 单次运行重新生成工程，旧 `@uni_modules/hellofaceverify` 依赖已移除。当前仅保留规范的 `@uni_modules/helloface-verify`。
+- HBuilderX 5.34 / DevEco 26 在 16:45:38 报告“运行包制作成功”，完整 Vue3 示例的未签名 HAP 为 `unpackage/dist/dev/app-harmony/entry/build/default/outputs/default/entry-default-unsigned.hap`，21,927,576 字节，SHA-256 `6c01315bcfee1910b7423019b52323e56590068cd829054f691eb63a455b8ea8`。包内包含真实 `libs/arm64-v8a/libhiface.so`；鸿蒙 SDK 采用该原生库，不能用 Android 的库名或外置模型清单判断是否打入 SDK。
+- 修改后 `npm run check` 通过 98 项检查（73 项 JS、25 项 Python）、37 个 SDK 文件校验及三端 UTS 转换。日志位于忽略目录 `unpackage/validation/harmony-api20-*.log`。
+- uni-app 与 uni-app x 的官方 UTS/Kotlin/DEX 编译和桥接 ABI 复验均通过；HAP 内的 `libhiface.so` 与锁定 HAR 中的原生库逐字节一致。
+
+安装阶段明确返回“没有签名无法安装”，尚未新增完整鸿蒙示例的相机或真人识别验收。仍需为 `dev.helloface.uniapp.demo` 配置匹配设备的调试签名。API 20 对应 HarmonyOS 6.0.0，作为最低版本时不支持鸿蒙 5；HarmonyOS NEXT 从 5 开始属于原生鸿蒙体系，这与当前 SDK 的最低支持版本是两个概念。
+
+## 2026-11-11 定时鸿蒙验证（代码整理前）
+
+- HDC 检测到 Mate 60 Pro / ALN-AL80，系统 API 26；HBuilderX 5.34 的 `devices list --platform app-harmony` 也识别到同一设备。`sdk:check` 单端校验真实 0.8.8 HAR 的哈希与长度通过。
+- `bm dump -n dev.helloface.uniapp.demo` 未查询到已安装应用。本机已有两个调试 Profile 的包名为 `com.hiface.sdk.public`、`com.hiface.sdk.debug`，均不匹配本示例；未改包名、借用其他应用 Profile 或卸载任何应用。缺少匹配 Bundle Name 和当前设备的签名配置，是完整真机运行的阻塞。
+- 尝试 HBuilderX 的鸿蒙 CLI 运行、仅编译和本地打包；运行/仅编译停在版本信息，本地打包在 16:03:32 报告“项目 HelloFace_uniapp 编译成功”，但未产生本轮可安装的签名 HAP。已结束这些尝试。生成目录仍有 11 月 9 日的旧 0.1.1 工程，前端编译成功不能当成本轮 0.1.5 完整原生构建成功的证据。
+- 界面控制服务两次启动失败，无法继续检查 HBuilderX/DevEco 的签名窗口。未进入当前完整示例的权限、相机、录入或验证流程，未新增真人识别/活体验收结论。
+
+本次状态记录位于忽略目录 `unpackage/validation/harmony-scheduled-20261111.json`；具体签名准备、断点、日志和重建步骤见 [鸿蒙调试说明](HARMONY_DEBUG.md)。第一阶段在记录以上阻塞后结束，再开始插件代码整理；整理后的检查另行记录。
+
+## 2026-11-11 插件整理与简洁 Demo（第二阶段）
+
+- 三端 `index.uts` 统一使用 `shared.uts` 的 `invokeFaceMethod`，集中创建分发器、参数校验及序列化。各端只保留获取上下文和原生调用的适配器；八个公共 API 的参数、回调与返回语义保持兼容。
+- Vue/uvue 按钮继续直接调用插件 API，复用页面结果/错误/complete 收尾方法，省略默认阈值与静默活体参数。保留重复点击拦截、删除确认和离页取消；动作活体仍保留默认静默活体，页面不保存或显示原始特征。
+- 补充三端原生操作槽、迟到回调、取消确认、保存提交、帧释放及加密格式的必要中文注释。新增 [代码结构与维护](CODE_STRUCTURE.md)，精简 README 接入示例并补全八个 API 清单。SDK 0.8.8、License、阈值及存储键未改动。
+- 整理后 `npm run check` 通过 95 项检查（70 项 JS、25 项 Python）、37 个 SDK 文件校验和 Kotlin/Swift/ArkTS 转换。测试仍检查未通过判定、非法参数、重复终态、取消及同步覆盖保护。
+- 整理后的 uni-app 与 uni-app x 官方 UTS/Kotlin/DEX 编译均通过，并再次通过桥接 JVM 名称 ABI 检查；Android 6.0 的最低版本提示保留。平台适配器使用函数值传入共享调用链，避免把 Kotlin 普通函数声明直接当作函数值。
+- 真实 0.8.8 SDK 的原生 ArkTS `assembleHar` 构建通过；这是不可单独安装的 HAR，不代表完整 HAP 或真机验收。
+- HBuilderX 5.34 的 Vue3 示例资源导出成功；uvue SFC 脚本编译与 Kotlin/Swift 模板生成通过，不代表 uvue 整页原生编译或完整 App 链接。uvue 插件副本的 41 个源码/配置/说明文件逐一与规范目录核对一致。
+
+本轮检查日志位于忽略目录 `unpackage/validation/cleanup-*.log`。鸿蒙完整示例及整理后真机相机回归仍受第一阶段签名问题阻塞；iOS 完整链接仍受现有 Xcode 版本限制。未把整理前结果当成整理后真人识别或活体验收。
+
 ## 2026-11-11 外部图片与特征同步
 
 - Android / iOS / HarmonyOS 新增 `syncFaceImage`、`syncFaceFeature`，三端共享参数校验、默认值与结果归一化；保留 `setFaceFeature`。图片使用公开 `extractFeature` 入口，仅提取基准，不依赖较新的多人图片采集或对齐预览接口。

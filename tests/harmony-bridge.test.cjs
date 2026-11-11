@@ -166,3 +166,36 @@ test('Harmony: cancelling a pending permission request isolates its late resolut
   assert.equal(state.sdkCreates, 0)
   assert.deepEqual(results, ['CANCELLED', 'cancel:OK'])
 })
+
+test('Harmony: enrollment preview declares RGBA input so red and blue stay in order', async () => {
+  const filename = path.resolve(__dirname, '../uni_modules/HelloFace-Verify/utssdk/app-harmony/HelloFaceVerifyCamera.ets')
+  const camera = fs.readFileSync(filename, 'utf8')
+  // Run the real confirmation method without compiling ArkUI's component syntax.
+  const method = camera.slice(camera.indexOf('  private result('), camera.indexOf('  retake():'))
+  const source = ts.transpileModule('exports.Flow = class {' + method + '}', {
+    compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS }
+  }).outputText
+  const exports = {}
+  vm.runInNewContext(source, { exports, image: {
+    PixelMapFormat: { RGBA_8888: 'rgba' },
+    async createPixelMap(buffer, options) {
+      // Match ImageKit's default BGRA source interpretation using synthetic pixels.
+      const pixels = new Uint8Array(buffer).slice()
+      if (options.srcPixelFormat !== 'rgba') {
+        for (let i = 0; i < pixels.length; i += 4) [pixels[i], pixels[i + 2]] = [pixels[i + 2], pixels[i]]
+      }
+      return { pixels }
+    }
+  } }, { filename })
+  const flow = new exports.Flow()
+  const pixels = new Uint8Array([255, 0, 0, 255, 0, 255, 0, 255,
+    0, 0, 255, 255, 255, 255, 255, 255])
+  let preview
+  Object.assign(flow, { method: 'enrollFace', previews: [], stopCamera: async () => {},
+    onCapture(photo, ready) { assert.equal(ready, true); preview = photo },
+    fail(error) { throw error } })
+  flow.result({ isPassed: () => true, feature: 'test-only', alignedRgba: pixels.buffer, alignedSide: 2 })
+  await flush()
+  assert.deepEqual(Array.from(preview.pixels), Array.from(pixels))
+  assert.equal(flow.previews[0], preview)
+})

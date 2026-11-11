@@ -1,7 +1,6 @@
 import { FaceCode, HelloFaceVerifyErrorCode } from './interface.uts'
 
-// One public code/message policy for Android, iOS and HarmonyOS.
-// Native SDK values stay available as outcome/sdkCode; never replace its verdict.
+// 三端统一对外 code/msg；保留 outcome/sdkCode 供排查，不用分数或文案改写 SDK 判定。
 export function resultCode(passed: boolean | null, outcome: string | null): FaceCode {
   if (passed != false) return 0
   if (outcome == 'NOT_MATCHED') return 201

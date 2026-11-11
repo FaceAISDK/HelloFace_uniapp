@@ -13,8 +13,7 @@ internal class CameraJob(val id: String, val method: String, val params: JSONObj
     val callback: (String) -> Unit, var reference: String? = null, var committing: Boolean = false)
 
 object HelloFaceVerifyNative {
-    // Keep JVM names stable across the cloud base and HBuilderX's local module.
-    // Plain internal accessors are mangled with different module-name suffixes.
+    // 云基座与本地联编模块名不同；PublishedApi 保持访问器 JVM 名称一致，避免旧后缀导致 NoSuchMethodError。
     @PublishedApi internal val main = Handler(Looper.getMainLooper())
     @PublishedApi internal val worker = Executors.newSingleThreadExecutor()
     @PublishedApi @Volatile internal var job: CameraJob? = null
@@ -26,6 +25,7 @@ object HelloFaceVerifyNative {
 
     @PublishedApi internal fun finish(id: String, response: String) {
         main.post {
+            // 只允许当前任务收尾；旧相机或后台工作线程的迟到回调不能结束新任务。
             val current = job
             if (current?.id != id) return@post
             job = null

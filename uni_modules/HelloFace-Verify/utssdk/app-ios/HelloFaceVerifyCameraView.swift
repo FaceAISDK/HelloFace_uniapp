@@ -12,6 +12,7 @@ final class HelloFaceVerifyCameraView: UIView {
     private let enrollment: Bool
     private let cutoutMask = CAShapeLayer()
     private let ring = CAShapeLayer()
+    private let progressRing = CAShapeLayer()
     private let outerRing = CAShapeLayer()
     private let photo = UIImageView()
     private let back = UIButton(type: .system)
@@ -27,6 +28,7 @@ final class HelloFaceVerifyCameraView: UIView {
     private let privacy = UILabel()
     private let brand = UILabel()
     private var captured = false
+    private var captureProgress = HelloFaceVerifyCaptureProgress()
     var onCancel: (() -> Void)?
     var onRetake: (() -> Void)?
     var onConfirm: (() -> Void)?
@@ -44,7 +46,9 @@ final class HelloFaceVerifyCameraView: UIView {
         outerRing.fillColor = UIColor.clear.cgColor
         outerRing.strokeColor = UI.colorOuterRing.cgColor
         outerRing.lineWidth = UI.borderWidth
-        [cutoutMask, outerRing, ring].forEach { layer.addSublayer($0) }
+        progressRing.fillColor = UIColor.clear.cgColor; progressRing.strokeColor = blue.cgColor
+        progressRing.lineWidth = UI.ringWidth + 1; progressRing.lineCap = .round; progressRing.strokeEnd = 0
+        [cutoutMask, outerRing, ring, progressRing].forEach { layer.addSublayer($0) }
         back.setTitle("‹", for: .normal)
         back.titleLabel?.font = .systemFont(ofSize: UI.fontBack)
         back.setTitleColor(ink, for: .normal); back.accessibilityLabel = UI.backLabel
@@ -94,13 +98,15 @@ final class HelloFaceVerifyCameraView: UIView {
     required init?(coder: NSCoder) { fatalError("Use init(enrollment:)") }
 
     func showLive() {
+        resetCaptureProgress()
         captured = false; photo.image = nil; photo.isHidden = true
         title.text = UI.liveTitle; detail.text = UI.liveDetail
         phase.text = UI.phase(enrollment: enrollment)
         tips.isHidden = false
         [confirmation, retake, confirm].forEach { $0.isHidden = true }
         [back, retake, confirm].forEach { $0.isEnabled = true; $0.alpha = 1 }
-        confirm.setTitle(UI.confirm, for: .normal); ring.strokeColor = blue.cgColor; setNeedsLayout()
+        confirm.setTitle(UI.confirm, for: .normal)
+        ring.strokeColor = (enrollment ? UI.colorOuterRing : blue).cgColor; setNeedsLayout()
     }
 
     func showProgress(stage: String, action: String?, step: Int, count: Int) {
@@ -109,13 +115,15 @@ final class HelloFaceVerifyCameraView: UIView {
         if title.text != guidance { title.text = guidance }
         let phaseText = UI.phase(enrollment: enrollment, stage: stage, step: step, count: count)
         if phase.text != phaseText { phase.text = phaseText }
-        let color = (UI.isWarning(stage: stage) ? UI.colorAmber : blue).cgColor
+        updateCaptureProgress(stage: stage)
+        let color = (UI.isWarning(stage: stage) ? UI.colorAmber : (enrollment ? UI.colorOuterRing : blue)).cgColor
         if ring.strokeColor != color {
             CATransaction.begin(); CATransaction.setDisableActions(true); ring.strokeColor = color; CATransaction.commit()
         }
     }
 
     func showConfirmation(image: UIImage?, mirrored: Bool) {
+        resetCaptureProgress()
         captured = true; photo.image = image; photo.isHidden = image == nil
         photo.transform = CGAffineTransform(scaleX: mirrored ? -1 : 1, y: 1)
         title.text = image == nil ? UI.missingTitle : UI.confirmTitle
@@ -133,7 +141,33 @@ final class HelloFaceVerifyCameraView: UIView {
         confirm.setTitle(UI.savingButton, for: .normal)
         [back, retake, confirm].forEach { $0.isEnabled = false; $0.alpha = UI.disabledAlpha }
     }
-    func clearPhoto() { photo.image = nil }
+    func clearPhoto() { resetCaptureProgress(); photo.image = nil }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if window == nil { resetCaptureProgress() }
+    }
+    private func updateCaptureProgress(stage: String) {
+        let start = captureProgress.update(enrollment: enrollment, stage: stage)
+        guard captureProgress.holding else { resetCaptureProgress(); return }
+        guard start else { return }
+        // 同一 HOLD_STILL 阶段只启动一次；动画走满仍等待 SDK 的真实结果。
+        CATransaction.begin(); CATransaction.setDisableActions(true)
+        progressRing.strokeEnd = 1
+        CATransaction.commit()
+        let animation = CABasicAnimation(keyPath: "strokeEnd")
+        animation.fromValue = 0; animation.toValue = 1
+        animation.duration = HelloFaceVerifyCaptureProgress.duration
+        animation.timingFunction = CAMediaTimingFunction(name: .linear)
+        progressRing.add(animation, forKey: "captureHold")
+    }
+    private func resetCaptureProgress() {
+        captureProgress.reset()
+        progressRing.removeAnimation(forKey: "captureHold")
+        CATransaction.begin(); CATransaction.setDisableActions(true)
+        progressRing.strokeEnd = 0
+        CATransaction.commit()
+    }
 
     override func layoutSubviews() {
         super.layoutSubviews()
@@ -156,6 +190,9 @@ final class HelloFaceVerifyCameraView: UIView {
         CATransaction.begin(); CATransaction.setDisableActions(true)
         cutoutMask.frame = bounds; cutoutMask.path = cutout.cgPath
         ring.frame = bounds; ring.path = UIBezierPath(ovalIn: circle).cgPath
+        progressRing.frame = bounds
+        progressRing.path = UIBezierPath(arcCenter: CGPoint(x: circle.midX, y: circle.midY), radius: diameter / 2,
+            startAngle: -.pi / 2, endAngle: .pi * 3 / 2, clockwise: true).cgPath
         outerRing.frame = bounds; outerRing.path = UIBezierPath(ovalIn: circle.insetBy(dx: -UI.outerRingGap, dy: -UI.outerRingGap)).cgPath
         CATransaction.commit()
         let phaseY = circle.maxY + UI.phaseOffset, phaseWidth = min(width, UI.phaseWidth)

@@ -7,6 +7,7 @@ import { FaceImageImporter } from './FaceImageImporter';
 import { CameraFlow } from './HelloFaceVerifyCamera';
 
 export class HelloFaceVerifyNative {
+  // 存储与相机共用一个操作槽；generation 隔离取消后才返回的权限/初始化结果。
   private static busy: boolean = false;
   private static generation: number = 0;
   private static camera: CameraFlow | undefined = undefined;
@@ -21,7 +22,7 @@ export class HelloFaceVerifyNative {
         HelloFaceVerifyNative.camera.cancel();
         return;
       } else if (HelloFaceVerifyNative.cameraCallback !== undefined) {
-        // Permission/readiness may still be pending before a dialog exists.
+        // 对话框出现前也能取消；递增代次，使迟到的授权结果无法再打开相机。
         const pending = HelloFaceVerifyNative.cameraCallback;
         HelloFaceVerifyNative.cameraCallback = undefined;
         HelloFaceVerifyNative.generation++;
@@ -37,6 +38,7 @@ export class HelloFaceVerifyNative {
     HelloFaceVerifyNative.busy = true;
     const token = ++HelloFaceVerifyNative.generation;
     let completed: boolean = false;
+    // 原任务收尾后才确认 cancel，业务可在 cancel.success 中安全启动下一次调用。
     const finish = (result: string): void => {
       if (completed || token !== HelloFaceVerifyNative.generation) return;
       completed = true;

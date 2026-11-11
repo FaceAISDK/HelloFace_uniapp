@@ -3,12 +3,21 @@ import UIKit
 
 public final class HelloFaceVerifyNative {
     public static func invoke(_ method: String, _ raw: String, _ callback: @escaping (String) -> Void) {
-        Task { @MainActor in HelloFaceVerifyOperation.shared.invoke(method, raw, callback) }
+        let reply = HelloFaceVerifyReply(callback)
+        Task { @MainActor in HelloFaceVerifyOperation.shared.invoke(method, raw) { reply.send($0) } }
     }
+}
+
+/// UTS 回调只在主 actor 执行；包装跨 Task 的传递，保持既有公开 Swift 回调签名。
+private final class HelloFaceVerifyReply: @unchecked Sendable {
+    private let callback: (String) -> Void
+    init(_ callback: @escaping (String) -> Void) { self.callback = callback }
+    @MainActor func send(_ value: String) { callback(value) }
 }
 
 @MainActor
 final class HelloFaceVerifyOperation {
+    // 所有操作在主 actor 上竞争同一槽位；activeID 阻止旧异步任务收尾新任务。
     static let shared = HelloFaceVerifyOperation()
     private var activeID: UUID?
     private weak var camera: HelloFaceVerifyCameraController?
@@ -30,7 +39,7 @@ final class HelloFaceVerifyOperation {
             guard !camera.committing else {
                 callback(Self.envelope("error", "BUSY", "Enrollment is being saved")); return
             }
-            // Acknowledge only after dismissal and camera teardown release the operation slot.
+            // 相机关闭并释放槽位后才确认 cancel，允许业务在其 success 中立即发起下一次调用。
             cancelCallbacks.append(callback)
             camera.cancel()
             return
@@ -89,7 +98,8 @@ final class HelloFaceVerifyOperation {
                     throw HelloFaceVerifyBridgeError.failure("ALREADY_EXISTS", "Face already enrolled")
                 }
                 if method == "verifyFace" && feature == nil { throw HelloFaceVerifyBridgeError.failure("NOT_FOUND", "Enroll this faceID first") }
-                guard let presenter = Self.presenter(), presenter.viewIfLoaded?.window != nil else {
+                guard let presenter = Self.presenter(), presenter.viewIfLoaded?.window != nil,
+                      !presenter.isBeingPresented, !presenter.isBeingDismissed else {
                     throw HelloFaceVerifyBridgeError.failure("NO_CONTEXT", "No foreground view controller")
                 }
                 let controller = HelloFaceVerifyCameraController(method: method, params: params,
@@ -99,7 +109,7 @@ final class HelloFaceVerifyOperation {
                     }, completion: finish)
                 controller.modalPresentationStyle = .fullScreen
                 camera = controller
-                presenter.present(controller, animated: true)
+                presenter.present(controller, animated: true) { controller.presentationDidFinish() }
             default: throw HelloFaceVerifyBridgeError.failure("INVALID_ARGUMENT", "Unknown operation")
             }
         } catch HelloFaceVerifyBridgeError.failure(let code, let message) {

@@ -10,7 +10,9 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
-/** 1:1 references only. The AES key never leaves Android Keystore. */
+/** 仅保存 1:1 基准；AES 密钥不离开 Android Keystore。
+ * 密文格式为版本字节 + 12 字节 IV + GCM 密文/标签；AAD 绑定模型与 faceID，不能跨账号挪用。
+ */
 internal class ReferenceStore(context: Context) {
     private val preferences = context.getSharedPreferences("helloface.references.v1", Context.MODE_PRIVATE)
     private val alias = "helloface.references.aes.v1"

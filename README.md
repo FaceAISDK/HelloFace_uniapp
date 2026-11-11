@@ -22,6 +22,8 @@
 | [验证记录](docs/VALIDATION.md) | 已通过的检查和待执行的真机验收 |
 | [Android 原生集成检查](tests/android/README.md) | SDK 与桥接代码更新后的真实调用回归检查 |
 | [Android 调试与实现](docs/ANDROID_DEBUG.md) | 页面快速同步、基座指纹、监听与日志 |
+| [鸿蒙真机调试](docs/HARMONY_DEBUG.md) | 签名、断点、HDC/HiLog 与重建方式 |
+| [代码结构与维护](docs/CODE_STRUCTURE.md) | 插件分层、异步收尾约束与简洁接入 |
 
 两套示例均采用“功能按钮列表 + 调用结果”的简单页面：输入同一 `faceID`，录入人脸后选择静默活体或动作活体进行 1:1 验证，也可确认删除本机基准。动作模式同时保留静默活体。结果框直接显示 SDK 的 `passed`、分数和统一 `code/msg`，不展示原始人脸特征。
 
@@ -126,10 +128,7 @@ enrollFace({
 // 用户后续主动点击“识别”时调用。
 verifyFace({
   faceID: 'user-001',
-  threshold: 0.80,
-  silentLiveness: true,
-  actions: ['blink', 'nodHead'],
-  onProgress: progress => { /* 更新业务页面的进度 */ },
+  // 默认阈值 0.80，已开启静默活体；需要动作活体时增加 actions。
   success: result => {
     if (result.passed === true) {
       // SDK 已完成活体与身份判断。
@@ -148,7 +147,7 @@ uvue 从同一插件入口导入 API 和 `FaceResult` 类型，示例见 `exampl
 
 ## API 参考
 
-插件提供 `enrollFace`、`verifyFace`、`getFaceFeature`、`setFaceFeature`、`deleteFace`、`cancel` 六个接口。完整参数、回调结果、错误码与特征同步约定统一维护在 [接入与 API](docs/API.md)。默认只传 `faceID` 即可使用本机基准；0.1.2 起可同时传 `referenceFeature` 与 `featureSpaceID`，仅使用业务提供的基准完成本次验证，不改写本机数据。参数类型含编辑器说明和值域提示；三端统一校验、默认值与单次终态回调。
+插件提供 `enrollFace`、`verifyFace`、`getFaceFeature`、`setFaceFeature`、`syncFaceImage`、`syncFaceFeature`、`deleteFace`、`cancel` 八个接口。完整参数、回调结果、错误码与特征同步约定统一维护在 [接入与 API](docs/API.md)。默认只传 `faceID` 即可使用本机基准；0.1.2 起可同时传 `referenceFeature` 与 `featureSpaceID`，仅使用业务提供的基准完成本次验证，不改写本机数据。参数类型含编辑器说明和值域提示；三端统一校验、默认值与单次终态回调。
 
 ## 开发与验证
 

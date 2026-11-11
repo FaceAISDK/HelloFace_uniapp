@@ -9,6 +9,7 @@ node_modules/
 *.p12
 *.mobileprovision
 local.properties
+/harmony-configs/build-profile.json5
 uni_modules/HelloFace-Verify/utssdk/app-android/libs/*.aar
 uni_modules/HelloFace-Verify/utssdk/app-ios/Frameworks/*.xcframework/
 uni_modules/HelloFace-Verify/utssdk/app-harmony/libs/*.har

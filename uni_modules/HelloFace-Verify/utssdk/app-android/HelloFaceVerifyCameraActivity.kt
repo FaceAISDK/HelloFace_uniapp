@@ -58,6 +58,8 @@ class HelloFaceVerifyCameraActivity : ComponentActivity() {
     private var capturedFeature: String? = null
     private var generation = 0
     private var stopping = false
+    private var previousBrightness: Float? = null
+    private var brightnessApplied = false
     private val permission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (active()) {
             if (granted) begin() else fail("PERMISSION_DENIED", "Camera permission denied")
@@ -111,6 +113,25 @@ class HelloFaceVerifyCameraActivity : ComponentActivity() {
     }
 
     private fun active() = HelloFaceVerifyNative.job?.id == jobID && !stopping && !isFinishing
+    override fun onResume() {
+        super.onResume()
+        if (active()) {
+            // 只覆盖相机窗口；保留 -1（跟随系统）及宿主原有的窗口亮度策略。
+            if (previousBrightness == null) previousBrightness = window.attributes.screenBrightness
+            window.attributes = window.attributes.apply { screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_FULL }
+            brightnessApplied = true
+        }
+    }
+    override fun onPause() {
+        restoreBrightness()
+        super.onPause()
+    }
+    private fun restoreBrightness() {
+        val previous = previousBrightness ?: return
+        if (!brightnessApplied) return
+        window.attributes = window.attributes.apply { screenBrightness = previous }
+        brightnessApplied = false
+    }
     private fun begin() {
         if (!active()) return
         val attempt = ++generation
@@ -243,6 +264,7 @@ class HelloFaceVerifyCameraActivity : ComponentActivity() {
         if (!isFinishing && ::current.isInitialized && !current.committing) fail("CANCELLED", "Camera moved to background")
     }
     override fun onDestroy() {
+        restoreBrightness()
         shutdownCamera()
         if (::screen.isInitialized) screen.clearPhoto()
         aligned = null; capturedFeature = null
@@ -259,6 +281,7 @@ class HelloFaceVerifyCameraActivity : ComponentActivity() {
     }
     @PublishedApi internal fun shutdownCamera() {
         stopping = true
+        restoreBrightness()
         generation++
         request?.cancel(); request = null
         stopAnalysis()
