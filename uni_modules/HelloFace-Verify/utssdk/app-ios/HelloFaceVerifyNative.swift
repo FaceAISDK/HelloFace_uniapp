@@ -63,11 +63,27 @@ final class HelloFaceVerifyOperation {
             case "deleteFace":
                 try ReferenceStore.delete(faceID)
                 finish(Self.envelope())
-            case "setFaceFeature":
+            case "setFaceFeature", "syncFaceFeature":
                 if feature != nil && !(params["overwrite"] as? Bool ?? false) { throw HelloFaceVerifyBridgeError.failure("ALREADY_EXISTS", "Face already enrolled") }
                 guard let incoming = params["feature"] as? String else { throw HelloFaceVerifyBridgeError.failure("INVALID_ARGUMENT", "Missing feature") }
                 try ReferenceStore.save(faceID, incoming)
                 finish(Self.envelope("result", "OK", "", ["feature": incoming]))
+            case "syncFaceImage":
+                if feature != nil && !(params["overwrite"] as? Bool ?? false) {
+                    throw HelloFaceVerifyBridgeError.failure("ALREADY_EXISTS", "Face already enrolled")
+                }
+                guard let image = params["imageBase64"] as? String else {
+                    throw HelloFaceVerifyBridgeError.failure("INVALID_ARGUMENT", "Missing imageBase64")
+                }
+                Task { @MainActor in
+                    do {
+                        let incoming = try await FaceImageImporter.extract(image)
+                        try ReferenceStore.save(faceID, incoming)
+                        finish(Self.envelope("result", "OK", "", ["feature": incoming]))
+                    } catch HelloFaceVerifyBridgeError.failure(let code, let message) {
+                        finish(Self.envelope("error", code, message))
+                    } catch { finish(Self.envelope("error", "STORAGE_ERROR", error.localizedDescription)) }
+                }
             case "enrollFace", "verifyFace":
                 if method == "enrollFace" && feature != nil && !(params["overwrite"] as? Bool ?? false) {
                     throw HelloFaceVerifyBridgeError.failure("ALREADY_EXISTS", "Face already enrolled")

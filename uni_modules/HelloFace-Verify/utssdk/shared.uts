@@ -1,4 +1,4 @@
-import { FaceResult, FaceProgress, FaceSuccess, FaceFailure, FaceComplete, FaceProgressCallback, EnrollFaceOptions, VerifyFaceOptions, SetFaceFeatureOptions } from './interface.uts'
+import { FaceResult, FaceProgress, FaceSuccess, FaceFailure, FaceComplete, FaceProgressCallback, EnrollFaceOptions, VerifyFaceOptions, SetFaceFeatureOptions, SyncFaceImageOptions } from './interface.uts'
 import { HelloFaceVerifyFailImpl } from './unierror.uts'
 import { resultCode, failureCode, statusMessage, legacyErrorCode } from './status.uts'
 
@@ -31,6 +31,15 @@ export function createFeatureParams(options: SetFaceFeatureOptions): UTSJSONObje
   params['overwrite'] = options.overwrite ?? false
   return params
 }
+export function createImageParams(options: SyncFaceImageOptions): UTSJSONObject {
+  const params = createFaceParams(options.faceID)
+  let image = typeof options.imageBase64 == 'string' ? options.imageBase64 : ''
+  if (image.startsWith('data:image/png;base64,')) image = image.substring(22)
+  else if (image.startsWith('data:image/jpeg;base64,')) image = image.substring(23)
+  params['imageBase64'] = image
+  params['overwrite'] = options.overwrite ?? false
+  return params
+}
 function invalidArgument(message: string): string {
   return JSON.stringify({ event: 'error', code: 'INVALID_ARGUMENT', message: message })
 }
@@ -44,7 +53,7 @@ export function validateParams(method: string, params: UTSJSONObject): string | 
   if (method != 'cancel' && (faceID.length == 0 || faceID.length > 64 || faceID.indexOf('\u0000') >= 0)) {
     return invalidArgument('faceID must contain 1..64 UTF-16 units without NUL after trimming')
   }
-  if (method == 'enrollFace' || method == 'setFaceFeature') {
+  if (method == 'enrollFace' || method == 'setFaceFeature' || method == 'syncFaceFeature' || method == 'syncFaceImage') {
     if (params.getBoolean('overwrite') == null) return invalidArgument('overwrite must be a boolean')
   }
   if (method == 'enrollFace' || method == 'verifyFace') {
@@ -69,9 +78,14 @@ export function validateParams(method: string, params: UTSJSONObject): string | 
       if (error != null) return invalidArgument('referenceFeature and featureSpaceID must be supplied together: ' + error)
     }
   }
-  if (method == 'setFaceFeature') {
+  if (method == 'setFaceFeature' || method == 'syncFaceFeature') {
     const error = validateFeature(params.getString('feature'), params.getString('featureSpaceID'))
     if (error != null) return invalidArgument(error)
+  }
+  if (method == 'syncFaceImage') {
+    const image = params.getString('imageBase64') ?? ''
+    if (image.length == 0 || image.length > 8388608 || image.length % 4 != 0 ||
+      !/^[A-Za-z0-9+/]+={0,2}$/.test(image)) return invalidArgument('imageBase64 must be standard Base64 encoding of a PNG/JPEG, at most 6 MiB')
   }
   return null
 }
@@ -108,7 +122,7 @@ export function createDispatcher(method: string, faceID: string,
     const validResult = event?.getString('event') == 'result' &&
       (!cameraMethod || (data?.getBoolean('passed') != null && data?.getString('outcome') != null)) &&
       (method != 'enrollFace' || data?.getBoolean('passed') != true || data?.getString('feature') != null) &&
-      ((method != 'getFaceFeature' && method != 'setFaceFeature') || data?.getString('feature') != null)
+      ((method != 'getFaceFeature' && method != 'setFaceFeature' && method != 'syncFaceFeature' && method != 'syncFaceImage') || data?.getString('feature') != null)
     if (code == 'OK' && !validResult) code = 'BRIDGE_ERROR'
     if (code != 'OK') {
       const status = failureCode(code)
@@ -127,7 +141,7 @@ export function createDispatcher(method: string, faceID: string,
     const result: FaceResult = {
       code: status, msg: statusMessage(status, method),
       errMsg: method + ':ok', faceID: faceID,
-      feature: method == 'enrollFace' || method == 'getFaceFeature' || method == 'setFaceFeature' ? data?.getString('feature') : null,
+      feature: method == 'enrollFace' || method == 'getFaceFeature' || method == 'setFaceFeature' || method == 'syncFaceFeature' || method == 'syncFaceImage' ? data?.getString('feature') : null,
       featureSpaceID: 'jdx-feature-v1',
       passed: passed, outcome: outcome,
       similarity: method == 'verifyFace' ? score(data ?? null, 'similarity') : null,

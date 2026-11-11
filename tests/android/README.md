@@ -18,3 +18,15 @@ npm run android:native-check -- \
 `--feature-file` 使用上游 HelloFace 同版本的 `platforms/Android/demo/src/main/assets/face_search/features_10000.json`，需通过 Git LFS 获取实际内容。当前验证使用上游提交 `572751458a3ea9d85ca422cecec56d115be71e4e` 的公开测试特征，脚本检查 `jdx-feature-v1` 与 HF1 格式，只取一条测试特征；测试数据与证书不入库，日志不输出特征。
 
 默认被测包名为 `dev.helloface.uniapp.demo`，可通过 `--package` 指定其他包含本插件的调试宿主。此检查执行真实 SDK 验证调用，预期无人脸时返回 `NO_FACE_TIMEOUT`；本人识别、他人拒绝和活体防攻击仍需真人验收。
+
+图片同步使用独立的 12 项原生检查，不启动相机、不需要镜头内无人。使用本仓库 AI 图片（或自行生成的虚构单人人脸）执行：
+
+```sh
+npm run android:native-check -- \
+  --image-file static/demo-face.png \
+  --output-feature-file /本机路径/extracted-demo-feature.json \
+  --keystore /本机路径/demo.jks --alias 调试证书别名 \
+  --device Android设备序列号
+```
+
+覆盖真实 `extractFeatureBlocking`、HF1 格式、无身份判定、加密保存/读取、覆盖保护、无效图/无人脸/过小人脸、失败保留基准，以及外部特征同步后往返一致。使用随机测试标识，结束清理测试基准与验收包；指定输出路径时只导出调用者提供的虚构示例特征，不在日志打印。

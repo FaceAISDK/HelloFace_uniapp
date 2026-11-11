@@ -3,6 +3,7 @@ import { HiFaceError, HiFaceErrorCode, HiFaceResult } from 'hiface';
 export interface FaceParams {
   faceID: string;
   feature?: string;
+  imageBase64?: string;
   featureSpaceID?: string;
   referenceFeature?: string;
   overwrite?: boolean;

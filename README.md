@@ -23,9 +23,11 @@
 | [Android 原生集成检查](tests/android/README.md) | SDK 与桥接代码更新后的真实调用回归检查 |
 | [Android 调试与实现](docs/ANDROID_DEBUG.md) | 页面快速同步、基座指纹、监听与日志 |
 
-两套示例均采用“功能按钮列表 + 调用结果”的简单页面：输入同一 `faceID`，录入人脸后选择静默活体或动作活体进行 1:1 验证，也可确认删除本机基准。动作模式同时保留静默活体。结果框直接显示 SDK 的 `passed`、`outcome`、分数或错误码，不展示原始人脸特征。
+两套示例均采用“功能按钮列表 + 调用结果”的简单页面：输入同一 `faceID`，录入人脸后选择静默活体或动作活体进行 1:1 验证，也可确认删除本机基准。动作模式同时保留静默活体。结果框直接显示 SDK 的 `passed`、分数和统一 `code/msg`，不展示原始人脸特征。
 
-页面的 `enroll`、`verify`、`remove` 方法直接调用插件，展示参数、成功/失败回调与 `complete` 收尾。示例设置 `overwrite: true` 方便重复录入，仍需在原生采集页确认保存；业务可按需保留默认的 `false`。
+同步按钮用同一张 200×200 AI 人脸及其真实 SDK 特征演示外部基准导入，无需本机相机录入；使用独立 `external-demo` 标识。来源、尺寸与生成说明见 [示例基准](demo/README.md)。业务可直接用 `syncFaceImage({ faceID, imageBase64 })` 或 `syncFaceFeature({ faceID, feature, featureSpaceID })`，成功后只传 `faceID` 验证。
+
+页面的 `enroll`、`verify`、`syncImage`、`syncFeature`、`remove` 方法直接调用插件，展示参数、成功/失败回调与 `complete` 收尾。示例设置 `overwrite: true` 方便重复录入，仍需在原生采集页确认保存；业务可按需保留默认的 `false`。
 
 ```text
 HelloFace_uniapp/
@@ -46,7 +48,7 @@ HelloFace_uniapp/
 └── sdk-artifacts.json                               # 原生 SDK 版本和校验锁
 ```
 
-在 `uni_modules/HelloFace-Verify` 修改插件，再同步到 uvue 示例。`examples/uni-app-x/uni_modules` 和 `examples/uni-app-x/app-icons` 是生成的副本；`unpackage`、`node_modules`、`.sdk-cache` 为本机产物，不作为插件源码维护。应用图标以根目录 `app-icons` 为源，执行 `demo:prepare` 时一并复制。
+在 `uni_modules/HelloFace-Verify` 修改插件，再同步到 uvue 示例。`examples/uni-app-x/uni_modules` 和 `examples/uni-app-x/app-icons`、`examples/uni-app-x/demo`、`examples/uni-app-x/static` 是生成的副本；`unpackage`、`node_modules`、`.sdk-cache` 为本机产物，不作为插件源码维护。应用图标以根目录 `app-icons` 为源，执行 `demo:prepare` 时一并复制。
 
 ## 环境
 

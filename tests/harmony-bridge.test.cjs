@@ -15,7 +15,8 @@ const envelope = (event = 'result', code = 'OK', message = '', data = {}) => JSO
 // controllable boundaries; no face capture or algorithm success is simulated.
 function loadBridge() {
   const state = { reads: [], writes: [], cameras: [], sdkCreates: 0, localFeature: 'local-reference',
-    permission: Promise.resolve({ authResults: [0] }), permissionRequests: 0 }
+    permission: Promise.resolve({ authResults: [0] }), permissionRequests: 0,
+    imageExtractions: [], imageResult: Promise.resolve('extracted-reference') }
   class BridgeError extends Error { constructor(code, message) { super(message); this.code = code } }
   class ReferenceStore {
     async get(id) { state.reads.push(id); return state.localFeature }
@@ -46,12 +47,56 @@ function loadBridge() {
     if (name === './BridgeTypes') return { BridgeError, envelope,
       errorEnvelope: e => envelope('error', e.code || 'SDK_ERROR', e.message) }
     if (name === './ReferenceStore') return { ReferenceStore }
+    if (name === './FaceImageImporter') return { FaceImageImporter: { extract(context, encoded) {
+      state.imageExtractions.push(encoded); return state.imageResult
+    } } }
     if (name === './HelloFaceVerifyCamera') return { CameraFlow }
     throw new Error(name)
   } }, { filename })
   const native = exports.HelloFaceVerifyNative
   return { state, invoke(method, params, callback) { native.invoke({}, method, JSON.stringify(params), raw => callback(JSON.parse(raw))) } }
 }
+
+test('Harmony: image sync holds the operation slot and never opens camera permission/UI', async () => {
+  const { state, invoke } = loadBridge()
+  state.localFeature = undefined
+  let resolveImage
+  state.imageResult = new Promise(resolve => { resolveImage = resolve })
+  const results = [], blocked = []
+  invoke('syncFaceImage', { faceID: 'external', imageBase64: 'encoded-photo' }, result => results.push(result))
+  await flush()
+  invoke('syncFaceFeature', { faceID: 'external', feature: 'other' }, result => blocked.push(result))
+  assert.equal(blocked[0].code, 'BUSY')
+  assert.equal(state.permissionRequests, 0)
+  assert.equal(state.cameras.length, 0)
+  assert.equal(state.writes.length, 0)
+  resolveImage('extracted-reference')
+  await flush()
+  assert.deepEqual(state.writes, [{ id: 'external', value: 'extracted-reference' }])
+  assert.equal(results[0].data.feature, 'extracted-reference')
+  assert.equal(results[0].data.passed, undefined)
+})
+
+test('Harmony: both sync methods protect existing references; image errors preserve storage', async () => {
+  const { state, invoke } = loadBridge()
+  const results = []
+  for (const method of ['syncFaceImage', 'syncFaceFeature']) {
+    invoke(method, { faceID: 'u', imageBase64: 'encoded', feature: 'incoming' }, result => results.push(result))
+    await flush()
+    assert.equal(results.at(-1).code, 'ALREADY_EXISTS')
+  }
+  assert.equal(state.imageExtractions.length, 0)
+  const imageError = Object.assign(new Error('No face'), { code: 'IMAGE_NO_FACE' })
+  state.imageResult = Promise.reject(imageError)
+  invoke('syncFaceImage', { faceID: 'u', imageBase64: 'encoded', overwrite: true }, result => results.push(result))
+  await flush()
+  assert.equal(results.at(-1).code, 'IMAGE_NO_FACE')
+  assert.equal(state.writes.length, 0)
+  invoke('syncFaceFeature', { faceID: 'u', feature: 'incoming', overwrite: true }, result => results.push(result))
+  await flush()
+  assert.equal(results.at(-1).code, 'OK')
+  assert.equal(state.permissionRequests, 0)
+})
 
 test('Harmony: an explicit reference bypasses local storage and never writes it', async () => {
   const { state, invoke } = loadBridge()

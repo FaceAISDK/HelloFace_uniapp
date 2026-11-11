@@ -2,6 +2,15 @@
 
 更新日期：2026-11-11。原生 SDK 0.8.8，上游提交 `572751458a3ea9d85ca422cecec56d115be71e4e`。
 
+## 2026-11-11 外部图片与特征同步
+
+- Android / iOS / HarmonyOS 新增 `syncFaceImage`、`syncFaceFeature`，三端共享参数校验、默认值与结果归一化；保留 `setFaceFeature`。图片使用公开 `extractFeature` 入口，仅提取基准，不依赖较新的多人图片采集或对齐预览接口。
+- AI 虚构人脸裁近并输出为 200×200 PNG，TinyPNG 压缩由 59846 字节降至 26255 字节（约 56%）。首版同尺寸图片在真实 SDK 返回 IMAGE_FACE_TOO_SMALL，裁近后重新压缩才通过；未放宽 SDK 人脸尺寸门槛、活体或比对参数。
+- 小米 722875bd / Android 17 在独立原生宿主通过 12 项真实图片导入检查：200×200 最终 PNG 提取、HF1 与无身份判定、读取、覆盖保护、无效图片/无脸/人脸过小、失败保留原基准，以及外部特征同步往返一致。该次真实提取值用于 Demo 外部特征，JSON 记录图片哈希和 SDK 版本；准备脚本拒绝不匹配数据。
+- `npm run check` 通过 95 项自动化检查（70 项 JS、25 项 Python），37 个 SDK 文件校验与三端 UTS 转换；官方 uni-app 和 uni-app x UTS/Kotlin/DEX 编译及桥接 ABI 检查通过。两个示例均直接调用同步接口，不要求本机先录入；示例使用独立 `external-demo`。HBuilderX 5.34 的 Vue3 与 Vue2 完整示例资源导出均编译成功，工程配置恢复为 Vue3。
+- 鸿蒙使用真实 SDK 的 HAR 原生编译通过；iOS 7 个 Swift 文件语法检查通过，完整 SDK 链接仍受本机 Xcode 15.2 限制。未新增 iOS / 鸿蒙真机同步验收，Android 结果不代表三端真机全部验收，也不表示活体或身份验证通过。
+- Android 显式声明 ExifInterface 1.3.2 以处理照片方向；版本与 CameraX 现有运行时依赖一致，无新增原生库或最低版本变化。新增 API/源码需要 HBuilderX 原生联编，单独刷新 Vue 页面不会更新接口；依赖不同的旧基座需重建。
+
 ## 2026-11-11 返回码与短提示
 
 三端共用 `utssdk/status.uts`，统一新增 `code / msg`：0 为方法成功，1xx 操作问题、2xx 识别未通过、3xx 运行异常。`errCode`、`sdkCode`、原始 `outcome` 保留；fail 的 `errMsg` 使用短提示，原始说明放在 `detail`。Vue/uvue 示例改为直接展示 code/msg，不展开底层长文案。

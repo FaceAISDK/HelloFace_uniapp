@@ -1,5 +1,5 @@
-import { EnrollFace, VerifyFace, GetFaceFeature, SetFaceFeature, DeleteFace, EnrollFaceOptions, VerifyFaceOptions, FaceIDOptions, SetFaceFeatureOptions, CancelOptions } from '../interface.uts'
-import { createDispatcher, validateParams, createFaceParams, createEnrollParams, createVerifyParams, createFeatureParams } from '../shared.uts'
+import { EnrollFace, VerifyFace, GetFaceFeature, SetFaceFeature, DeleteFace, EnrollFaceOptions, VerifyFaceOptions, FaceIDOptions, SetFaceFeatureOptions, SyncFaceImage, SyncFaceFeature, SyncFaceImageOptions, SyncFaceFeatureOptions, CancelOptions } from '../interface.uts'
+import { createDispatcher, validateParams, createFaceParams, createEnrollParams, createVerifyParams, createFeatureParams, createImageParams } from '../shared.uts'
 import { HelloFaceVerifyNative } from './HelloFaceVerifyNative.ets'
 
 export const enrollFace: EnrollFace = function (options: EnrollFaceOptions) {
@@ -32,6 +32,22 @@ export const setFaceFeature: SetFaceFeature = function (options: SetFaceFeatureO
   const error = validateParams('setFaceFeature', params)
   if (error != null) { handle(error); return }
   HelloFaceVerifyNative.invoke(UTSHarmony.getUIAbilityContext(), 'setFaceFeature', JSON.stringify(params), handle)
+}
+
+export const syncFaceFeature: SyncFaceFeature = function (options: SyncFaceFeatureOptions) {
+  const params = createFeatureParams(options)
+  const handle = createDispatcher('syncFaceFeature', params.getString('faceID') ?? '', options.success ?? null, options.fail ?? null, options.complete ?? null, null)
+  const error = validateParams('syncFaceFeature', params)
+  if (error != null) { handle(error); return }
+  HelloFaceVerifyNative.invoke(UTSHarmony.getUIAbilityContext(), 'syncFaceFeature', JSON.stringify(params), handle)
+}
+
+export const syncFaceImage: SyncFaceImage = function (options: SyncFaceImageOptions) {
+  const params = createImageParams(options)
+  const handle = createDispatcher('syncFaceImage', params.getString('faceID') ?? '', options.success ?? null, options.fail ?? null, options.complete ?? null, null)
+  const error = validateParams('syncFaceImage', params)
+  if (error != null) { handle(error); return }
+  HelloFaceVerifyNative.invoke(UTSHarmony.getUIAbilityContext(), 'syncFaceImage', JSON.stringify(params), handle)
 }
 
 export const deleteFace: DeleteFace = function (options: FaceIDOptions) {

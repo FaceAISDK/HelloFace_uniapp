@@ -59,6 +59,42 @@ function load(platform = 'app-ios') {
   return { api: read(path.join(sdkRoot, platform, 'index.uts')), calls }
 }
 for (const platform of ['app-android', 'app-ios', 'app-harmony']) {
+  test(`${platform}: external image/feature sync validates input and returns a baseline without a verdict`, () => {
+    const { api, calls } = load(platform)
+    const image = fs.readFileSync(path.resolve(__dirname, '../static/demo-face.png')).toString('base64')
+    let result, failed = 0
+    api.syncFaceImage({ faceID: ' external ', imageBase64: 'data:image/png;base64,' + image,
+      success: value => { result = value } })
+    assert.equal(calls[0].method, 'syncFaceImage')
+    assert.equal(calls[0].params.faceID, 'external')
+    assert.equal(calls[0].params.imageBase64, image)
+    assert.equal(calls[0].params.overwrite, false)
+    const feature = 'HF1:' + 'A'.repeat(600)
+    calls[0].reply(JSON.stringify({ event: 'result', code: 'OK', data: { feature, passed: true, outcome: 'PASSED', similarity: 1 } }))
+    assert.equal(result.feature, feature)
+    assert.equal(result.code, 0)
+    assert.equal(result.msg, '同步成功')
+    assert.equal(result.passed, null)
+    assert.equal(result.outcome, null)
+    assert.equal(result.similarity, null)
+    api.syncFaceFeature({ faceID: 'external', feature, featureSpaceID: 'jdx-feature-v1' })
+    assert.equal(calls[1].method, 'syncFaceFeature')
+    assert.equal(calls[1].params.overwrite, false)
+    for (const imageBase64 of ['', 'https://example.com/face.png', 'data:image/gif;base64,AAAA', 'AA_A', 'AAAA'.repeat(2097153)]) {
+      api.syncFaceImage({ faceID: 'u', imageBase64, fail: error => { failed++; assert.equal(error.code, 101) } })
+    }
+    api.syncFaceFeature({ faceID: 'u', feature, featureSpaceID: 'other-model', fail: error => { failed++; assert.equal(error.code, 101) } })
+    assert.equal(failed, 6)
+    assert.equal(calls.length, 2)
+    for (const [sdkCode, code, msg] of [['INVALID_IMAGE', 107, '图片无效'], ['IMAGE_NO_FACE', 108, '图片无人脸'], ['IMAGE_FACE_TOO_SMALL', 109, '人脸过小']]) {
+      api.syncFaceImage({ faceID: 'u', imageBase64: image, fail: error => { assert.equal(error.code, code); assert.equal(error.msg, msg) } })
+      calls.at(-1).reply(JSON.stringify({ event: 'error', code: sdkCode, message: 'Original SDK error' }))
+    }
+    let malformed
+    api.syncFaceImage({ faceID: 'u', imageBase64: image, fail: error => { malformed = error } })
+    calls.at(-1).reply(JSON.stringify({ event: 'result', code: 'OK', data: {} }))
+    assert.equal(malformed.code, 305)
+  })
   test(`${platform}: verification defaults and callback isolation`, () => {
     const { api, calls } = load(platform)
     const progress = [], successes = [], completed = []

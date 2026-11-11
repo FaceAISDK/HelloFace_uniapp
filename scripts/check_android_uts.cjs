@@ -41,7 +41,10 @@ async function main() {
     java = execFileSync('/usr/libexec/java_home', ['-v', '17'], { encoding: 'utf8' }).trim()
   }
   required(java && path.join(java, 'bin', process.platform === 'win32' ? 'java.exe' : 'java'), 'Set GRADLE_JAVA_HOME to JDK 17 or a compatible installed JDK.')
-  const gradle = required(gradleHome(), 'Set GRADLE_HOME, or install a Gradle 8 distribution in the standard wrapper cache.')
+  const configuredGradle = required(gradleHome(), 'Set GRADLE_HOME, or install a Gradle 8 distribution in the standard wrapper cache.')
+  // HBuilderX's dependency resolver executes this value directly with `-v`.
+  const gradle = required(fs.statSync(configuredGradle).isFile() ? configuredGradle :
+    path.join(configuredGradle, 'bin', process.platform === 'win32' ? 'gradle.bat' : 'gradle'), 'Gradle executable is missing.')
   const userData = required(process.env.USER_DATA_PATH || (process.platform === 'darwin'
     ? path.join(os.homedir(), 'Library/Application Support/HBuilder X')
     : process.platform === 'win32' && process.env.APPDATA ? path.join(process.env.APPDATA, 'HBuilder X') : ''),

@@ -79,13 +79,22 @@ object HelloFaceVerifyNative {
                             else finish(current.id, envelope(data = JSONObject().put("feature", feature)))
                         }
                         "deleteFace" -> { store.delete(faceID); finish(current.id, envelope()) }
-                        "setFaceFeature" -> {
+                        "setFaceFeature", "syncFaceFeature" -> {
                             if (feature != null && !params.optBoolean("overwrite")) {
                                 finish(current.id, envelope("error", "ALREADY_EXISTS", "Face already enrolled"))
                             } else {
                                 // UTS validates both HF1 syntax and its declared feature space.
                                 store.save(faceID, params.getString("feature"))
                                 finish(current.id, envelope(data = JSONObject().put("feature", params.getString("feature"))))
+                            }
+                        }
+                        "syncFaceImage" -> {
+                            if (feature != null && !params.optBoolean("overwrite")) {
+                                finish(current.id, envelope("error", "ALREADY_EXISTS", "Face already enrolled"))
+                            } else {
+                                val incoming = FaceImageImporter.extract(context, params.getString("imageBase64"))
+                                store.save(faceID, incoming)
+                                finish(current.id, envelope(data = JSONObject().put("feature", incoming)))
                             }
                         }
                         "enrollFace", "verifyFace" -> {
@@ -109,6 +118,8 @@ object HelloFaceVerifyNative {
                         }
                         else -> finish(current.id, envelope("error", "INVALID_ARGUMENT", "Unknown operation"))
                     }
+                } catch (error: ImageImportError) {
+                    finish(current.id, envelope("error", error.code, error.message))
                 } catch (error: Exception) {
                     finish(current.id, envelope("error", "STORAGE_ERROR", error.message ?: "Reference storage failed"))
                 }

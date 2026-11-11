@@ -1,6 +1,6 @@
 # HelloFaceVerify 接入与 API
 
-插件入口：`@/uni_modules/HelloFace-Verify`。六个接口在 Android、iOS、HarmonyOS 上使用相同参数和回调，兼容 uni-app Vue2/Vue3 与 uni-app x uvue。原生相机、权限申请、特征加密和 SDK 生命周期由插件处理，业务页面无需先初始化 SDK。
+插件入口：`@/uni_modules/HelloFace-Verify`。八个接口在 Android、iOS、HarmonyOS 上使用相同参数和回调，兼容 uni-app Vue2/Vue3 与 uni-app x uvue。原生相机、权限申请、特征加密和 SDK 生命周期由插件处理，业务页面无需先初始化 SDK。
 
 ## 先选择基准来源
 
@@ -8,7 +8,8 @@
 | --- | --- | --- | --- |
 | 本机录入（默认） | `enrollFace({ faceID })`，用户确认保存 | `verifyFace({ faceID })` | 是 |
 | 服务端下发，仅本次使用 | 业务取得同模型的 HF1 与特征空间 | `faceID` + `referenceFeature` + `featureSpaceID` | 否，不保存、不替换 |
-| 同步后离线使用 | `setFaceFeature({ faceID, feature, featureSpaceID })` | 后续只传 `faceID` | 是 |
+| 同步后离线使用 | `syncFaceFeature({ faceID, feature, featureSpaceID })` | 后续只传 `faceID` | 是 |
+| 外部已录照片 | `syncFaceImage({ faceID, imageBase64 })` | 后续只传 `faceID` | 是 |
 
 `faceID` 始终必填，是业务账号标识而非相机采集结果。直接传基准时它用于关联回调，不要求本机已经录入。录入/同步/删除只影响本机，不会调用业务服务器。
 
@@ -94,6 +95,44 @@ verifyFace({
 
 三个接口不打开相机、不申请相机权限。`setFaceFeature` 没有确认页面，业务应在允许覆盖前自行确认。
 
+### syncFaceImage / syncFaceFeature
+
+用于照片或基准已在别处录好、本机无需重新相机录入的场景；三端不打开相机、不申请相机权限，不包含服务器请求。
+
+```js
+import { syncFaceImage, syncFaceFeature, verifyFace } from '@/uni_modules/HelloFace-Verify'
+
+// imageBase64 来自业务服务器/本地文件；不是图片 URL，也不是 HF1 特征。
+syncFaceImage({
+  faceID: 'user-001', imageBase64: photoBase64,
+  success: (res) => { /* code 0：已提取并保存 res.feature 与 res.featureSpaceID */ },
+  fail: (err) => { /* 展示 err.msg，排查 err.sdkCode / err.detail */ }
+})
+
+// 或者：业务服务器已保存同模型 SDK 提取的特征，直接同步，省去本地图片处理。
+syncFaceFeature({
+  faceID: 'user-002', feature: serverFeature, featureSpaceID: serverFeatureSpaceID,
+  success: (res) => { /* 同步成功后，后续 verifyFace 只需传相同 faceID */ }
+})
+// 同步成功后的业务按钮再调用：verifyFace({ faceID: 'user-001', success: ... })
+```
+
+| 参数 | 默认 / 限制 |
+| --- | --- |
+| `faceID` | 必填，规则同录入 |
+| `imageBase64` | 图片同步必填；标准 Base64，支持纯字符串或 `data:image/png;base64,` / `data:image/jpeg;base64,` 前缀，不含空白 |
+| `feature`、`featureSpaceID` | 特征同步必填；完整 HF1 + SDK 返回的原特征空间；不接受其他模型特征或图片数据 |
+| `overwrite` | 默认 `false`；已有基准 fail(106)。业务确认更新后才传 `true`，没有原生确认页 |
+| `success / fail / complete` | 同其他接口；成功返回 `code: 0 / msg: '同步成功'`、完整特征和特征空间 |
+
+图片统一接受 PNG/JPEG，编码文件最多 **6 MiB**，每边 **2..4096 px**，总像素最多 **4194304**；超限请业务先缩小。三端应用 EXIF 方向，奇数末边由 SDK/适配层裁去 1 px，不主动放大或美颜。采用三端公开的 **extractFeature** 入口（Android 在串行工作线程使用 `extractFeatureBlocking`），不依赖额外返回对齐图或较新的多人采集接口。**请传清晰单人照片**：该原生入口选择最大脸，人脸宽高均须至少 100 px；无人脸 fail(108)，人脸过小 fail(109)，无法解码/图片超限 fail(107)。不具备多人照片拒绝保证。
+
+同步接口返回的 `passed / outcome / similarity / livenessScore` 均为 `null`。照片同步不执行活体，成功表示基准已保存，不是身份验证结论。提取失败保留原基准；不落盘原照片。所有操作共用任务锁，处理期间其他操作 fail(BUSY)；`cancel()` 只取消相机任务，不取消同步。
+
+`syncFaceFeature` 与 `setFaceFeature` 使用同一存储语义，保留旧接口兼容。服务器下发特征可来自其他设备，但必须来自兼容模型/预处理的 SDK，并同时传递返回的 `featureSpaceID`。仅用于本次验证且不保存时，仍可用 `verifyFace({ faceID, referenceFeature, featureSpaceID })`。
+
+两套 Demo 的同步按钮读取同一份 [AI 示例基准](../demo/README.md)：200×200 PNG 经 TinyPNG 压缩，HF1 由压缩后图片通过真实 SDK 提取。按钮使用独立 `external-demo` 标识并显式覆盖示例基准，不影响默认相机录入的 `demo-user`。AI 人脸用于演示数据同步，不能拿本人通过该人脸的活体验证。业务接入时换成自己的照片/服务器特征，通常保留 `overwrite: false`。
+
 ### faceID 与特征规则
 
 `faceID` 自动去除两端空白，长度为 1..64 个 UTF-16 单元，禁止 NUL。建议使用稳定的账号 ID，不使用手机号展示名等会变动的文本。特征空间参与本机存储键，已有加密存储键未因本次升级改变。
@@ -141,7 +180,7 @@ setFaceFeature({ faceID: 'user-001', feature: savedFeature, featureSpaceID: save
 
 ## 返回码
 
-三端共用 `utssdk/status.uts`。`code: 0` 的提示按方法返回：录入成功、验证通过、读取成功、保存成功、删除成功、已取消。
+三端共用 `utssdk/status.uts`。`code: 0` 的提示按方法返回：录入成功、验证通过、读取成功、保存成功、同步成功、删除成功、已取消。
 
 | 分类 | code | msg | 对应原因 |
 | --- | --- | --- | --- |
@@ -151,6 +190,9 @@ setFaceFeature({ faceID: 'user-001', feature: savedFeature, featureSpaceID: save
 | 操作 | 104 | 操作中 | BUSY |
 | 操作 | 105 | 请先录入 | NOT_FOUND |
 | 操作 | 106 | 已录入 | ALREADY_EXISTS |
+| 操作 | 107 | 图片无效 | INVALID_IMAGE / UNSUPPORTED_FORMAT |
+| 操作 | 108 | 图片无人脸 | IMAGE_NO_FACE |
+| 操作 | 109 | 人脸过小 | IMAGE_FACE_TOO_SMALL |
 | 识别 | 201 | 人脸不匹配 | NOT_MATCHED |
 | 识别 | 202 | 活体未通过 | SPOOF_DETECTED |
 | 识别 | 203 | 未检测到人脸 | NO_FACE_TIMEOUT |

@@ -3,6 +3,7 @@ import { window } from '@kit.ArkUI';
 import { HiFaceSdk } from 'hiface';
 import { BridgeError, FaceParams, envelope, errorEnvelope } from './BridgeTypes';
 import { ReferenceStore } from './ReferenceStore';
+import { FaceImageImporter } from './FaceImageImporter';
 import { CameraFlow } from './HelloFaceVerifyCamera';
 
 export class HelloFaceVerifyNative {
@@ -65,10 +66,15 @@ export class HelloFaceVerifyNative {
       finish(envelope('result', 'OK', '', { feature: feature }));
     } else if (method === 'deleteFace') {
       await store.delete(params.faceID); finish(envelope());
-    } else if (method === 'setFaceFeature') {
+    } else if (method === 'setFaceFeature' || method === 'syncFaceFeature') {
       if (feature !== undefined && params.overwrite !== true) throw new BridgeError('ALREADY_EXISTS', 'Face already enrolled');
       await store.save(params.faceID, params.feature ?? '');
       finish(envelope('result', 'OK', '', { feature: params.feature }));
+    } else if (method === 'syncFaceImage') {
+      if (feature !== undefined && params.overwrite !== true) throw new BridgeError('ALREADY_EXISTS', 'Face already enrolled');
+      const incoming = await FaceImageImporter.extract(context, params.imageBase64 ?? '');
+      await store.save(params.faceID, incoming);
+      finish(envelope('result', 'OK', '', { feature: incoming }));
     } else if (method === 'enrollFace' || method === 'verifyFace') {
       if (method === 'enrollFace' && feature !== undefined && params.overwrite !== true) {
         throw new BridgeError('ALREADY_EXISTS', 'Face already enrolled');

@@ -9,6 +9,12 @@ import android.view.WindowManager;
 import org.json.JSONObject;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Color;
+import android.util.Base64;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
@@ -72,6 +78,51 @@ public final class NativeSdkSmoke extends Instrumentation {
         }
         if (removed > 0) report("Removed interrupted test references: " + removed);
     }
+    private String encoded(Bitmap image) throws Exception {
+        try {
+            ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+            image.compress(Bitmap.CompressFormat.PNG, 100, bytes);
+            return Base64.encodeToString(bytes.toByteArray(), Base64.NO_WRAP);
+        } finally { image.recycle(); }
+    }
+    private void checkImageImport(JSONObject fixture) throws Exception {
+        JSONObject identity = new JSONObject().put("faceID", faceID);
+        JSONObject incoming = new JSONObject().put("faceID", faceID).put("imageBase64", fixture.getString("imageBase64"));
+        created = true;
+        JSONObject imported = call("syncFaceImage", incoming).terminal();
+        expect(imported, "OK", "compressed 200x200 PNG extracted by real SDK");
+        String feature = imported.getJSONObject("data").getString("feature");
+        if (!feature.matches("HF1:[A-Za-z0-9_-]{600}") || imported.getJSONObject("data").has("passed"))
+            throw new IllegalStateException("Image import must return a feature without an identity verdict");
+        checks++; report("PASS imported baseline has HF1 format without identity verdict");
+        expect(call("getFaceFeature", identity).terminal(), "OK", "read imported baseline");
+        expect(call("syncFaceImage", incoming).terminal(), "ALREADY_EXISTS", "image overwrite protection");
+        incoming.put("overwrite", true).put("imageBase64", "bm90IGFuIGltYWdl");
+        expect(call("syncFaceImage", incoming).terminal(), "INVALID_IMAGE", "invalid image rejected");
+        Bitmap blank = Bitmap.createBitmap(200, 200, Bitmap.Config.ARGB_8888); blank.eraseColor(Color.WHITE);
+        incoming.put("imageBase64", encoded(blank));
+        expect(call("syncFaceImage", incoming).terminal(), "IMAGE_NO_FACE", "blank image rejected by SDK");
+        byte[] bytes = Base64.decode(fixture.getString("imageBase64"), Base64.NO_WRAP);
+        Bitmap full = BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
+        Bitmap small = Bitmap.createScaledBitmap(full, 80, 80, true); full.recycle();
+        incoming.put("imageBase64", encoded(small));
+        expect(call("syncFaceImage", incoming).terminal(), "IMAGE_FACE_TOO_SMALL", "small face rejected by SDK");
+        JSONObject afterFailure = call("getFaceFeature", identity).terminal();
+        expect(afterFailure, "OK", "failed image import preserves previous baseline");
+        if (!feature.equals(afterFailure.getJSONObject("data").getString("feature"))) throw new IllegalStateException("Failed import changed baseline");
+        checks++; report("PASS failed image imports never change stored feature");
+        JSONObject sync = new JSONObject().put("faceID", faceID).put("feature", feature)
+            .put("featureSpaceID", "jdx-feature-v1").put("overwrite", true);
+        expect(call("syncFaceFeature", sync).terminal(), "OK", "external feature sync without camera");
+        JSONObject read = call("getFaceFeature", identity).terminal();
+        expect(read, "OK", "external feature sync can be read back");
+        if (!feature.equals(read.getJSONObject("data").getString("feature"))) throw new IllegalStateException("Feature sync changed baseline");
+        checks++; report("PASS image and external-feature imports preserve the same baseline");
+        JSONObject output = new JSONObject().put("feature", feature).put("featureSpaceID", "jdx-feature-v1");
+        try (FileOutputStream file = new FileOutputStream(new File(target.getFilesDir(), "helloface-image-check-feature.json"))) {
+            file.write(output.toString().getBytes("UTF-8"));
+        }
+    }
     @Override public void onStart() {
         Bundle result = new Bundle();
         int status = Activity.RESULT_CANCELED;
@@ -100,6 +151,11 @@ public final class NativeSdkSmoke extends Instrumentation {
             JSONObject fixture = new JSONObject(bytes.toString("UTF-8"));
             cleanInterruptedChecks();
             faceID = "__helloface_smoke_" + java.util.UUID.randomUUID().toString();
+            if (fixture.has("imageBase64")) {
+                checkImageImport(fixture);
+                status = Activity.RESULT_OK;
+                result.putString("stream", "PASS: " + checks + " image import checks. No liveness or identity verdict.\n");
+            } else {
             JSONObject identity = new JSONObject().put("faceID", faceID);
             expect(call("getFaceFeature", identity).terminal(), "NOT_FOUND", "missing reference");
             JSONObject incoming = new JSONObject().put("faceID", faceID).put("feature", fixture.getString("feature"))
@@ -177,6 +233,7 @@ public final class NativeSdkSmoke extends Instrumentation {
             created = false;
             status = Activity.RESULT_OK;
             result.putString("stream", "PASS: " + checks + " native integration checks. No face match accuracy claim.\n");
+            }
         } catch (Throwable error) {
             Throwable cause = error;
             while (cause.getCause() != null) cause = cause.getCause();

@@ -4,7 +4,7 @@ export type FaceCamera = 'front' | 'back'
 export type FaceAction = 'blink' | 'openMouth' | 'shakeHead' | 'nodHead'
 
 /** 0 成功；1xx 操作问题；2xx 识别未通过；3xx 运行异常。 */
-export type FaceCode = 0 | 101 | 102 | 103 | 104 | 105 | 106 |
+export type FaceCode = 0 | 101 | 102 | 103 | 104 | 105 | 106 | 107 | 108 | 109 |
   201 | 202 | 203 | 204 | 205 | 206 | 207 | 299 |
   301 | 302 | 303 | 304 | 305 | 306 | 307 | 308
 
@@ -125,6 +125,23 @@ export type SetFaceFeatureOptions = {
   complete?: FaceComplete
 }
 
+/** 从外部 PNG/JPEG 提取特征并保存本机基准。不打开相机，不执行活体检测。 */
+export type SyncFaceImageOptions = {
+  faceID: string,
+  /** 标准 Base64，可带 data:image/png;base64, 或 data:image/jpeg;base64, 前缀。
+   * 编码文件最多 6 MiB；每边 2..4096 px，总像素不超过 4194304。
+   * 请传清晰单人照片；SDK 选择最大脸，人脸宽高须至少 100 px。支持 EXIF 方向。
+   */
+  imageBase64: string,
+  /** 默认 false。覆盖由业务确认；原图不持久化，仅保存提取的特征。 */
+  overwrite?: boolean,
+  success?: FaceSuccess,
+  fail?: FaceFailure,
+  complete?: FaceComplete
+}
+/** 同 setFaceFeature，便于表达服务端/其他设备下发基准的同步场景。 */
+export type SyncFaceFeatureOptions = SetFaceFeatureOptions
+
 export type CancelOptions = {
   success?: FaceSuccess,
   fail?: FaceFailure,
@@ -143,3 +160,8 @@ export type SetFaceFeature = (options: SetFaceFeatureOptions) => void
 export type DeleteFace = (options: FaceIDOptions) => void
 /** cancel() 即可取消当前相机任务；原任务 fail(CANCELLED)，本调用 success。无任务也成功；保存提交中返回 BUSY。 */
 export type Cancel = (options?: CancelOptions) => void
+
+/** 外部图片 → SDK extractFeature → 本机基准；成功仅代表同步，不代表验证通过。 */
+export type SyncFaceImage = (options: SyncFaceImageOptions) => void
+/** 将同模型的外部 HF1 基准保存到本机，无需重新录入。 */
+export type SyncFaceFeature = (options: SyncFaceFeatureOptions) => void

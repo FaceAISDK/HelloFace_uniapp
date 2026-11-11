@@ -15,3 +15,5 @@ uni_modules/HelloFace-Verify/utssdk/app-harmony/libs/*.har
 examples/uni-app-x/uni_modules/
 examples/uni-app-x/app-icons/
 __pycache__/
+examples/uni-app-x/demo/
+examples/uni-app-x/static/

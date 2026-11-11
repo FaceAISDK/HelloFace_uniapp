@@ -31,8 +31,8 @@ function loadPage(filename, app = true) {
   })
   assert.equal(diagnostics.length, 0)
   const calls = [], modals = [], exports = {}
-  const sandbox = { exports, uni: { hideKeyboard() {}, showModal: options => modals.push(options) } }
-  for (const name of ['enrollFace', 'verifyFace', 'getFaceFeature', 'deleteFace', 'cancel']) {
+  const sandbox = { exports, demoImageBase64: 'external-demo-photo', demoFeature: 'external-demo-feature', demoFeatureSpaceID: 'jdx-feature-v1', uni: { hideKeyboard() {}, showModal: options => modals.push(options) } }
+  for (const name of ['syncFaceImage', 'syncFaceFeature', 'enrollFace', 'verifyFace', 'getFaceFeature', 'deleteFace', 'cancel']) {
     sandbox[name] = options => calls.push({ name, options })
   }
   vm.runInNewContext(outputText, sandbox, { filename })
@@ -43,6 +43,21 @@ function loadPage(filename, app = true) {
 }
 
 for (const file of ['pages/index/index.vue', 'examples/uni-app-x/pages/index/index.uvue']) {
+  test(`${file}: external demo sync works without local enrollment or reading a device feature`, () => {
+    const { state, calls } = loadPage(file)
+    state.syncImage()
+    assert.equal(calls[0].name, 'syncFaceImage')
+    assert.equal(calls[0].options.imageBase64, 'external-demo-photo')
+    assert.equal(calls[0].options.faceID, 'external-demo')
+    calls[0].options.success({ code: 0, msg: '同步成功', faceID: 'external-demo', passed: null })
+    calls[0].options.complete({})
+    assert.ok(!state.resultText.includes('passed:'))
+    state.syncFeature()
+    assert.equal(calls[1].name, 'syncFaceFeature')
+    assert.equal(calls[1].options.feature, 'external-demo-feature')
+    assert.equal(calls[1].options.featureSpaceID, 'jdx-feature-v1')
+    assert.equal(calls.length, 2)
+  })
   test(`${file}: verification displays the SDK verdict and uses the chosen action mode`, () => {
     const { state, calls } = loadPage(file)
     state.verify(true)

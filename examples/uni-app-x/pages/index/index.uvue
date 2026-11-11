@@ -10,6 +10,9 @@
       <button class="action" :disabled="busy" @click="enroll">相机录入人脸</button>
       <button class="action" :disabled="busy" @click="verify(false)">1:1 人脸识别 + 静默活体</button>
       <button class="action" :disabled="busy" @click="verify(true)">1:1 人脸识别 + 动作活体</button>
+      <button class="action" :disabled="busy" @click="syncImage">同步外部人脸图片（示例）</button>
+      <button class="action" :disabled="busy" @click="syncFeature">同步外部人脸特征（示例）</button>
+      <text class="sync-hint">同步示例使用 AI 人脸，faceID 为 external-demo；本人验证请先相机录入。</text>
       <button class="action" :disabled="busy" @click="remove">删除人脸信息</button>
       <view class="result-card">
         <view class="result-heading">
@@ -24,11 +27,12 @@
 </template>
 <script lang="uts">
 // #ifdef APP
-import { enrollFace, verifyFace, deleteFace, cancel, FaceResult, HelloFaceVerifyFail } from '@/uni_modules/HelloFace-Verify'
+import { enrollFace, verifyFace, syncFaceImage, syncFaceFeature, deleteFace, cancel, FaceResult, HelloFaceVerifyFail } from '@/uni_modules/HelloFace-Verify'
+import { demoImageBase64, demoFeature, demoFeatureSpaceID } from '@/demo/face-reference.uts'
 // #endif
 export default {
   data() {
-    return { faceID: 'demo-user', busy: false, resultText: '先录入人脸，再使用同一 faceID 验证。' }
+    return { faceID: 'demo-user', busy: false, resultText: '先录入或同步基准，再使用同一 faceID 验证。' }
   },
   onUnload() {
     // #ifdef APP
@@ -56,6 +60,30 @@ export default {
         threshold: 0.80,
         silentLiveness: true,
         actions: withActions ? ['blink', 'nodHead'] : [], // 动作模式同时保留静默活体。
+        success: (result: FaceResult) => { this.showResult(result) },
+        fail: (error) => { this.showError(error) },
+        complete: (_) => { this.busy = false }
+      })
+      // #endif
+    },
+    syncImage() {
+      if (!this.begin('正在同步示例基准…')) return
+      // #ifdef APP
+      this.faceID = 'external-demo' // 独立示例标识，保留相机录入的 demo-user。
+      syncFaceImage({
+        faceID: this.faceID, imageBase64: demoImageBase64, overwrite: true,
+        success: (result: FaceResult) => { this.showResult(result) },
+        fail: (error) => { this.showError(error) },
+        complete: (_) => { this.busy = false }
+      })
+      // #endif
+    },
+    syncFeature() {
+      if (!this.begin('正在同步示例基准…')) return
+      // #ifdef APP
+      this.faceID = 'external-demo' // 独立示例标识，保留相机录入的 demo-user。
+      syncFaceFeature({
+        faceID: this.faceID, feature: demoFeature, featureSpaceID: demoFeatureSpaceID, overwrite: true,
         success: (result: FaceResult) => { this.showResult(result) },
         fail: (error) => { this.showError(error) },
         complete: (_) => { this.busy = false }
@@ -118,6 +146,7 @@ export default {
 .label { color: #7C8190; font-size: 13px; margin-right: 12px; }
 .input { flex: 1; height: 36px; padding: 0 10px; border: 1px solid #E2E5EA; border-radius: 6px; background-color: #FFFFFF; color: #374151; font-size: 14px; }
 .action { width: 100%; height: 54px; line-height: 52px; margin: 0 0 12px; padding: 0; border: 1px solid #72CCAE; border-radius: 9px; background-color: #FFFFFF; color: #397D4B; font-size: 16px; font-weight: bold; }
+.sync-hint { color: #7C8190; font-size: 11px; line-height: 18px; margin-bottom: 12px; }
 .result-card { display: flex; flex-direction: column; margin-top: 18px; padding: 14px; border: 1px solid #E2E5EA; border-radius: 11px; background-color: #FFFFFF; }
 .result-heading { display: flex; flex-direction: row; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .result-title { color: #303540; font-size: 14px; font-weight: bold; }

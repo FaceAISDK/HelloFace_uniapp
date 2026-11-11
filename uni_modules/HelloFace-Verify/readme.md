@@ -126,7 +126,7 @@ verifyFace({
 | code | 分类 | 常见短提示 |
 | --- | --- | --- |
 | 0 | 成功 | 录入成功、验证通过、保存成功 |
-| 101–106 | 操作问题 | 参数错误、相机未授权、已取消、操作中、请先录入、已录入 |
+| 101–109 | 操作问题 | 参数错误、相机未授权、已取消、操作中、请先录入、已录入、图片无效、图片无人脸、人脸过小 |
 | 201–207、299 | 识别未通过 | 人脸不匹配、活体未通过、未检测到人脸、动作超时 |
 | 301–308 | 运行异常 | 相机异常、存储异常、SDK未就绪、返回异常、模型异常 |
 
@@ -141,11 +141,15 @@ uvue 可从同一入口导入 `EnrollFaceOptions`、`VerifyFaceOptions`、`FaceR
 | `enrollFace(options)` | 相机录入并在用户确认后保存 |
 | `verifyFace(options)` | 对指定用户进行 1:1 验证 |
 | `getFaceFeature(options)` | 读取该用户完整特征 |
+| `syncFaceImage(options)` | 外部 PNG/JPEG Base64 → SDK 提取 → 保存基准 |
+| `syncFaceFeature(options)` | 保存服务器/其他设备下发的同模型 HF1 特征 |
 | `setFaceFeature(options)` | 导入相同特征空间的特征 |
 | `deleteFace(options)` | 删除本机基准特征 |
 | `cancel(options)` | 取消当前相机任务 |
 
 特征管理以 `faceID` 为键。当前特征格式为 604 字符的 HF1，特征空间为 `jdx-feature-v1`。同步时需同时保留 `feature` 和 `featureSpaceID`；旧插件的不同格式不能直接导入。跨设备传输、服务端保存与账号授权由业务系统接入。
+
+无需本机重新录入：`syncFaceImage({ faceID, imageBase64 })` 或 `syncFaceFeature({ faceID, feature, featureSpaceID })`，成功后直接 `verifyFace({ faceID })`。默认不覆盖，更新时显式传 `overwrite: true`。图片限 PNG/JPEG、6 MiB、每边 2..4096 px、总像素 4194304，支持 EXIF；需清晰单人脸且人脸宽高至少 100 px，SDK 选最大脸。图片接口采用三端通用 `extractFeature`，无相机/活体；成功只代表同步，`passed` 为 null。详见 [同步参数与示例](https://github.com/FaceAISDK/HelloFace_uniapp/blob/main/docs/API.md#syncfaceimage--syncfacefeature)。
 
 接口返回 `void`，使用回调，不直接 `await verifyFace(...)`。普通验证只需传 `faceID`；需要动作活体时传 `actions: ['blink', 'nodHead']`，默认静默活体继续开启。两个超时参数仅属于验证流程，不是接口总时长；录入须用户确认保存。
 

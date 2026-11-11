@@ -21,6 +21,9 @@ export function failureCode(sdkCode: string): FaceCode {
   if (sdkCode == 'BUSY') return 104
   if (sdkCode == 'NOT_FOUND') return 105
   if (sdkCode == 'ALREADY_EXISTS') return 106
+  if (sdkCode == 'INVALID_IMAGE' || sdkCode == 'UNSUPPORTED_FORMAT') return 107
+  if (sdkCode == 'IMAGE_NO_FACE') return 108
+  if (sdkCode == 'IMAGE_FACE_TOO_SMALL') return 109
   if (sdkCode == 'CAMERA_ERROR') return 301
   if (sdkCode == 'STORAGE_ERROR' || sdkCode == 'DATABASE_ERROR') return 302
   if (sdkCode == 'NOT_READY' || sdkCode == 'CLOSED') return 303
@@ -36,6 +39,7 @@ export function statusMessage(code: FaceCode, method: string): string {
     if (method == 'enrollFace') return '录入成功'
     if (method == 'verifyFace') return '验证通过'
     if (method == 'getFaceFeature') return '读取成功'
+    if (method == 'syncFaceImage' || method == 'syncFaceFeature') return '同步成功'
     if (method == 'setFaceFeature') return '保存成功'
     if (method == 'deleteFace') return '删除成功'
     if (method == 'cancel') return '已取消'
@@ -47,6 +51,9 @@ export function statusMessage(code: FaceCode, method: string): string {
   if (code == 104) return '操作中'
   if (code == 105) return '请先录入'
   if (code == 106) return '已录入'
+  if (code == 107) return '图片无效'
+  if (code == 108) return '图片无人脸'
+  if (code == 109) return '人脸过小'
   if (code == 201) return '人脸不匹配'
   if (code == 202) return '活体未通过'
   if (code == 203) return '未检测到人脸'

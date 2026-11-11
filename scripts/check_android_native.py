@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Run real native SDK integration checks against an installed Android debug base."""
 import argparse
+import base64
 import json
 import os
 from pathlib import Path
@@ -54,8 +55,11 @@ def instrument(target, package):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--feature-file', type=Path, required=True,
+    inputs = parser.add_mutually_exclusive_group(required=True)
+    inputs.add_argument('--feature-file', type=Path,
                         help='Upstream SDK test features JSON; never use customer data')
+    inputs.add_argument('--image-file', type=Path, help='Fictional demo PNG/JPEG for real image import checks')
+    parser.add_argument('--output-feature-file', type=Path, help='Save the SDK-extracted fictional demo feature')
     parser.add_argument('--keystore', type=Path, required=True, help='Same debug keystore as the target base')
     parser.add_argument('--alias', required=True)
     parser.add_argument('--package', default='dev.helloface.uniapp.demo')
@@ -96,19 +100,23 @@ def main():
         run(target + ['shell', 'run-as', args.package, 'id', '-u'])
     except RuntimeError:
         raise RuntimeError('Native instrumentation requires a debuggable custom base; do not target a release APK.') from None
-    fixture = json.loads(args.feature_file.read_text())
-    if fixture.get('featureSpaceId') != 'jdx-feature-v1':
-        raise RuntimeError('Use upstream test data from feature space jdx-feature-v1.')
-    feature = fixture['entries'][0]['feature']
-    if not re.fullmatch(r'HF1:[A-Za-z0-9_-]{600}', feature):
-        raise RuntimeError('Invalid upstream test feature.')
+    if args.image_file:
+        fixture = {'imageBase64': base64.b64encode(args.image_file.read_bytes()).decode('ascii')}
+    else:
+        source = json.loads(args.feature_file.read_text())
+        if source.get('featureSpaceId') != 'jdx-feature-v1':
+            raise RuntimeError('Use upstream test data from feature space jdx-feature-v1.')
+        feature = source['entries'][0]['feature']
+        if not re.fullmatch(r'HF1:[A-Za-z0-9_-]{600}', feature):
+            raise RuntimeError('Invalid upstream test feature.')
+        fixture = {'feature': feature}
     java_home = env.get('JAVA_HOME')
     javac = str(Path(java_home) / 'bin' / ('javac' + suffix)) if java_home else 'javac'
     script_suffix = '.bat' if os.name == 'nt' else ''
     with tempfile.TemporaryDirectory(prefix='helloface-native-sdk-') as temp:
         temp = Path(temp)
         assets = temp / 'assets'; assets.mkdir()
-        (assets / 'fixture.json').write_text(json.dumps({'feature': feature}))
+        (assets / 'fixture.json').write_text(json.dumps(fixture))
         namespace = 'http://schemas.android.com/apk/res/android'
         ET.register_namespace('android', namespace)
         def attr(key): return '{' + namespace + '}' + key
@@ -137,9 +145,21 @@ def main():
         run(target + ['install', '--no-incremental', '-r', '-t', signed])
         try:
             output = instrument(target, args.package)
-            if 'INSTRUMENTATION_CODE: -1' not in output or 'PASS: 20 native integration checks.' not in output:
+            expected = 'PASS: 12 image import checks.' if args.image_file else 'PASS: 20 native integration checks.'
+            if 'INSTRUMENTATION_CODE: -1' not in output or expected not in output:
                 raise RuntimeError('Native SDK integration checks failed; inspect the target app logcat.')
+            if args.image_file and args.output_feature_file:
+                # Only the deliberately generated fixture is exported; never log the feature.
+                exported = subprocess.check_output(target + ['shell', 'run-as', args.package, 'cat',
+                    'files/helloface-image-check-feature.json'], timeout=20)
+                value = json.loads(exported)
+                if value.get('featureSpaceID') != 'jdx-feature-v1' or not re.fullmatch(r'HF1:[A-Za-z0-9_-]{600}', value.get('feature', '')):
+                    raise RuntimeError('Invalid extracted demo feature.')
+                args.output_feature_file.write_text(json.dumps(value, indent=2) + '\n')
+                print('Saved the SDK-extracted demo feature without logging its value.')
         finally:
+            if args.image_file:
+                run(target + ['shell', 'run-as', args.package, 'rm', '-f', 'files/helloface-image-check-feature.json'])
             run(target + ['uninstall', TEST_PACKAGE])
 
 

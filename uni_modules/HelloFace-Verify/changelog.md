@@ -1,5 +1,9 @@
 ## 未发布
 
+- 新增 syncFaceImage / syncFaceFeature：同步外部 Base64 图片或同模型 HF1 基准，无需本机重新录入；保留 setFaceFeature。
+- 三端使用通用 extractFeature 图片入口，统一 PNG/JPEG、大小限制、EXIF 方向、覆盖保护和空判定字段；新增 107–109 图片短错误码。
+- Vue/uvue 增加两个直接调用示例，使用同一张 200×200 AI 人脸和压缩后图片经 SDK 提取的特征，独立保存到 external-demo。
+
 - 三端统一增加 code/msg：0 成功、1xx 操作问题、2xx 识别未通过、3xx 运行异常，使用短提示；SDK 判定和回调语义保持不变。
 - 原 errCode、sdkCode、outcome 保留兼容，fail 的 errMsg 缩短为“方法名:fail 短提示”，原始说明移至 detail。Vue/uvue 示例直接展示 code/msg。
 - Android 系统栏改用 AndroidX enableEdgeToEdge / SystemBarStyle，移除直接使用的已弃用 systemUiVisibility、SYSTEM_UI_FLAG_* 与系统栏颜色设置。
