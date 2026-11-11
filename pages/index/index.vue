@@ -10,10 +10,10 @@
       <button class="action" :disabled="busy" @click="enroll">相机录入人脸</button>
       <button class="action" :disabled="busy" @click="verify(false)">1:1 人脸识别 + 静默活体</button>
       <button class="action" :disabled="busy" @click="verify(true)">1:1 人脸识别 + 动作活体</button>
-      <button class="action" :disabled="busy" @click="syncImage">同步外部人脸图片（示例）</button>
-      <button class="action" :disabled="busy" @click="syncFeature">同步外部人脸特征（示例）</button>
-      <text class="sync-hint">同步示例使用 AI 人脸，faceID 为 external-demo；本人验证请先相机录入。</text>
+      <button class="action" :disabled="busy" @click="syncImage">同步外部人脸图片</button>
+      <button class="action" :disabled="busy" @click="syncFeature">同步外部人脸特征</button>
       <button class="action" :disabled="busy" @click="remove">删除人脸信息</button>
+      <text class="sync-hint">同步示例使用 AI 人脸，faceID 为 external-demo；本人验证请先相机录入。</text>
       <view class="result-card">
         <view class="result-heading">
           <text class="result-title">调用结果</text>
@@ -145,12 +145,12 @@ export default {
 .identity { display: flex; flex-direction: row; align-items: center; padding: 0 4px; margin-bottom: 14px; }
 .label { color: #7C8190; font-size: 13px; margin-right: 12px; }
 .input { flex: 1; height: 36px; padding: 0 10px; border: 1px solid #E2E5EA; border-radius: 6px; background-color: #FFFFFF; color: #374151; font-size: 14px; }
-.action { width: 100%; height: 54px; line-height: 52px; margin: 0 0 12px; padding: 0; border: 1px solid #72CCAE; border-radius: 9px; background-color: #FFFFFF; color: #397D4B; font-size: 16px; font-weight: bold; }
+.action { width: 100%; height: 54px; line-height: 52px; margin: 0 0 12px; padding: 0 18px; text-align: left; border: 1px solid #72CCAE; border-radius: 9px; background-color: #FFFFFF; color: #397D4B; font-size: 16px; font-weight: bold; }
 .sync-hint { color: #7C8190; font-size: 11px; line-height: 18px; margin-bottom: 12px; }
 .result-card { display: flex; flex-direction: column; margin-top: 18px; padding: 14px; border: 1px solid #E2E5EA; border-radius: 11px; background-color: #FFFFFF; }
 .result-heading { display: flex; flex-direction: row; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .result-title { color: #303540; font-size: 14px; font-weight: bold; }
 .result-label { color: #9A9DA6; font-size: 11px; }
 .result-text { min-height: 150px; padding: 12px; border: 1px solid #E9EBEF; border-radius: 8px; background-color: #F6F7F9; color: #6865C6; font-size: 14px; line-height: 23px; }
-.hint { color: #9A9DA6; font-size: 10px; line-height: 18px; text-align: center; margin-top: 10px; }
+.hint { color: #9A9DA6; font-size: 10px; line-height: 18px; text-align: left; margin-top: 10px; }
 </style>
