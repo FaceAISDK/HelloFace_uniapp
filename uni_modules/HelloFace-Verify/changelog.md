@@ -1,3 +1,8 @@
+## 未发布
+
+- Android 系统栏改用 AndroidX enableEdgeToEdge / SystemBarStyle，移除直接使用的已弃用 systemUiVisibility、SYSTEM_UI_FLAG_* 与系统栏颜色设置。
+- Android 11 及以上使用原生 WindowInsets.getInsets 读取系统栏和挖孔安全区，Android 6–10 保留独立兼容分支；最低 Android 版本仍为 6.0。
+
 ## 0.1.5 (2026-11-11)
 
 - 修复 Android 云基座与 HBuilderX 本地编译使用不同 Kotlin 模块名时，跨文件 internal 方法生成不同 JVM 名称、可能触发 NoSuchMethodError 的问题。

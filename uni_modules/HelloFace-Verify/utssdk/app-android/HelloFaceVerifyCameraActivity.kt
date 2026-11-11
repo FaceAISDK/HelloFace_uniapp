@@ -3,14 +3,17 @@ package uts.sdk.modules.HelloFaceVerify
 import android.Manifest
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.graphics.Color
 import android.graphics.Matrix
 import android.os.Bundle
-import android.util.Size
 import android.os.Build
-import android.view.View
+import android.util.Size
+import android.view.WindowInsets
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.SystemBarStyle
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
@@ -74,29 +77,37 @@ class HelloFaceVerifyCameraActivity : ComponentActivity() {
             }
         })
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        // Use platform APIs available since API 23; HBuilderX's native source
-        // checker may resolve an older AndroidX Core stub than the packaged AAR.
-        window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
-            View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
-            View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or
-            (if (Build.VERSION.SDK_INT >= 26) View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR else 0)
-        window.statusBarColor = HelloFaceVerifyCameraView.BACKGROUND
-        window.navigationBarColor = if (Build.VERSION.SDK_INT >= 26) HelloFaceVerifyCameraView.BACKGROUND else 0xff19324f.toInt()
+        // AndroidX selects modern system-bar APIs and the API 23/25 fallback.
+        // Transparent bars reveal the native screen's shared background color.
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.light(Color.TRANSPARENT, HelloFaceVerifyPresentation.colorInk)
+        )
         screen = HelloFaceVerifyCameraView(this, current.method == "enrollFace",
             { fail("CANCELLED", "Face operation cancelled") }, { retake() }, { confirm() })
         preview = screen.preview
         setContentView(screen)
         screen.setOnApplyWindowInsetsListener { _, insets ->
-            val cutout = if (Build.VERSION.SDK_INT >= 28) insets.displayCutout else null
-            screen.setSafeInsets(maxOf(insets.systemWindowInsetLeft, cutout?.safeInsetLeft ?: 0),
-                maxOf(insets.systemWindowInsetTop, cutout?.safeInsetTop ?: 0),
-                maxOf(insets.systemWindowInsetRight, cutout?.safeInsetRight ?: 0),
-                maxOf(insets.systemWindowInsetBottom, cutout?.safeInsetBottom ?: 0))
+            if (Build.VERSION.SDK_INT >= 30) {
+                val safe = insets.getInsets(WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout())
+                screen.setSafeInsets(safe.left, safe.top, safe.right, safe.bottom)
+            } else applyLegacySafeInsets(insets)
             insets
         }
         screen.requestApplyInsets()
         if (checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) begin()
         else permission.launch(Manifest.permission.CAMERA)
+    }
+
+    // API 23..29 have no WindowInsets.getInsets(Type) API. Keep that fallback
+    // isolated; some HBuilderX uni-app Core stubs also predate the compat API.
+    @Suppress("DEPRECATION")
+    private fun applyLegacySafeInsets(insets: WindowInsets) {
+        val cutout = if (Build.VERSION.SDK_INT >= 28) insets.displayCutout else null
+        screen.setSafeInsets(maxOf(insets.systemWindowInsetLeft, cutout?.safeInsetLeft ?: 0),
+            maxOf(insets.systemWindowInsetTop, cutout?.safeInsetTop ?: 0),
+            maxOf(insets.systemWindowInsetRight, cutout?.safeInsetRight ?: 0),
+            maxOf(insets.systemWindowInsetBottom, cutout?.safeInsetBottom ?: 0))
     }
 
     private fun active() = HelloFaceVerifyNative.job?.id == jobID && !stopping && !isFinishing

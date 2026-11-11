@@ -50,7 +50,7 @@ async function main() {
   Object.assign(process.env, {
     NODE_ENV: 'development', UNI_PLATFORM: 'app', UNI_UTS_PLATFORM: 'app-android',
     UNI_INPUT_DIR: root, UNI_OUTPUT_DIR: path.join(root, 'unpackage/uts-native-check' + (isX ? '-x' : '')),
-    UNI_HBUILDERX_PLUGINS: plugins, HX_DEPENDENCIES_DIR: path.join(root, 'unpackage/cache/uts_api_check_android'),
+    UNI_HBUILDERX_PLUGINS: plugins, HX_DEPENDENCIES_DIR: path.join(root, 'unpackage/cache/uts_api_check_android' + (isX ? '-x' : '')),
     HX_Version: JSON.parse(fs.readFileSync(path.join(plugins, 'about/package.json'), 'utf8')).version,
     UNI_APPID: manifest.appid, USER_DATA_PATH: userData, JDK_PATH: sdk, GRADLE_HOME: gradle,
     APP_ROOT: hbuilder, GRADLE_JAVA_HOME: java

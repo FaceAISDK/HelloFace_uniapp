@@ -2,6 +2,14 @@
 
 更新日期：2026-11-11。原生 SDK 0.8.8，上游提交 `572751458a3ea9d85ca422cecec56d115be71e4e`。
 
+## 2026-11-11 Android 系统栏弃用警告
+
+原生相机 Activity 改用已有 AndroidX Activity 1.9.3 的 `enableEdgeToEdge` / `SystemBarStyle`，移除 `systemUiVisibility`、`SYSTEM_UI_FLAG_*`、`statusBarColor` 和 `navigationBarColor` 的直接调用。Android 11 及以上使用系统 `WindowInsets.getInsets` 合并系统栏与挖孔安全区；Android 6–10 只在独立兼容函数中读取旧安全区字段，保持原有布局。
+
+- 真实 HBuilderX uni-app 与 uni-app x UTS/Kotlin 编译和桥接 ABI 检查通过，日志中不再出现本次系统栏弃用警告；uni-app 的旧 AndroidX Core 类型索引差异通过使用系统 `WindowInsets` 解决。两种编译检查使用独立缓存目录，避免混用不同运行时的编译产物。
+- 80 项自动化检查、37 个 SDK 文件校验和三端 UTS 转换通过；没有新增依赖或提高最低系统版本。
+- `需在 Android 6.0 版本及以上方可正常使用` 仍是 `minSdkVersion: 23` 对应的兼容性提示，不是编译错误。此次未新增云基座或 Android 6 真机验收；已有依赖基座可通过 HBuilderX 本地联编应用源码改动。
+
 ## 2026-11-11 完整 Android 示例与本地联编 0.1.5
 
 用户切换到有现有 AppID 权限的 HBuilderX 账号后，完整自定义基座云打包成功；AppID 保持 `__UNI__DC2611F`。小米已从 0.1.1 更新到完整 uni-app 示例 0.1.5（versionCode 105），使用更新安装而非卸载重装。
