@@ -1,0 +1,78 @@
+import { FaceCode, HelloFaceVerifyErrorCode } from './interface.uts'
+
+// One public code/message policy for Android, iOS and HarmonyOS.
+// Native SDK values stay available as outcome/sdkCode; never replace its verdict.
+export function resultCode(passed: boolean | null, outcome: string | null): FaceCode {
+  if (passed != false) return 0
+  if (outcome == 'NOT_MATCHED') return 201
+  if (outcome == 'SPOOF_DETECTED') return 202
+  if (outcome == 'NO_FACE_TIMEOUT') return 203
+  if (outcome == 'FACE_LOST') return 204
+  if (outcome == 'MULTIPLE_FACES') return 205
+  if (outcome == 'ACTION_TIMEOUT') return 206
+  if (outcome == 'FINAL_CAPTURE_TIMEOUT') return 207
+  return 299
+}
+
+export function failureCode(sdkCode: string): FaceCode {
+  if (sdkCode == 'INVALID_ARGUMENT') return 101
+  if (sdkCode == 'PERMISSION_DENIED') return 102
+  if (sdkCode == 'CANCELLED') return 103
+  if (sdkCode == 'BUSY') return 104
+  if (sdkCode == 'NOT_FOUND') return 105
+  if (sdkCode == 'ALREADY_EXISTS') return 106
+  if (sdkCode == 'CAMERA_ERROR') return 301
+  if (sdkCode == 'STORAGE_ERROR' || sdkCode == 'DATABASE_ERROR') return 302
+  if (sdkCode == 'NOT_READY' || sdkCode == 'CLOSED') return 303
+  if (sdkCode == 'BRIDGE_ERROR') return 305
+  if (sdkCode == 'NO_CONTEXT' || sdkCode == 'UNSUPPORTED_PLATFORM') return 306
+  if (sdkCode.startsWith('LICENSE_')) return 307
+  if (sdkCode == 'MODEL_LOAD_FAILED') return 308
+  return 304
+}
+
+export function statusMessage(code: FaceCode, method: string): string {
+  if (code == 0) {
+    if (method == 'enrollFace') return '录入成功'
+    if (method == 'verifyFace') return '验证通过'
+    if (method == 'getFaceFeature') return '读取成功'
+    if (method == 'setFaceFeature') return '保存成功'
+    if (method == 'deleteFace') return '删除成功'
+    if (method == 'cancel') return '已取消'
+    return '操作成功'
+  }
+  if (code == 101) return '参数错误'
+  if (code == 102) return '相机未授权'
+  if (code == 103) return '已取消'
+  if (code == 104) return '操作中'
+  if (code == 105) return '请先录入'
+  if (code == 106) return '已录入'
+  if (code == 201) return '人脸不匹配'
+  if (code == 202) return '活体未通过'
+  if (code == 203) return '未检测到人脸'
+  if (code == 204) return '人脸丢失'
+  if (code == 205) return '检测到多人'
+  if (code == 206) return '动作超时'
+  if (code == 207) return '采集超时'
+  if (code == 299) return '未通过'
+  if (code == 301) return '相机异常'
+  if (code == 302) return '存储异常'
+  if (code == 303) return 'SDK未就绪'
+  if (code == 305) return '返回异常'
+  if (code == 306) return '环境不可用'
+  if (code == 307) return 'SDK授权异常'
+  if (code == 308) return '模型异常'
+  return '识别异常'
+}
+
+/** Keep the existing UniError mapping for integrations already using errCode. */
+export function legacyErrorCode(sdkCode: string): HelloFaceVerifyErrorCode {
+  if (sdkCode == 'INVALID_ARGUMENT') return 9011001
+  if (sdkCode == 'PERMISSION_DENIED') return 9011002
+  if (sdkCode == 'CANCELLED') return 9011003
+  if (sdkCode == 'BUSY') return 9011004
+  if (sdkCode == 'NOT_FOUND') return 9011005
+  if (sdkCode == 'ALREADY_EXISTS') return 9011006
+  if (sdkCode == 'STORAGE_ERROR') return 9011007
+  return 9011008
+}

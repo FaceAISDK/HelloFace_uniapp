@@ -58,6 +58,17 @@ class AndroidDebugTests(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 debug.require_current_base(apk, root)
 
+    def test_new_shared_uts_helpers_participate_in_native_fingerprint(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); uts = self.project(root)
+            first = debug.fingerprint(root)
+            helper = uts / 'status.uts'
+            helper.write_text('export const code = 0')
+            second = debug.fingerprint(root)
+            self.assertNotEqual(first, second)
+            helper.write_text('export const code = 203')
+            self.assertNotEqual(second, debug.fingerprint(root))
+
     def test_host_native_settings_change_requires_rebuild(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory); self.project(root)

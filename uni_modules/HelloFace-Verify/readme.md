@@ -98,10 +98,10 @@ verifyFace({
     if (result.passed === true) {
       // 1:1 验证通过，继续业务流程。
     } else {
-      // 根据 outcome 处理非本人、活体拒绝或超时。
+      // 根据 code 处理未通过，直接用 msg 提示。
     }
   },
-  fail: error => { /* errCode、errMsg、sdkCode */ },
+  fail: error => { /* code / msg；排查时看 sdkCode / detail */ },
   complete: (_) => { /* 仅收尾；业务字段在 success/fail 中读取 */ }
 })
 
@@ -120,6 +120,17 @@ verifyFace({
 | `featureSpaceID` | 不传 | 与 referenceFeature 成对传入，使用录入/读取返回的原值 |
 
 所有 API 使用 `success / fail / complete`；录入和识别还可监听 `onProgress`。`success` 表示业务流程已完成，应以 `passed` 判断是否通过。例如 `outcome: 'SPOOF_DETECTED'` 会返回 `passed: false`，前端不能仅依据相似度放行。三端返回字段一致：相似度、活体分数仅在验证时返回实际有限值，其他接口或未产生时为 `null`；特征管理、取消的 `passed / outcome` 为 `null`。
+
+结果和错误统一提供 `code + msg`：提示直接显示 msg，业务按 code 分支，原有字段保留。
+
+| code | 分类 | 常见短提示 |
+| --- | --- | --- |
+| 0 | 成功 | 录入成功、验证通过、保存成功 |
+| 101–106 | 操作问题 | 参数错误、相机未授权、已取消、操作中、请先录入、已录入 |
+| 201–207、299 | 识别未通过 | 人脸不匹配、活体未通过、未检测到人脸、动作超时 |
+| 301–308 | 运行异常 | 相机异常、存储异常、SDK未就绪、返回异常、模型异常 |
+
+`2xx` 仍在 success 回调返回 `passed: false`，不改变 SDK 判定。完整代码表见 [返回码](https://github.com/FaceAISDK/HelloFace_uniapp/blob/main/docs/API.md#返回码)。
 
 uvue 可从同一入口导入 `EnrollFaceOptions`、`VerifyFaceOptions`、`FaceResult`、`FaceProgress` 类型。完整示例位于 [uvue 示例工程](https://github.com/FaceAISDK/HelloFace_uniapp/tree/main/examples/uni-app-x)。
 
@@ -146,7 +157,7 @@ verifyFace({
   referenceFeature: savedFeature,
   featureSpaceID: savedSpaceID,
   success: (res) => { /* 只在 res.passed === true 时放行 */ },
-  fail: (err) => { /* err.errCode / err.sdkCode / err.faceID */ }
+  fail: (err) => { /* err.code / err.msg / err.faceID */ }
 })
 ```
 
@@ -156,11 +167,11 @@ verifyFace({
 
 完整参数、结果、同步方式、错误处理和三端边界见 [接入与 API](https://github.com/FaceAISDK/HelloFace_uniapp/blob/main/docs/API.md)。
 
-错误遵循 UniError，主题为 `HelloFaceVerify`：`9011001` 参数错误、`9011002` 权限拒绝、`9011003` 取消、`9011004` 任务忙、`9011005` 尚未录入、`9011006` 已录入未允许覆盖、`9011007` 存储错误、`9011008` 其他原生错误；`sdkCode` 保留 SDK 错误名称，`faceID` 关联此次用户。
+错误仍遵循 UniError，主题为 `HelloFaceVerify`。旧版 `errCode: 9011001–9011008` 保持兼容；新接入优先使用 code/msg，排查使用 sdkCode/detail。`errMsg` 保留 `方法名:fail 短提示` 格式，`faceID` 关联此次用户。
 
 ## 版本与验证说明
 
-当前插件版本 **0.1.3**，底层为 HelloFace 原生 SDK **0.8.8**。Android 原生 Kotlin 编译、鸿蒙原生 HAR 构建及三端 UTS 转换已通过；iOS 当前仅完成 Swift 语法检查，完整编译和三端真机联合运行仍需按 [验证记录](https://github.com/FaceAISDK/HelloFace_uniapp/blob/main/docs/VALIDATION.md) 验收。
+当前插件版本 **0.1.5**，底层为 HelloFace 原生 SDK **0.8.8**。Android 原生 Kotlin 编译、鸿蒙原生 HAR 构建及三端 UTS 转换已通过；iOS 当前仅完成 Swift 语法检查，完整编译和三端真机联合运行仍需按 [验证记录](https://github.com/FaceAISDK/HelloFace_uniapp/blob/main/docs/VALIDATION.md) 验收。
 
 从 `HelloFace` 或 `HelloFaceVerify` 目录升级时，改为 `HelloFace-Verify` 并更新导入入口，重新构建包含本插件的原生基座。当前错误主题为 `HelloFaceVerify`，原有接口方法、参数与本机特征存储键延续使用。
 

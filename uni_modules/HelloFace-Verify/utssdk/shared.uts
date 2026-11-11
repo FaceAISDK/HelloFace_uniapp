@@ -1,5 +1,6 @@
-import { FaceResult, FaceProgress, FaceSuccess, FaceFailure, FaceComplete, FaceProgressCallback, HelloFaceVerifyErrorCode, EnrollFaceOptions, VerifyFaceOptions, SetFaceFeatureOptions } from './interface.uts'
+import { FaceResult, FaceProgress, FaceSuccess, FaceFailure, FaceComplete, FaceProgressCallback, EnrollFaceOptions, VerifyFaceOptions, SetFaceFeatureOptions } from './interface.uts'
 import { HelloFaceVerifyFailImpl } from './unierror.uts'
+import { resultCode, failureCode, statusMessage, legacyErrorCode } from './status.uts'
 
 // The three platform entries share defaults, validation and callback semantics.
 export function createFaceParams(faceID: string): UTSJSONObject {
@@ -75,16 +76,6 @@ export function validateParams(method: string, params: UTSJSONObject): string | 
   return null
 }
 
-function errorCode(code: string): HelloFaceVerifyErrorCode {
-  if (code == 'INVALID_ARGUMENT') return 9011001
-  if (code == 'PERMISSION_DENIED') return 9011002
-  if (code == 'CANCELLED') return 9011003
-  if (code == 'BUSY') return 9011004
-  if (code == 'NOT_FOUND') return 9011005
-  if (code == 'ALREADY_EXISTS') return 9011006
-  if (code == 'STORAGE_ERROR') return 9011007
-  return 9011008
-}
 function isProgress(event: UTSJSONObject | null): boolean {
   return event?.getString('event') == 'progress' && event?.getString('code') == 'OK' && event?.getJSON('data')?.getString('stage') != null
 }
@@ -120,17 +111,25 @@ export function createDispatcher(method: string, faceID: string,
       ((method != 'getFaceFeature' && method != 'setFaceFeature') || data?.getString('feature') != null)
     if (code == 'OK' && !validResult) code = 'BRIDGE_ERROR'
     if (code != 'OK') {
-      const message = event?.getString('message') ?? ''
-      const error = new HelloFaceVerifyFailImpl(errorCode(code), method + ':fail ' + (message.length > 0 ? message : (code == 'BRIDGE_ERROR' ? 'Invalid native response' : code)), code, faceID)
+      const status = failureCode(code)
+      const msg = statusMessage(status, method)
+      const detail = event?.getString('message') ?? ''
+      const error = new HelloFaceVerifyFailImpl(legacyErrorCode(code), method + ':fail ' + msg, code, faceID)
+      error.code = status
+      error.msg = msg
+      error.detail = detail.length > 0 ? detail : (code == 'BRIDGE_ERROR' ? 'Invalid native response' : code)
       try { fail?.(error) } finally { complete?.(error) }
       return
     }
+    const passed = cameraMethod ? data?.getBoolean('passed') : null
+    const outcome = cameraMethod ? data?.getString('outcome') : null
+    const status = resultCode(passed ?? null, outcome ?? null)
     const result: FaceResult = {
+      code: status, msg: statusMessage(status, method),
       errMsg: method + ':ok', faceID: faceID,
       feature: method == 'enrollFace' || method == 'getFaceFeature' || method == 'setFaceFeature' ? data?.getString('feature') : null,
       featureSpaceID: 'jdx-feature-v1',
-      passed: cameraMethod ? data?.getBoolean('passed') : null,
-      outcome: cameraMethod ? data?.getString('outcome') : null,
+      passed: passed, outcome: outcome,
       similarity: method == 'verifyFace' ? score(data ?? null, 'similarity') : null,
       livenessScore: method == 'verifyFace' ? score(data ?? null, 'livenessScore') : null
     }

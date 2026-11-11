@@ -68,7 +68,7 @@ export default {
       uni.showModal({
         title: '删除人脸信息', content: '确认删除「' + this.faceID + '」的本机人脸基准？',
         success: (modal) => {
-          if (!modal.confirm) { this.busy = false; this.resultText = '已取消删除。'; return }
+          if (!modal.confirm) { this.busy = false; this.resultText = '已取消'; return }
           deleteFace({
             faceID: this.faceID,
             success: (result: FaceResult) => { this.showResult(result) },
@@ -76,7 +76,7 @@ export default {
             complete: (_) => { this.busy = false }
           })
         },
-        fail: (error) => { this.busy = false; this.resultText = error.errMsg }
+        fail: (_) => { this.busy = false; this.resultText = '操作未完成' }
       })
       // #endif
     },
@@ -96,15 +96,14 @@ export default {
     },
     // #ifdef APP
     showResult(result: FaceResult) {
-      const lines = ['msg: ' + result.errMsg, 'faceID: ' + result.faceID]
+      const lines = ['code: ' + result.code, 'msg: ' + result.msg, 'faceID: ' + result.faceID]
       if (result.passed != null) lines.push('passed: ' + result.passed)
-      if (result.outcome != null) lines.push('outcome: ' + result.outcome)
       if (result.similarity != null) lines.push('similarity: ' + result.similarity.toFixed(3))
       if (result.livenessScore != null) lines.push('livenessScore: ' + result.livenessScore.toFixed(3))
       this.resultText = lines.join('\n')
     },
     showError(error: HelloFaceVerifyFail) {
-      this.resultText = 'errCode: ' + error.errCode + '\nsdkCode: ' + error.sdkCode + '\nfaceID: ' + error.faceID + '\nmsg: ' + error.errMsg
+      this.resultText = 'code: ' + error.code + '\nmsg: ' + error.msg + '\nfaceID: ' + error.faceID
     }
     // #endif
   }

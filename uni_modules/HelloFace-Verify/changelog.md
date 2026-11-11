@@ -1,5 +1,7 @@
 ## 未发布
 
+- 三端统一增加 code/msg：0 成功、1xx 操作问题、2xx 识别未通过、3xx 运行异常，使用短提示；SDK 判定和回调语义保持不变。
+- 原 errCode、sdkCode、outcome 保留兼容，fail 的 errMsg 缩短为“方法名:fail 短提示”，原始说明移至 detail。Vue/uvue 示例直接展示 code/msg。
 - Android 系统栏改用 AndroidX enableEdgeToEdge / SystemBarStyle，移除直接使用的已弃用 systemUiVisibility、SYSTEM_UI_FLAG_* 与系统栏颜色设置。
 - Android 11 及以上使用原生 WindowInsets.getInsets 读取系统栏和挖孔安全区，Android 6–10 保留独立兼容分支；最低 Android 版本仍为 6.0。
 

@@ -3,8 +3,17 @@ export type FaceCamera = 'front' | 'back'
 /** 动作按数组顺序执行；最多 4 步，可重复。 */
 export type FaceAction = 'blink' | 'openMouth' | 'shakeHead' | 'nodHead'
 
+/** 0 成功；1xx 操作问题；2xx 识别未通过；3xx 运行异常。 */
+export type FaceCode = 0 | 101 | 102 | 103 | 104 | 105 | 106 |
+  201 | 202 | 203 | 204 | 205 | 206 | 207 | 299 |
+  301 | 302 | 303 | 304 | 305 | 306 | 307 | 308
+
 /** success 表示调用正常完成；验证是否通过必须判断 passed === true。 */
 export type FaceResult = {
+  /** 简短返回码；识别未通过为 2xx，仍走 success，并返回 passed: false。 */
+  code: FaceCode,
+  /** 可直接展示的短提示，如“录入成功”“未检测到人脸”。 */
+  msg: string,
   /** 如 verifyFace:ok，不代表身份验证通过。 */
   errMsg: string,
   /** 去除两端空白后的业务用户标识；cancel 返回空字符串。 */
@@ -36,6 +45,13 @@ export type FaceProgress = {
 export type HelloFaceVerifyErrorCode = 9011001 | 9011002 | 9011003 | 9011004 | 9011005 | 9011006 | 9011007 | 9011008
 /** 接口错误；业务拒绝走 success(passed: false)，用户取消走 fail(9011003)。 */
 export interface HelloFaceVerifyFail extends IUniError {
+  /** 简短返回码，日常业务处理优先使用此字段。 */
+  code: FaceCode,
+  /** 可直接展示的短提示，如“请先录入”“相机未授权”。 */
+  msg: string,
+  /** 原始参数校验或 SDK 错误说明，仅供排查；不直接用于用户提示。 */
+  detail: string,
+  /** 保留原有 UniError 返回码，兼容已有接入。 */
   errCode: HelloFaceVerifyErrorCode,
   /** 原始 SDK/桥接错误名，如 CANCELLED、NOT_FOUND；便于定位问题。 */
   sdkCode: string,

@@ -118,7 +118,7 @@ enrollFace({
   success: result => {
     if (result.passed === true) uni.showToast({ title: '录入成功' })
   },
-  fail: error => uni.showModal({ content: error.errMsg, showCancel: false })
+  fail: error => uni.showToast({ title: error.msg, icon: 'none' })
 })
 
 // 用户后续主动点击“识别”时调用。
@@ -132,7 +132,7 @@ verifyFace({
     if (result.passed === true) {
       // SDK 已完成活体与身份判断。
     } else {
-      // 根据 result.outcome 处理非本人、活体拒绝或流程超时。
+      // 根据 result.code 处理未通过，直接用 result.msg 提示。
     }
   },
   fail: error => { /* 技术错误、取消、权限拒绝等 */ },

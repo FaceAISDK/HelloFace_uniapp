@@ -2,6 +2,16 @@
 
 更新日期：2026-11-11。原生 SDK 0.8.8，上游提交 `572751458a3ea9d85ca422cecec56d115be71e4e`。
 
+## 2026-11-11 返回码与短提示
+
+三端共用 `utssdk/status.uts`，统一新增 `code / msg`：0 为方法成功，1xx 操作问题、2xx 识别未通过、3xx 运行异常。`errCode`、`sdkCode`、原始 `outcome` 保留；fail 的 `errMsg` 使用短提示，原始说明放在 `detail`。Vue/uvue 示例改为直接展示 code/msg，不展开底层长文案。
+
+- 87 项检查通过（62 项 JS、25 项 Python），37 个 SDK 文件校验、三端 UTS 转换通过；uni-app 和 uni-app x 的真实 UTS/Kotlin 编译及桥接 ABI 检查通过。
+- 三端 API 合同检查覆盖全部已定义业务结果、操作错误、运行错误、SDK 授权错误及未知码回退；确认高分不能改写 false 判定，未知/不一致的失败结果返回 299，原有回调次数与 legacy errCode 保持兼容。
+- 新增共享 UTS 文件的指纹检查，确认 status.uts 的新增和修改都会使源码指纹变化。两套示例继续使用同一插件副本。
+
+此轮不更换 SDK、原生依赖或清单；新增返回字段需要通过 HBuilderX 本地联编插件，单独刷新 Vue 页面不能更新原生 UTS 代码。未新增 iOS/HarmonyOS 真机验收，iOS 完整链接限制继续适用。License 未修改。
+
 ## 2026-11-11 Android 系统栏弃用警告
 
 原生相机 Activity 改用已有 AndroidX Activity 1.9.3 的 `enableEdgeToEdge` / `SystemBarStyle`，移除 `systemUiVisibility`、`SYSTEM_UI_FLAG_*`、`statusBarColor` 和 `navigationBarColor` 的直接调用。Android 11 及以上使用系统 `WindowInsets.getInsets` 合并系统栏与挖孔安全区；Android 6–10 只在独立兼容函数中读取旧安全区字段，保持原有布局。

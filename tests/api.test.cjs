@@ -69,6 +69,7 @@ for (const platform of ['app-android', 'app-ios', 'app-harmony']) {
       actions: [], actionTimeoutMs: 10000, faceTimeoutMs: 15000, camera: 'front' })
     calls[0].reply(JSON.stringify({ event: 'progress', code: 'OK', data: { stage: 'PERFORM_ACTION', action: 'blink', stepNumber: 1, stepCount: 2 } }))
     assert.equal(progress[0].action, 'blink')
+    assert.equal(progress[0].code, undefined) // A progress event is not a terminal result.
     assert.equal(completed.length, 0)
     calls[0].reply(JSON.stringify({ event: 'result', code: 'OK', data: { passed: false, outcome: 'SPOOF_DETECTED', similarity: 0.99 } }))
     assert.equal(successes[0].passed, false)
@@ -203,6 +204,8 @@ for (const platform of ['app-android', 'app-ios', 'app-harmony']) {
         calls[0].reply(raw)
         calls[0].reply(raw)
         assert.equal(error.sdkCode, 'BRIDGE_ERROR')
+        assert.equal(error.code, 305)
+        assert.equal(error.msg, '返回异常')
         assert.equal(error.faceID, 'u')
         assert.equal(complete, 1)
       }
@@ -220,6 +223,8 @@ for (const platform of ['app-android', 'app-ios', 'app-harmony']) {
     let result, complete = 0
     api.verifyFace({ faceID: 'u', success: value => { result = value } })
     calls[0].reply(JSON.stringify({ event: 'result', code: 'OK', data: { passed: true, outcome: 'PASSED', feature: 'private-probe' } }))
+    assert.equal(result.code, 0)
+    assert.equal(result.msg, '验证通过')
     assert.equal(result.feature, null)
     api.getFaceFeature({ faceID: 'u', fail: () => { throw new Error('consumer error') }, complete: () => complete++ })
     assert.throws(() => calls[1].reply(JSON.stringify({ event: 'error', code: 'NOT_FOUND' })), /consumer error/)
@@ -239,6 +244,10 @@ for (const platform of ['app-android', 'app-ios', 'app-harmony']) {
         similarity: 0, livenessScore: 0.97
       } }))
       assert.strictEqual(result, completed)
+      assert.equal(result.code, method === 'verifyFace' ? 201 : 0)
+      const messages = { enrollFace: '录入成功', verifyFace: '人脸不匹配', getFaceFeature: '读取成功',
+        setFaceFeature: '保存成功', deleteFace: '删除成功', cancel: '已取消' }
+      assert.equal(result.msg, messages[method])
       assert.equal(result.feature, ['enrollFace', 'getFaceFeature', 'setFaceFeature'].includes(method) ? feature : null)
       assert.equal(result.passed, method === 'verifyFace' ? false : method === 'enrollFace' ? true : null)
       assert.equal(result.outcome, method === 'verifyFace' ? 'NOT_MATCHED' : method === 'enrollFace' ? 'PASSED' : null)
@@ -253,5 +262,71 @@ for (const platform of ['app-android', 'app-ios', 'app-harmony']) {
     assert.equal(result.passed, false)
     assert.equal(result.similarity, null)
     assert.equal(result.livenessScore, null)
+  })
+
+  test(`${platform}: short business codes preserve the SDK verdict and raw outcome`, () => {
+    const cases = [
+      ['NOT_MATCHED', 201, '人脸不匹配'], ['SPOOF_DETECTED', 202, '活体未通过'],
+      ['NO_FACE_TIMEOUT', 203, '未检测到人脸'], ['FACE_LOST', 204, '人脸丢失'],
+      ['MULTIPLE_FACES', 205, '检测到多人'], ['ACTION_TIMEOUT', 206, '动作超时'],
+      ['FINAL_CAPTURE_TIMEOUT', 207, '采集超时'], ['FUTURE_OUTCOME', 299, '未通过'],
+      ['PASSED', 299, '未通过'] // A false verdict must never become code 0.
+    ]
+    for (const [outcome, code, msg] of cases) {
+      const { api, calls } = load(platform)
+      let result, completed = 0
+      api.verifyFace({ faceID: 'u', success: value => { result = value },
+        fail: () => assert.fail('Business rejection must remain in success'), complete: () => completed++ })
+      calls[0].reply(JSON.stringify({ event: 'result', code: 'OK', data: {
+        passed: false, outcome, similarity: 1, livenessScore: 1
+      } }))
+      assert.equal(result.code, code)
+      assert.equal(result.msg, msg)
+      assert.equal(result.passed, false)
+      assert.equal(result.outcome, outcome)
+      assert.equal(result.errMsg, 'verifyFace:ok')
+      assert.equal(completed, 1)
+    }
+  })
+
+  test(`${platform}: short failures keep legacy error codes and native diagnostics`, () => {
+    const cases = [
+      ['INVALID_ARGUMENT', 101, '参数错误', 9011001], ['PERMISSION_DENIED', 102, '相机未授权', 9011002],
+      ['CANCELLED', 103, '已取消', 9011003], ['BUSY', 104, '操作中', 9011004],
+      ['NOT_FOUND', 105, '请先录入', 9011005], ['ALREADY_EXISTS', 106, '已录入', 9011006],
+      ['CAMERA_ERROR', 301, '相机异常', 9011008], ['STORAGE_ERROR', 302, '存储异常', 9011007],
+      ['DATABASE_ERROR', 302, '存储异常', 9011008], ['NOT_READY', 303, 'SDK未就绪', 9011008],
+      ['CLOSED', 303, 'SDK未就绪', 9011008], ['SDK_ERROR', 304, '识别异常', 9011008],
+      ['BRIDGE_ERROR', 305, '返回异常', 9011008], ['NO_CONTEXT', 306, '环境不可用', 9011008],
+      ['UNSUPPORTED_PLATFORM', 306, '环境不可用', 9011008], ['MODEL_LOAD_FAILED', 308, '模型异常', 9011008],
+      ...['MISSING', 'INVALID', 'NOT_YET_VALID', 'EXPIRED', 'FEATURE_DENIED', 'CLOCK_INVALID']
+        .map(suffix => ['LICENSE_' + suffix, 307, 'SDK授权异常', 9011008]),
+      ['FUTURE_SDK_ERROR', 304, '识别异常', 9011008]
+    ]
+    for (const [sdkCode, code, msg, errCode] of cases) {
+      const { api, calls } = load(platform)
+      let error, complete
+      api.verifyFace({ faceID: 'u', success: () => assert.fail('Unexpected success'),
+        fail: value => { error = value }, complete: value => { complete = value } })
+      const detail = 'Original SDK diagnostics: ' + sdkCode
+      calls[0].reply(JSON.stringify({ event: 'error', code: sdkCode, message: detail }))
+      assert.strictEqual(error, complete)
+      assert.equal(error.code, code)
+      assert.equal(error.msg, msg)
+      assert.ok(error.msg.length <= 8)
+      assert.equal(error.errCode, errCode)
+      assert.equal(error.errSubject, 'HelloFaceVerify')
+      assert.equal(error.errMsg, 'verifyFace:fail ' + msg)
+      assert.equal(error.sdkCode, sdkCode)
+      assert.equal(error.detail, detail)
+      assert.equal(error.faceID, 'u')
+    }
+    const { api, calls } = load(platform)
+    let error
+    api.verifyFace({ faceID: '', fail: value => { error = value } })
+    assert.equal(calls.length, 0)
+    assert.equal(error.code, 101)
+    assert.equal(error.msg, '参数错误')
+    assert.match(error.detail, /faceID/)
   })
 }

@@ -122,8 +122,12 @@ setFaceFeature({ faceID: 'user-001', feature: savedFeature, featureSpaceID: save
 
 `success` 表示接口正常完成，不代表验证通过。业务拒绝、活体失败、无脸超时都可正常返回 `success({ passed: false })`。只有 `passed === true` 才能放行。
 
+日常接入读取 `code + msg`，两种回调都提供这两个字段。`0` 表示当前方法成功；`1xx` 为操作问题，`2xx` 为识别未通过，`3xx` 为运行异常。`2xx` 仍走 success，SDK 判定和回调顺序不变。`errCode`、`sdkCode`、`outcome` 保留兼容。
+
 | FaceResult 字段 | 类型 | 含义 |
 | --- | --- | --- |
+| `code` | FaceCode | 简短返回码，见下表 |
+| `msg` | string | 可直接展示的短提示 |
 | `errMsg` | string | 如 `verifyFace:ok`，用于区分接口完成状态 |
 | `faceID` | string | 规范化后的用户标识；cancel 为空 |
 | `passed` | boolean / null | 录入/验证的 SDK 判定；管理接口、cancel 为 null |
@@ -134,6 +138,39 @@ setFaceFeature({ faceID: 'user-001', feature: savedFeature, featureSpaceID: save
 | `featureSpaceID` | string | 当前 SDK 的特征空间，跨设备传递时保留 |
 
 已知 outcome：`PASSED`、`NOT_MATCHED`、`SPOOF_DETECTED`、`NO_FACE_TIMEOUT`、`FACE_LOST`、`MULTIPLE_FACES`、`ACTION_TIMEOUT`、`FINAL_CAPTURE_TIMEOUT`。未产生的分数为 null，不能当成 0；也不能用高相似度覆盖 `passed: false`。
+
+## 返回码
+
+三端共用 `utssdk/status.uts`。`code: 0` 的提示按方法返回：录入成功、验证通过、读取成功、保存成功、删除成功、已取消。
+
+| 分类 | code | msg | 对应原因 |
+| --- | --- | --- | --- |
+| 操作 | 101 | 参数错误 | INVALID_ARGUMENT；具体参数见 detail |
+| 操作 | 102 | 相机未授权 | PERMISSION_DENIED |
+| 操作 | 103 | 已取消 | CANCELLED |
+| 操作 | 104 | 操作中 | BUSY |
+| 操作 | 105 | 请先录入 | NOT_FOUND |
+| 操作 | 106 | 已录入 | ALREADY_EXISTS |
+| 识别 | 201 | 人脸不匹配 | NOT_MATCHED |
+| 识别 | 202 | 活体未通过 | SPOOF_DETECTED |
+| 识别 | 203 | 未检测到人脸 | NO_FACE_TIMEOUT |
+| 识别 | 204 | 人脸丢失 | FACE_LOST |
+| 识别 | 205 | 检测到多人 | MULTIPLE_FACES |
+| 识别 | 206 | 动作超时 | ACTION_TIMEOUT |
+| 识别 | 207 | 采集超时 | FINAL_CAPTURE_TIMEOUT |
+| 识别 | 299 | 未通过 | SDK 判定为 false，但 outcome 未知或不一致 |
+| 运行 | 301 | 相机异常 | CAMERA_ERROR |
+| 运行 | 302 | 存储异常 | STORAGE_ERROR / DATABASE_ERROR |
+| 运行 | 303 | SDK未就绪 | NOT_READY / CLOSED |
+| 运行 | 304 | 识别异常 | 其他 SDK 错误；原始名称见 sdkCode |
+| 运行 | 305 | 返回异常 | BRIDGE_ERROR |
+| 运行 | 306 | 环境不可用 | NO_CONTEXT / UNSUPPORTED_PLATFORM |
+| 运行 | 307 | SDK授权异常 | SDK 返回的 LICENSE_* 错误 |
+| 运行 | 308 | 模型异常 | MODEL_LOAD_FAILED |
+
+例如未检测到人脸时返回 `success({ code: 203, msg: '未检测到人脸', passed: false, outcome: 'NO_FACE_TIMEOUT', ... })`，不是接口异常。原任务被取消返回 `fail({ code: 103, msg: '已取消', ... })`；主动调用 `cancel()` 本身成功时则为 `code: 0 / msg: '已取消'`。
+
+`msg` 仅用于显示，业务不要解析提示文字。验证仍判断 `passed`；本机特征管理判断 code 是否为 0。错误排查用 `sdkCode + detail`，无需让页面显示底层长文案。进度通知继续使用 stage/action，不携带终态 code。
 
 `onProgress` 可多次回调 `{ faceID, stage, action, stepNumber, stepCount }`。常见 stage 包括 `WAITING_FOR_FACE`、`PERFORM_ACTION`、`HOLD_STILL` 等 SDK 阶段；action 无动作时为 null。进度不触发 complete，不等于识别成功。
 
@@ -153,7 +190,7 @@ verifyFace(options)
 
 ## 错误与取消
 
-fail 符合 UniError：`errSubject: 'HelloFaceVerify'`、`errCode`、`errMsg`；额外提供 `sdkCode`（原始错误名称）与 `faceID`（关联用户，无有效标识时为空）。用户取消也走 fail，建议对 9011003 静默收尾。
+fail 符合 UniError：`errSubject: 'HelloFaceVerify'`、原有 `errCode` 保持不变，`errMsg` 为 `方法名:fail 短提示`。新增 `code / msg` 用于日常处理，`detail` 保留原始参数校验或 SDK 说明；`sdkCode` 保留原始错误名称，`faceID` 关联此次用户。用户取消仍走 fail，可对 `code: 103`（原 `errCode: 9011003`）静默收尾。
 
 | errCode | 含义 / 接入处理 |
 | --- | --- |

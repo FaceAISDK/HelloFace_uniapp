@@ -37,7 +37,7 @@ def fingerprint(root=ROOT):
     paths = [p for p in (uts / 'app-android').rglob('*') if p.is_file() and p.name != STAMP
              and not any(part.startswith('.') for part in p.relative_to(uts).parts)
              and not p.name.endswith(('.tmp', '.swp', '~'))]
-    paths += [uts / name for name in ['interface.uts', 'shared.uts', 'unierror.uts']]
+    paths += [path for path in uts.glob('*.uts') if path.is_file()]
     digest = hashlib.sha256()
     for path in sorted(paths, key=lambda p: p.relative_to(uts).as_posix()):
         digest.update(path.relative_to(uts).as_posix().encode() + b'\0')
