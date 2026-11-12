@@ -44,7 +44,7 @@ object HelloFaceVerifyNative {
         main.post {
             if (method == "cancel") {
                 val current = job
-                if (current == null || current.method !in listOf("enrollFace", "verifyFace")) callback(envelope())
+                if (current == null || current.method !in listOf("enrollFace", "verifyFace", "detectLiveness")) callback(envelope())
                 else if (current.committing) callback(envelope("error", "BUSY", "Enrollment is being saved"))
                 else {
                     // Clear the task before callbacks to make reentrant calls safe.
@@ -66,14 +66,20 @@ object HelloFaceVerifyNative {
             worker.execute {
                 try {
                     val faceID = params.getString("faceID")
-                    val store = ReferenceStore(context.applicationContext)
+                    val store by lazy { ReferenceStore(context.applicationContext) }
                     // A supplied reference is transient: do not read or replace the local reference.
                     val feature = when {
                         method == "verifyFace" && params.has("referenceFeature") -> params.getString("referenceFeature")
-                        method == "deleteFace" -> null
+                        method in listOf("deleteFace", "detectLiveness", "extractFaceFeature") -> null
                         else -> store.get(faceID)
                     }
                     when (method) {
+                        "getFaceStatue" -> finish(current.id, envelope(data = JSONObject().put("exists", feature != null)))
+                        "extractFaceFeature" -> {
+                            // 复用图片解码与 SDK 提取，只返回结果，绝不访问/写入基准。
+                            val incoming = FaceImageImporter.extract(context, params.getString("imageBase64"))
+                            finish(current.id, envelope(data = JSONObject().put("feature", incoming)))
+                        }
                         "getFaceFeature" -> {
                             if (feature == null) finish(current.id, envelope("error", "NOT_FOUND", "No enrolled face for faceID"))
                             else finish(current.id, envelope(data = JSONObject().put("feature", feature)))
@@ -97,7 +103,7 @@ object HelloFaceVerifyNative {
                                 finish(current.id, envelope(data = JSONObject().put("feature", incoming)))
                             }
                         }
-                        "enrollFace", "verifyFace" -> {
+                        "enrollFace", "verifyFace", "detectLiveness" -> {
                             if (method == "enrollFace" && feature != null && !params.optBoolean("overwrite")) {
                                 finish(current.id, envelope("error", "ALREADY_EXISTS", "Face already enrolled"))
                             } else if (method == "verifyFace" && feature == null) {

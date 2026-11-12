@@ -8,6 +8,8 @@
 
 录入流程：打开原生相机 → 采集人脸 → 显示采集预览 → 用户确认 → 保存此 `faceID` 的基准特征。识别流程：读取此 `faceID` 的特征 → 原生相机连续送帧 → 可选静默/动作活体 → 1:1 比对 → 返回 SDK 业务结果。
 
+不需要身份比对时可直接 `detectLiveness({ success })`，默认静默活体、可用 `actions` 追加动作；仅从图片取特征使用 `extractFaceFeature({ imageBase64, success })`，不会保存基准；查询当前基准使用 `getFaceStatue({ faceID, success })`，读取 `res.exists`。三端保持同一回调风格，完整参数与结果边界见 [API](docs/API.md#独立活体图片提取与基准状态)。
+
 ## 工程入口与目录
 
 | 入口 | 用途 |
@@ -25,9 +27,9 @@
 | [鸿蒙真机调试](docs/HARMONY_DEBUG.md) | 签名、断点、HDC/HiLog 与重建方式 |
 | [代码结构与维护](docs/CODE_STRUCTURE.md) | 插件分层、异步收尾约束与简洁接入 |
 
-两套示例均采用“功能按钮列表 + 调用结果”的简单页面：输入同一 `faceID`，录入人脸后选择静默活体或动作活体进行 1:1 验证，也可确认删除本机基准。动作模式同时保留静默活体。结果框直接显示 SDK 的 `passed`、分数和统一 `code/msg`，不展示原始人脸特征。
+两套示例输入同一 `faceID`，录入人脸后用“静默活体”和“动作活体”两个独立开关选择验证方式，再点“开始 1:1 验证”。支持仅比对、仅静默、仅动作、静默 + 动作四种组合；默认静默开启、动作关闭，动作固定为眨眼和点头。界面显示当前组合，结果框保留本次提交的模式，并展示 SDK 的 `passed`、分数和统一 `code/msg`；不展示原始人脸特征，也可确认删除本机基准。
 
-同步按钮用同一张 200×200 AI 人脸及其真实 SDK 特征演示外部基准导入，无需本机相机录入；使用独立 `external-demo` 标识。来源、尺寸与生成说明见 [示例基准](demo/README.md)。业务可直接用 `syncFaceImage({ faceID, imageBase64 })` 或 `syncFaceFeature({ faceID, feature, featureSpaceID })`，成功后只传 `faceID` 验证。
+同步按钮用同一张 200×200 AI 人脸及其真实 SDK 特征演示外部基准导入，无需本机相机录入；所有演示操作共用输入框中的 `faceID`，默认 `demo-user`；同步时覆盖当前标识的基准。来源、尺寸与生成说明见 [示例基准](demo/README.md)。业务可直接用 `syncFaceImage({ faceID, imageBase64 })` 或 `syncFaceFeature({ faceID, feature, featureSpaceID })`，成功后只传 `faceID` 验证。
 
 页面的 `enroll`、`verify`、`syncImage`、`syncFeature`、`remove` 方法直接调用插件，展示参数、成功/失败回调与 `complete` 收尾。示例设置 `overwrite: true` 方便重复录入，仍需在原生采集页确认保存；业务可按需保留默认的 `false`。
 

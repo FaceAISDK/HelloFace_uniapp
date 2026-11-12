@@ -169,3 +169,7 @@ npm run check
 这条命令执行三端页面配置同步检查、API、示例、SDK 安装器和 Android 调试/对齐自动化测试、完整三端 SDK 文件校验和 UTS 转换。如果只安装了单端 SDK，可以单独执行 `python3 scripts/install_sdk.py --check --platform android` 等对应检查；完整 `npm run check` 需要三端 SDK 文件。
 
 随后按所选平台实际构建安装包、安装到真机，验证录入、本人/他人识别、活体拒绝、权限拒绝、取消、后台释放和特征保存。已有结果及待验项见 [验证记录](VALIDATION.md)。
+
+## 新增接口后的联编
+
+`detectLiveness`、`extractFaceFeature`、`getFaceStatue` 包含新增 UTS/原生分支。SDK 仍是 0.8.11，无需另换 License；需要用 HBuilderX 原生联编或重建 Android 基座/完整鸿蒙 HAP，iOS 使用兼容 Swift 6.1.2 的 Xcode 完成原生构建。只替换 Vue 页面资源无法给旧基座增加接口。更新原生源码后执行 `android:prepare`、`demo:prepare`，再按本指南检查、构建；保留用户身份、数据和签名。

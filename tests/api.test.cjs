@@ -377,3 +377,78 @@ for (const platform of ['app-android', 'app-ios', 'app-harmony']) {
     assert.match(error.detail, /faceID/)
   })
 }
+
+for (const platform of ['app-android', 'app-ios', 'app-harmony']) {
+  test(`${platform}: standalone liveness has no identity or reference and keeps the SDK verdict`, () => {
+    const { api, calls } = load(platform)
+    let result, complete = 0, progress = 0
+    api.detectLiveness({ onProgress: () => progress++, success: value => { result = value }, complete: () => complete++ })
+    assert.equal(calls[0].method, 'detectLiveness')
+    assert.deepEqual(calls[0].params, { faceID: '', actions: [], actionTimeoutMs: 10000, faceTimeoutMs: 15000, camera: 'front' })
+    calls[0].reply(JSON.stringify({ event: 'progress', code: 'OK', data: { stage: 'WAITING_FOR_FACE' } }))
+    assert.equal(progress, 1)
+    assert.equal(complete, 0)
+    calls[0].reply(JSON.stringify({ event: 'result', code: 'OK', data: {
+      passed: false, outcome: 'SPOOF_DETECTED', livenessScore: 0.999, similarity: 1, feature: 'must-not-escape' } }))
+    assert.equal(result.code, 202)
+    assert.equal(result.passed, false)
+    assert.equal(result.faceID, '')
+    assert.equal(result.feature, null)
+    assert.equal(result.similarity, null)
+    assert.equal(result.livenessScore, 0.999)
+    calls[0].reply(JSON.stringify({ event: 'result', code: 'OK', data: { passed: true, outcome: 'PASSED' } }))
+    assert.equal(complete, 1)
+    for (const options of [{ camera: 'side' }, { actions: ['smile'] }, { actions: 'blink' },
+      { actionTimeoutMs: 1999 }, { faceTimeoutMs: 0 }]) {
+      let error
+      api.detectLiveness({ ...options, fail: value => { error = value } })
+      assert.equal(error.code, 101)
+    }
+    assert.equal(calls.length, 1)
+  })
+
+  test(`${platform}: feature extraction needs only an image and never returns an identity/liveness verdict`, () => {
+    const { api, calls } = load(platform)
+    let result
+    api.extractFaceFeature({ imageBase64: 'data:image/png;base64,AAAA', success: value => { result = value } })
+    assert.deepEqual(calls[0].params, { faceID: '', imageBase64: 'AAAA' })
+    assert.equal(calls[0].method, 'extractFaceFeature')
+    const feature = 'HF1:' + 'A'.repeat(600)
+    calls[0].reply(JSON.stringify({ event: 'result', code: 'OK', data: { feature, passed: true, outcome: 'PASSED', similarity: 1 } }))
+    assert.equal(result.feature, feature)
+    assert.equal(result.featureSpaceID, 'jdx-feature-v1')
+    assert.equal(result.faceID, '')
+    assert.equal(result.msg, '提取成功')
+    assert.equal(result.passed, null)
+    assert.equal(result.similarity, null)
+    assert.equal(result.livenessScore, null)
+    let error
+    api.extractFaceFeature({ imageBase64: '', fail: value => { error = value } })
+    assert.equal(error.code, 101)
+    api.extractFaceFeature({ imageBase64: 'AAAA', fail: value => { error = value } })
+    calls[1].reply(JSON.stringify({ event: 'error', code: 'IMAGE_NO_FACE' }))
+    assert.equal(error.code, 108)
+  })
+
+  test(`${platform}: reference status returns boolean existence without leaking features or hiding read errors`, () => {
+    const { api, calls } = load(platform)
+    for (const exists of [false, true]) {
+      let result
+      api.getFaceStatue({ faceID: ' u ', success: value => { result = value } })
+      assert.equal(calls.at(-1).params.faceID, 'u')
+      calls.at(-1).reply(JSON.stringify({ event: 'result', code: 'OK', data: { exists, feature: 'must-not-escape' } }))
+      assert.equal(result.exists, exists)
+      assert.equal(result.feature, null)
+      assert.equal(result.passed, null)
+      assert.equal(result.msg, '查询成功')
+      assert.equal(result.code, 0)
+    }
+    let error
+    api.getFaceStatue({ faceID: 'u', fail: value => { error = value } })
+    calls.at(-1).reply(JSON.stringify({ event: 'error', code: 'STORAGE_ERROR' }))
+    assert.equal(error.code, 302)
+    api.getFaceStatue({ faceID: 'u', fail: value => { error = value } })
+    calls.at(-1).reply(JSON.stringify({ event: 'result', code: 'OK', data: {} }))
+    assert.equal(error.code, 305)
+  })
+}

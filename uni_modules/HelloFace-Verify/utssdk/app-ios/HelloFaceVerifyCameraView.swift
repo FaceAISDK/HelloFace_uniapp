@@ -10,6 +10,7 @@ final class HelloFaceVerifyCameraView: UIView {
     private let blue = UI.colorBlue
     private let green = UI.colorGreen
     private let enrollment: Bool
+    private let liveness: Bool
     private let cutoutMask = CAShapeLayer()
     private let ring = CAShapeLayer()
     private let progressRing = CAShapeLayer()
@@ -40,8 +41,8 @@ final class HelloFaceVerifyCameraView: UIView {
     var onRetake: (() -> Void)?
     var onConfirm: (() -> Void)?
 
-    init(enrollment: Bool) {
-        self.enrollment = enrollment
+    init(enrollment: Bool, liveness: Bool = false) {
+        self.enrollment = enrollment; self.liveness = liveness
         super.init(frame: .zero)
         backgroundColor = Self.background
         photo.contentMode = .scaleAspectFit; photo.clipsToBounds = true
@@ -59,7 +60,7 @@ final class HelloFaceVerifyCameraView: UIView {
         back.titleLabel?.font = .systemFont(ofSize: UI.fontBack)
         back.setTitleColor(ink, for: .normal); back.accessibilityLabel = UI.backLabel
         back.addTarget(self, action: #selector(cancelTapped), for: .touchUpInside)
-        style(heading, text: enrollment ? UI.enrollHeading : UI.verifyHeading, size: UI.fontHeading, color: ink, weight: .medium)
+        style(heading, text: enrollment ? UI.enrollHeading : (liveness ? UI.livenessHeading : UI.verifyHeading), size: UI.fontHeading, color: ink, weight: .medium)
         style(local, text: UI.localLabel, size: UI.fontLocal, color: green)
         local.backgroundColor = UI.colorLocalFill
         local.layer.cornerRadius = UI.pillRadius; local.clipsToBounds = true
@@ -124,7 +125,7 @@ final class HelloFaceVerifyCameraView: UIView {
         captured = false; photo.image = nil; photo.isHidden = true
         confirmationOverlay.isHidden = true
         title.text = UI.liveTitle; detail.text = UI.liveDetail
-        phase.text = UI.phase(enrollment: enrollment)
+        phase.text = liveness ? UI.livenessPhase : UI.phase(enrollment: enrollment)
         tips.isHidden = false
         [confirmation, retake, confirm].forEach { $0.isHidden = true }
         [back, retake, confirm, closeConfirmation].forEach { $0.isEnabled = true; $0.alpha = 1 }
@@ -136,7 +137,7 @@ final class HelloFaceVerifyCameraView: UIView {
         guard !captured else { return }
         let guidance = UI.guidance(stage: stage, action: action)
         if title.text != guidance { title.text = guidance }
-        let phaseText = UI.phase(enrollment: enrollment, stage: stage, step: step, count: count)
+        let phaseText = liveness && stage != "PERFORM_ACTION" ? UI.livenessPhase : UI.phase(enrollment: enrollment, stage: stage, step: step, count: count)
         if phase.text != phaseText { phase.text = phaseText }
         updateCaptureProgress(stage: stage)
         let color = (UI.isWarning(stage: stage) ? UI.colorAmber : (enrollment ? UI.colorOuterRing : blue)).cgColor

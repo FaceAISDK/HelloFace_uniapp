@@ -44,7 +44,9 @@
     "savingButton": "正在保存…",
     "actionFallback": "请按提示完成动作",
     "stageFallback": "请正对镜头",
-    "cancelCapture": "取消录入"
+    "cancelCapture": "取消录入",
+    "livenessHeading": "活体检测",
+    "livenessPhase": "实时活体检测"
   },
   "metrics": {
     "sideInset": 24,

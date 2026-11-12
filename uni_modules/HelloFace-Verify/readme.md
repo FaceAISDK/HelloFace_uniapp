@@ -14,12 +14,15 @@
 | 1:1 人脸识别 / 人脸比对 | 按指定 `faceID` 读取基准，验证当前人脸是否匹配 |
 | 静默活体检测 | 验证时默认开启，由原生 SDK 给出活体结论 |
 | 动作活体检测 | 支持眨眼、张嘴、摇头、点头，最多 4 个动作，可重复 |
+| 独立活体 | `detectLiveness` 无需基准，只检验真人，可叠加动作 |
+| 图片纯提取 | `extractFaceFeature` 返回特征但不保存 |
+| 基准状态 | `getFaceStatue` 只读返回 exists，不导出特征 |
 | 人脸特征管理 | 支持特征读取、同步、覆盖和删除 |
 | 原生相机流程 | 支持前后置相机、实时提示、权限处理、取消与后台释放 |
 
 Android 使用 CameraX，iOS 使用 AVFoundation，鸿蒙使用 CameraKit。相机帧在原生层处理，前端接收进度与业务结果。基准特征分别由 Android Keystore、iOS Keychain、鸿蒙 HUKS 保护；插件不主动上传人脸图片或特征，也不把采集图保存到相册或文件。
 
-进入录入、静默验证或动作验证的原生相机页时，插件自动把亮度调到最亮，录入确认和重新采集期间保持；完成、取消、报错、离页或进入后台时恢复进入时的亮度。Android/鸿蒙保存并恢复窗口亮度策略（包括跟随系统），iOS 保存并恢复所在屏幕的亮度。无需额外权限或 Demo 调用代码；没有相机页面的基准读写、同步和删除不调整亮度。
+进入录入、验证或独立活体的原生相机页时，插件自动把亮度调到最亮，录入确认和重新采集期间保持；完成、取消、报错、离页或进入后台时恢复进入时的亮度。Android/鸿蒙保存并恢复窗口亮度策略（包括跟随系统），iOS 保存并恢复所在屏幕的亮度。无需额外权限或 Demo 调用代码；没有相机页面的基准读写、同步和删除不调整亮度。
 
 ## 平台与环境
 
@@ -83,7 +86,7 @@ enrollFace({
 
 `faceID` 为 1–64 个 UTF-16 单元，去除两端空白，不接受 NUL。重复录入默认保留已有特征；确认需要覆盖时传 `overwrite: true`。确认弹窗使用最大 188×188 的逻辑尺寸显示 SDK 对齐图，保留完整比例，不再铺满采集圆框。三端统一标题、遮罩、图片及按钮尺寸；标题和操作栏固定，小屏中间内容可滚动。可重新采集或点右上角取消；缺图禁止确认，保存期间禁用操作，确认之前退出不会保存。录入时稳定圆环约 0.7 秒，动画本身不触发采集或成功。
 
-当前 SDK 0.8.11 在单人、大小和正脸稳定性满足要求后，等待约 700 毫秒再采集；检测与特征提取也需要时间，因此不是打开相机后固定 1 秒完成。鸿蒙和 iOS 录入页在 `HOLD_STILL` 阶段显示稳定等待圆环，偏头、晃动或丢失人脸时重置；圆环走满后仍等待 SDK 的实际结果，再展示照片供用户确认。iOS 的功能对照、静态检查及待真机项目见 [iOS 功能与调试](https://github.com/FaceAISDK/HelloFace_uniapp/blob/main/docs/IOS_DEBUG.md)。
+当前 SDK 0.8.11 在单人、大小和正脸稳定性满足要求后，等待约 700 毫秒再采集；检测与特征提取也需要时间，因此不是打开相机后固定 1 秒完成。三端录入页在 `HOLD_STILL` 阶段显示稳定等待圆环，偏头、晃动或丢失人脸时重置；圆环走满后仍等待 SDK 的实际结果，再展示照片供用户确认。iOS 的功能对照、静态检查及待真机项目见 [iOS 功能与调试](https://github.com/FaceAISDK/HelloFace_uniapp/blob/main/docs/IOS_DEBUG.md)。
 
 ## 1:1 人脸识别与活体检测
 
@@ -108,6 +111,27 @@ verifyFace({
 
 默认使用前置相机、阈值 `0.80` 和静默活体；业务只传需要变化的参数。启用动作活体时增加 `actions: ['blink', 'nodHead']` 即可。原生页面已提供采集/动作引导，业务页面无需重复实现相机、权限申请或 SDK 初始化；需要额外的业务进度展示时再提供 `onProgress`。
 
+静默活体与动作活体可以独立组合，`silentLiveness: false` 不会关闭已配置的动作：
+
+| 静默活体 | 动作活体 | API 参数 | 本次验证 |
+| --- | --- | --- | --- |
+| 关闭 | 关闭 | `silentLiveness: false, actions: []` | 仅 1:1 人脸比对 |
+| 开启 | 关闭 | `silentLiveness: true, actions: []` | 比对 + 静默活体（默认） |
+| 关闭 | 开启 | `silentLiveness: false, actions: ['blink', 'nodHead']` | 比对 + 动作活体 |
+| 开启 | 开启 | `silentLiveness: true, actions: ['blink', 'nodHead']` | 比对 + 静默活体 + 动作活体 |
+
+```js
+// 同时启用两种活体，仍使用 SDK 的统一 passed 结果。
+verifyFace({
+  faceID: 'user-001',
+  silentLiveness: true,
+  actions: ['blink', 'nodHead'],
+  success: result => { if (result.passed === true) { /* 验证通过 */ } }
+})
+```
+
+Vue/uvue Demo 用两个独立开关选择以上四种组合，只保留一个验证按钮。默认静默开启、动作关闭；动作开关转换为 `actions` 数组，不是新增的插件参数。调用期间禁用开关，结果区域保留本次提交的模式，之后切换选项只影响下一次验证。
+
 Demo 的每个按钮直接调用对应 API，`success / fail / complete` 复用页面的结果展示和收尾方法；这些方法只维护页面状态。复制到自己的项目时保留重复点击拦截、删除确认、错误反馈和 `onUnload` 中的取消。内部结构与维护边界见 [代码结构说明](https://github.com/FaceAISDK/HelloFace_uniapp/blob/main/docs/CODE_STRUCTURE.md)，鸿蒙签名、断点和日志见 [鸿蒙调试说明](https://github.com/FaceAISDK/HelloFace_uniapp/blob/main/docs/HARMONY_DEBUG.md)。
 
 | 参数 | 默认值 | 说明 |
@@ -121,7 +145,7 @@ Demo 的每个按钮直接调用对应 API，`success / fail / complete` 复用�
 | `referenceFeature` | 不传 | 可选的完整 HF1 基准，仅用于本次验证；必须同时传入 featureSpaceID |
 | `featureSpaceID` | 不传 | 与 referenceFeature 成对传入，使用录入/读取返回的原值 |
 
-所有 API 使用 `success / fail / complete`；录入和识别还可监听 `onProgress`。`success` 表示业务流程已完成，应以 `passed` 判断是否通过。例如 `outcome: 'SPOOF_DETECTED'` 会返回 `passed: false`，前端不能仅依据相似度放行。三端返回字段一致：相似度、活体分数仅在验证时返回实际有限值，其他接口或未产生时为 `null`；特征管理、取消的 `passed / outcome` 为 `null`。
+所有 API 使用 `success / fail / complete`；录入、识别和独立活体还可监听 `onProgress`。`success` 表示业务流程已完成，应以 `passed` 判断是否通过。例如 `outcome: 'SPOOF_DETECTED'` 会返回 `passed: false`，前端不能仅依据相似度放行。三端返回字段一致：相似度仅在验证时返回，活体分数在验证/独立活体时返回实际有限值，其他接口或未产生时为 `null`；特征管理、取消的 `passed / outcome` 为 `null`。
 
 结果和错误统一提供 `code + msg`：提示直接显示 msg，业务按 code 分支，原有字段保留。
 
@@ -136,6 +160,45 @@ Demo 的每个按钮直接调用对应 API，`success / fail / complete` 复用�
 
 uvue 可从同一入口导入 `EnrollFaceOptions`、`VerifyFaceOptions`、`FaceResult`、`FaceProgress` 类型。完整示例位于 [uvue 示例工程](https://github.com/FaceAISDK/HelloFace_uniapp/tree/main/examples/uni-app-x)。
 
+## 独立活体、图片提取与基准状态
+
+```js
+import { detectLiveness, extractFaceFeature, getFaceStatue } from '@/uni_modules/HelloFace-Verify'
+
+// 无需 faceID 或已录基准。省略 actions 时只做静默活体；传入后再叠加动作。
+detectLiveness({
+  actions: ['blink', 'nodHead'],
+  success: res => { if (res.passed === true) { /* 活体通过，不表示身份匹配 */ } },
+  fail: err => { /* err.code / err.msg */ }
+})
+
+// 只提取，不保存到本机；不要把返回的原始特征写入日志。
+extractFaceFeature({
+  imageBase64: photoBase64,
+  success: res => { /* 使用 res.feature 和 res.featureSpaceID */ }
+})
+
+// 名称按本工程 API 保留为 getFaceStatue；正常缺少基准不是接口错误。
+getFaceStatue({
+  faceID: 'demo-user',
+  success: res => { if (res.exists === true) { /* 基准存在且可读取 */ } }
+})
+```
+
+| 接口 | 必要输入 | 可选配置 | 成功结果 |
+| --- | --- | --- | --- |
+| `detectLiveness` | options 对象，可为 `{}` | `actions: []`、`actionTimeoutMs: 10000`、`faceTimeoutMs: 15000`、`camera: 'front'`、`onProgress` | `passed / outcome / livenessScore`；`feature / similarity` 为 null |
+| `extractFaceFeature` | `imageBase64` | 通用回调 | `feature / featureSpaceID`；不作身份或活体判定 |
+| `getFaceStatue` | `faceID` | 通用回调 | `exists: true / false`；不返回原始特征，不初始化识别 SDK |
+
+三者沿用 `success / fail / complete`，返回 `void`。独立活体与图片提取不绑定用户，回调 `faceID` 为空串；状态查询返回归一化后的输入标识。独立活体支持进度与 `cancel()`，参数限制及后台释放/亮度恢复与验证共用。取消只作用于相机，不取消图片提取或存储操作；操作槽未释放前其他调用仍返回 104。
+
+当前 SDK 0.8.11 的独立活体流程**始终包含静默活体**，非空 `actions` 叠加动作挑战，因此该接口不提供 `silentLiveness` 开关；需要对身份比对配置四种组合时继续使用 `verifyFace`。依据 [锁定 SDK 的公开说明](https://github.com/FaceSDKPro/HelloFace/blob/dc60c7b15ebf8038fb73a752bcea3590bbd86eaf/platforms/Harmony/SDK.zh-CN.md#相机流程生命周期)。
+
+图片提取复用 `syncFaceImage` 的 PNG/JPEG、Base64、6 MiB、EXIF、像素及人脸大小限制，但不读取或写入任何基准，不覆盖已录用户，也不落盘图片。状态查询只读：不存在返回 `code: 0, exists: false`，存在且能读取返回 `exists: true`；读取/解密失败走 `fail`（302），不能把异常当作未录入。存在状态不等于身份或活体通过，也不能恢复已被清除的基准。
+
+新增原生接口后需重新原生联编或重建调试基座/完整 HAP；仅刷新 Vue 页面不会为旧基座增加接口。11 个方法保持同一套错误码和互斥机制，原有调用不变。
+
 ## API 与特征同步
 
 | API | 功能 |
@@ -143,6 +206,9 @@ uvue 可从同一入口导入 `EnrollFaceOptions`、`VerifyFaceOptions`、`FaceR
 | `enrollFace(options)` | 相机录入并在用户确认后保存 |
 | `verifyFace(options)` | 对指定用户进行 1:1 验证 |
 | `getFaceFeature(options)` | 读取该用户完整特征 |
+| `getFaceStatue(options)` | 只读查询基准是否存在且可读取，返回 exists |
+| `extractFaceFeature(options)` | 图片只提取特征，不保存基准 |
+| `detectLiveness(options)` | 无基准的独立活体，可叠加动作挑战 |
 | `syncFaceImage(options)` | 外部 PNG/JPEG Base64 → SDK 提取 → 保存基准 |
 | `syncFaceFeature(options)` | 保存服务器/其他设备下发的同模型 HF1 特征 |
 | `setFaceFeature(options)` | 导入相同特征空间的特征 |
@@ -153,7 +219,7 @@ uvue 可从同一入口导入 `EnrollFaceOptions`、`VerifyFaceOptions`、`FaceR
 
 无需本机重新录入：`syncFaceImage({ faceID, imageBase64 })` 或 `syncFaceFeature({ faceID, feature, featureSpaceID })`，成功后直接 `verifyFace({ faceID })`。默认不覆盖，更新时显式传 `overwrite: true`。图片限 PNG/JPEG、6 MiB、每边 2..4096 px、总像素 4194304，支持 EXIF；需清晰单人脸且人脸宽高至少 100 px，SDK 选最大脸。图片接口采用三端通用 `extractFeature`，无相机/活体；成功只代表同步，`passed` 为 null。详见 [同步参数与示例](https://github.com/FaceAISDK/HelloFace_uniapp/blob/main/docs/API.md#syncfaceimage--syncfacefeature)。
 
-接口返回 `void`，使用回调，不直接 `await verifyFace(...)`。普通验证只需传 `faceID`；需要动作活体时传 `actions: ['blink', 'nodHead']`，默认静默活体继续开启。两个超时参数仅属于验证流程，不是接口总时长；录入须用户确认保存。
+接口返回 `void`，使用回调，不直接 `await verifyFace(...)`。普通验证只需传 `faceID`；需要动作活体时传 `actions: ['blink', 'nodHead']`，默认静默活体继续开启。两个超时参数属于验证和独立活体流程，不是接口总时长；录入须用户确认保存。
 
 业务如已取得同模型基准，可跳过本机同步：
 
@@ -177,7 +243,7 @@ verifyFace({
 
 ## 版本与验证说明
 
-当前插件版本 **0.1.5**，底层为 HelloFace 原生 SDK **0.8.11 Beta**。Android 两套 UTS/Kotlin 编译及新基座校验通过，鸿蒙完整签名示例已在 API 26 真机运行并以新 SDK 实际提取 Demo 图片特征。iOS 完成语法、状态与平台类型检查，真实 SDK 完整编译仍受本机 Xcode 版本限制；详细真机边界见 [验证记录](https://github.com/FaceAISDK/HelloFace_uniapp/blob/main/docs/VALIDATION.md)。
+当前插件版本 **0.1.5**（含未发布接口扩展），底层为 HelloFace 原生 SDK **0.8.11 Beta**。Android 两套 UTS/Kotlin 编译及新基座校验通过，鸿蒙完整签名示例已在 API 26 真机运行并以新 SDK 实际提取 Demo 图片特征。iOS 完成语法、状态与平台类型检查，真实 SDK 完整编译仍受本机 Xcode 版本限制；详细真机边界见 [验证记录](https://github.com/FaceAISDK/HelloFace_uniapp/blob/main/docs/VALIDATION.md)。
 
 从 `HelloFace` 或 `HelloFaceVerify` 目录升级时，改为 `HelloFace-Verify` 并更新导入入口，重新构建包含本插件的原生基座。当前错误主题为 `HelloFaceVerify`，原有接口方法、参数与本机特征存储键延续使用。
 

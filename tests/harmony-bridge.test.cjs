@@ -19,7 +19,7 @@ function loadBridge() {
     imageExtractions: [], imageResult: Promise.resolve('extracted-reference') }
   class BridgeError extends Error { constructor(code, message) { super(message); this.code = code } }
   class ReferenceStore {
-    async get(id) { state.reads.push(id); return state.localFeature }
+    async get(id) { state.reads.push(id); if (state.readError) throw state.readError; return state.localFeature }
     async save(id, value) { state.writes.push({ id, value }) }
     async delete() {}
   }
@@ -198,4 +198,63 @@ test('Harmony: enrollment preview declares RGBA input so red and blue stay in or
   await flush()
   assert.deepEqual(Array.from(preview.pixels), Array.from(pixels))
   assert.equal(flow.previews[0], preview)
+})
+
+test('Harmony: reference status never creates SDK/UI or returns the stored feature; read errors stay errors', async () => {
+  const { state, invoke } = loadBridge(), results = []
+  invoke('getFaceStatue', { faceID: 'u' }, r => results.push(r)); await flush()
+  assert.equal(results.at(-1).data.exists, true)
+  assert.equal(results.at(-1).data.feature, undefined)
+  state.localFeature = undefined
+  invoke('getFaceStatue', { faceID: 'u' }, r => results.push(r)); await flush()
+  assert.equal(results.at(-1).data.exists, false)
+  state.readError = Object.assign(new Error('Cannot decrypt'), { code: 'STORAGE_ERROR' })
+  invoke('getFaceStatue', { faceID: 'u' }, r => results.push(r)); await flush()
+  assert.equal(results.at(-1).code, 'STORAGE_ERROR')
+  assert.equal(state.sdkCreates, 0)
+  assert.equal(state.permissionRequests, 0)
+  assert.equal(state.writes.length, 0)
+})
+
+test('Harmony: pure extraction skips even corrupt storage and never saves; cancellation cannot free its active slot', async () => {
+  const { state, invoke } = loadBridge(), results = [], blocked = []
+  state.readError = new Error('Storage must not be accessed')
+  let resolveImage
+  state.imageResult = new Promise(resolve => { resolveImage = resolve })
+  invoke('extractFaceFeature', { faceID: '', imageBase64: 'encoded' }, r => results.push(r)); await flush()
+  invoke('cancel', {}, () => {}); await flush()
+  invoke('getFaceStatue', { faceID: 'u' }, r => blocked.push(r)); await flush()
+  assert.equal(blocked[0].code, 'BUSY')
+  resolveImage('extracted-reference'); await flush()
+  assert.equal(results[0].data.feature, 'extracted-reference')
+  assert.deepEqual(state.reads, [])
+  assert.deepEqual(state.writes, [])
+  assert.equal(state.permissionRequests, 0)
+  assert.equal(state.cameras.length, 0)
+})
+
+test('Harmony: standalone liveness never reads a reference and supports cancellation before and after permission', async () => {
+  const pending = loadBridge(), events = [], cancels = []
+  let grant
+  pending.state.permission = new Promise(resolve => { grant = resolve })
+  pending.state.readError = new Error('Storage must not be accessed')
+  pending.invoke('detectLiveness', { faceID: '' }, r => events.push(r)); await flush()
+  pending.invoke('cancel', {}, r => cancels.push(r)); await flush()
+  grant({ authResults: [0] }); await flush()
+  assert.equal(events[0].code, 'CANCELLED')
+  assert.equal(events.length, 1)
+  assert.equal(cancels[0].code, 'OK')
+  assert.equal(pending.state.sdkCreates, 0)
+  assert.deepEqual(pending.state.reads, [])
+  const active = loadBridge(), activeResults = [], completedCancel = []
+  active.state.localFeature = undefined
+  active.invoke('detectLiveness', { faceID: '' }, r => activeResults.push(r)); await flush()
+  assert.equal(active.state.cameras[0].method, 'detectLiveness')
+  assert.equal(active.state.cameras[0].reference, undefined)
+  assert.deepEqual(active.state.reads, [])
+  active.invoke('cancel', {}, r => completedCancel.push(r))
+  assert.equal(completedCancel.length, 0)
+  active.state.cameras[0].finishCancellation()
+  assert.equal(activeResults[0].code, 'CANCELLED')
+  assert.equal(completedCancel[0].code, 'OK')
 })

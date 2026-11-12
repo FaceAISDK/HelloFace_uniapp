@@ -11,7 +11,7 @@ final class HelloFaceVerifyCameraController: UIViewController {
     private var pipeline: HelloFaceVerifyCameraPipeline?
     private var preview: AVCaptureVideoPreviewLayer?
     private var request: FaceRequest?
-    private lazy var screen = HelloFaceVerifyCameraView(enrollment: method == "enrollFace")
+    private lazy var screen = HelloFaceVerifyCameraView(enrollment: method == "enrollFace", liveness: method == "detectLiveness")
     private var captured: FaceFlowResult?
     private var lifecycle = HelloFaceVerifyCameraLifecycle()
     private var ended: Bool { lifecycle.ended }
@@ -154,12 +154,19 @@ final class HelloFaceVerifyCameraController: UIViewController {
                 default: throw HelloFaceVerifyBridgeError.failure("INVALID_ARGUMENT", "Unknown action")
                 }
             }
-            let configuration = try FaceVerificationConfiguration(referenceFeature: reference ?? "",
-                threshold: (params["threshold"] as? NSNumber)?.floatValue ?? 0.80,
-                requiresSilentLiveness: params["silentLiveness"] as? Bool ?? true, actions: actions,
-                actionTimeoutMilliseconds: (params["actionTimeoutMs"] as? NSNumber)?.int64Value ?? 10000,
-                faceAcquisitionTimeoutMilliseconds: (params["faceTimeoutMs"] as? NSNumber)?.int64Value ?? 15000)
-            request = pipeline.sdk.startCameraVerification(configuration: configuration, callbacks: callbacks)
+            if method == "detectLiveness" {
+                let configuration = try FaceLivenessConfiguration(actions: actions,
+                    actionTimeoutMilliseconds: (params["actionTimeoutMs"] as? NSNumber)?.int64Value ?? 10000,
+                    faceAcquisitionTimeoutMilliseconds: (params["faceTimeoutMs"] as? NSNumber)?.int64Value ?? 15000)
+                request = pipeline.sdk.startCameraLiveness(configuration: configuration, callbacks: callbacks)
+            } else {
+                let configuration = try FaceVerificationConfiguration(referenceFeature: reference ?? "",
+                    threshold: (params["threshold"] as? NSNumber)?.floatValue ?? 0.80,
+                    requiresSilentLiveness: params["silentLiveness"] as? Bool ?? true, actions: actions,
+                    actionTimeoutMilliseconds: (params["actionTimeoutMs"] as? NSNumber)?.int64Value ?? 10000,
+                    faceAcquisitionTimeoutMilliseconds: (params["faceTimeoutMs"] as? NSNumber)?.int64Value ?? 15000)
+                request = pipeline.sdk.startCameraVerification(configuration: configuration, callbacks: callbacks)
+            }
         }
     }
 
@@ -183,7 +190,8 @@ final class HelloFaceVerifyCameraController: UIViewController {
             screen.showConfirmation(image: photo, mirrored: isFront)
         } else {
             var data = Self.data(value)
-            if method == "verifyFace" { data.removeValue(forKey: "feature") }
+            if method != "enrollFace" { data.removeValue(forKey: "feature") }
+            if method == "detectLiveness" { data.removeValue(forKey: "similarity") }
             finish(HelloFaceVerifyOperation.envelope("result", "OK", "", data))
         }
     }

@@ -39,6 +39,7 @@ import com.hiface.sdk.frame.Yuv420Frame
 import com.hiface.sdk.frame.YuvColorMatrix
 import com.hiface.sdk.frame.YuvColorRange
 import com.hiface.sdk.verification.FaceVerificationConfig
+import com.hiface.sdk.liveness.FaceLivenessConfig
 import org.json.JSONObject
 import java.lang.ref.WeakReference
 import java.util.concurrent.Executors
@@ -86,7 +87,7 @@ class HelloFaceVerifyCameraActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.light(Color.TRANSPARENT, HelloFaceVerifyPresentation.colorInk)
         )
         screen = HelloFaceVerifyCameraView(this, current.method == "enrollFace",
-            { fail("CANCELLED", "Face operation cancelled") }, { retake() }, { confirm() })
+            { fail("CANCELLED", "Face operation cancelled") }, { retake() }, { confirm() }, liveness = current.method == "detectLiveness")
         preview = screen.preview
         setContentView(screen)
         screen.setOnApplyWindowInsetsListener { _, insets ->
@@ -148,21 +149,29 @@ class HelloFaceVerifyCameraActivity : ComponentActivity() {
                 val p = current.params
                 val array = p.getJSONArray("actions")
                 val actions = (0 until array.length()).map { action(array.getString(it)) }
-                val config = FaceVerificationConfig.builder().referenceFeature(current.reference ?: "")
-                    .threshold(p.getDouble("threshold").toFloat())
-                    .enableSilentLiveness(p.getBoolean("silentLiveness"))
-                    .actions(actions).actionTimeoutMillis(p.getLong("actionTimeoutMs"))
-                    .faceAcquisitionTimeoutMillis(p.getLong("faceTimeoutMs")).allowMultipleFaces(false).build()
-                request = instance.verification().startCameraVerification(config, object : FaceFlowListener {
+                val listener = object : FaceFlowListener {
                     override fun onProgress(progress: FaceFlowProgress) { if (active() && generation == attempt) update(progress) }
                     override fun onError(error: HiFaceError) { if (active() && generation == attempt) fail(error.code.name, error.message) }
                     override fun onResult(result: FaceFlowResult) {
                         if (!active() || generation != attempt) return
                         finishResult(JSONObject().put("passed", result.isPassed).put("outcome", result.outcome.name)
-                            .put("similarity", result.similarity ?: JSONObject.NULL)
+                            .put("similarity", if (current.method == "verifyFace") result.similarity ?: JSONObject.NULL else JSONObject.NULL)
                             .put("livenessScore", result.livenessScore ?: JSONObject.NULL))
                     }
-                })
+                }
+                request = if (current.method == "detectLiveness") {
+                    // 独立活体不构造虚假基准；SDK 的该流程始终包含静默活体。
+                    val config = FaceLivenessConfig.builder().actions(actions)
+                        .actionTimeoutMillis(p.getLong("actionTimeoutMs"))
+                        .faceAcquisitionTimeoutMillis(p.getLong("faceTimeoutMs")).allowMultipleFaces(false).build()
+                    instance.liveness().startCameraLiveness(config, listener)
+                } else {
+                    val config = FaceVerificationConfig.builder().referenceFeature(current.reference ?: "")
+                        .threshold(p.getDouble("threshold").toFloat()).enableSilentLiveness(p.getBoolean("silentLiveness"))
+                        .actions(actions).actionTimeoutMillis(p.getLong("actionTimeoutMs"))
+                        .faceAcquisitionTimeoutMillis(p.getLong("faceTimeoutMs")).allowMultipleFaces(false).build()
+                    instance.verification().startCameraVerification(config, listener)
+                }
             }
             val future = ProcessCameraProvider.getInstance(this)
             future.addListener({

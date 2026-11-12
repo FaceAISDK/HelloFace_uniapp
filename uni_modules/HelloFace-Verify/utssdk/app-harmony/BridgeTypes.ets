@@ -15,6 +15,7 @@ export interface FaceParams {
   faceTimeoutMs?: number;
 }
 export interface NativeData {
+  exists?: boolean;
   feature?: string;
   passed?: boolean;
   outcome?: string;

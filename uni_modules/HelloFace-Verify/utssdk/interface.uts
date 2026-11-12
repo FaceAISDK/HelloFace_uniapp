@@ -16,19 +16,21 @@ export type FaceResult = {
   msg: string,
   /** 如 verifyFace:ok，不代表身份验证通过。 */
   errMsg: string,
-  /** 去除两端空白后的业务用户标识；cancel 返回空字符串。 */
+  /** 去除两端空白后的业务用户标识；cancel/独立活体/图片提取返回空串。 */
   faceID: string,
-  /** 仅录入、读取、同步返回 HF1 基准；验证、删除、取消返回 null。不要写入日志。 */
+  /** 录入、读取、同步、图片提取返回 HF1；验证/活体/状态查询不返回特征。不要写入日志。 */
   feature: string | null,
   /** 同步特征时连同 feature 一起传递，禁止混用其他模型特征。 */
   featureSpaceID: string,
-  /** 录入/验证的 SDK 判定；特征管理、取消为 null。 */
+  /** 仅 getFaceStatue 返回：true 表示基准存在且可读取；其他方法为 null。异常走 fail，不伪装成 false。 */
+  exists?: boolean | null,
+  /** 录入/验证/独立活体的 SDK 判定；特征管理、取消为 null。 */
   passed: boolean | null,
   /** PASSED、NOT_MATCHED、SPOOF_DETECTED、NO_FACE_TIMEOUT 等；未产生时为 null。 */
   outcome: string | null,
   /** 仅验证返回 SDK 相似度，其他接口或未产生时为 null；不是身份概率。 */
   similarity: number | null,
-  /** 仅验证返回 SDK 活体分数，其他接口或未产生时为 null；不得用分数覆盖 passed。 */
+  /** 验证/独立活体返回 SDK 活体分数，未产生时为 null；不得用分数覆盖 passed。 */
   livenessScore: number | null
 }
 /** 可选过程通知；不是终态，不会触发 complete。原生页面已提供操作引导。 */
@@ -104,6 +106,31 @@ export type VerifyFaceOptions = {
   complete?: FaceComplete
 }
 
+/** 独立活体，无需 faceID 或基准，不比对身份、不保存照片/特征。
+ * SDK 始终执行静默活体；actions 非空时追加动作挑战。结果必须检查 passed。
+ */
+export type DetectLivenessOptions = {
+  /** 默认 []，仅静默；可传 ['blink', 'nodHead'] 叠加动作，最多 4 步。 */
+  actions?: FaceAction[],
+  /** 默认 10000；每步动作超时，2000..30000 整数毫秒。 */
+  actionTimeoutMs?: number,
+  /** 默认 15000；首次人脸等待超时，1000..60000 整数毫秒。 */
+  faceTimeoutMs?: number,
+  camera?: FaceCamera,
+  onProgress?: FaceProgressCallback,
+  success?: FaceSuccess,
+  fail?: FaceFailure,
+  complete?: FaceComplete
+}
+
+/** PNG/JPEG → HF1；只提取，不读写任何本机基准，也不执行活体。图片限制同 syncFaceImage。 */
+export type ExtractFaceFeatureOptions = {
+  imageBase64: string,
+  success?: FaceSuccess,
+  fail?: FaceFailure,
+  complete?: FaceComplete
+}
+
 /** 指定用户的本机基准操作；不启动相机、不申请相机权限。 */
 export type FaceIDOptions = {
   faceID: string,
@@ -165,3 +192,10 @@ export type Cancel = (options?: CancelOptions) => void
 export type SyncFaceImage = (options: SyncFaceImageOptions) => void
 /** 将同模型的外部 HF1 基准保存到本机，无需重新录入。 */
 export type SyncFaceFeature = (options: SyncFaceFeatureOptions) => void
+
+/** 独立相机活体；可用 cancel() 取消，passed 为 SDK 真实活体结论，faceID 返回空串。 */
+export type DetectLiveness = (options: DetectLivenessOptions) => void
+/** 只提取并返回 feature / featureSpaceID；不持久化，faceID 返回空串。 */
+export type ExtractFaceFeature = (options: ExtractFaceFeatureOptions) => void
+/** 只读查询，不返回特征；缺少基准 success(exists: false)，读取异常 fail。名称沿用 getFaceStatue。 */
+export type GetFaceStatue = (options: FaceIDOptions) => void

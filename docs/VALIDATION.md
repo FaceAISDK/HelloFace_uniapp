@@ -1,6 +1,31 @@
 # 验证记录
 
-更新日期：2026-11-11。当前原生 SDK 0.8.11 Beta，上游提交 `dc60c7b15ebf8038fb73a752bcea3590bbd86eaf`；下方旧版本记录按当时版本保留。
+更新日期：2026-11-12。当前原生 SDK 0.8.11 Beta，上游提交 `dc60c7b15ebf8038fb73a752bcea3590bbd86eaf`；下方旧版本记录按当时版本保留。
+
+## 2026-11-12 三个独立插件接口
+
+- 三端新增 `detectLiveness`、`extractFaceFeature`、`getFaceStatue`，沿用 options、success/fail/complete、code/msg 和统一互斥。独立活体与纯提取不要求 faceID、基准或写入存储；状态查询只读/解密后返回 exists，缺少基准正常返回 false，读写异常仍 fail，不返回原始特征。
+- SDK 仍为 0.8.11 Beta。核对三端实际公开声明和锁定 SDK 文档后，独立活体直接调用 `startCameraLiveness`：始终包含静默活体，actions 非空时追加动作，不暴露无效的关闭开关。没有构造虚假身份基准，不用相似度改写活体判定。新相机入口共用权限、取消（含授权尚未返回时）、亮度和资源释放，并显示“活体检测”。
+- 纯提取复用 FaceImageImporter 与图片限制，只返回 feature/featureSpaceID。Android 延迟创建存储对象，iOS/鸿蒙跳过基准读取；查询/提取均不打开相机，状态查询不创建识别 SDK。存储实现、键、License、模型、阈值及老接口未改动。
+- `npm run check` 通过 125 项（97 JS、28 Python）、37 个 SDK 文件校验和 Kotlin/Swift/ArkTS 转换。新增用例覆盖无基准参数、活体 SDK 否决不被高分覆盖、特征/相似度不泄漏、缺少基准与损坏存储的区别、提取不读写存储、忙碌期间互斥以及授权前后取消与迟到事件。原生边界可控测试不代表实际识别/活体通过。
+- Android 官方 uni-app 与 uni-app x UTS/Kotlin/DEX 编译和 JVM 桥接 ABI 均通过。iOS 8 个 Swift 语法、20 项状态、真实 UIKit 和仅供编译的 SDK 边界类型检查通过；真实 SDK 全量编译/IPA 仍受本机 Xcode 15.2 不支持 Swift 6 限制，未新增 iOS 真机验收。
+- 使用当前官方 UTS ArkTS 输出与生成宿主 runtime imports、当前原生 .ets 和真实 0.8.11 HAR，DevEco `uni_modules__helloface_verify:assembleHar` 编译成功。修复检查中发现的结果 exists 未在对象构造时赋值的问题：查询返回 true/false，其他方法显式 null。该 HAR 不可单独安装，不代表完整 HAP 或真机验收；没有主动安装新 App、写入测试基准或沿用前一版真人结果。
+
+证据位于忽略目录 `unpackage/validation/new-apis-*`。接口/SDK 边界与短示例见 [API](API.md) 及插件 readme；uvue 副本已同步。新增原生方法需重新联编或重建基座，纯页面刷新无法更新旧原生产物。
+
+## 2026-11-12 Demo 统一默认 faceID
+
+- Vue/uvue 统一默认 `demo-user`。相机录入、验证、演示图片/特征同步和删除均使用当前输入的 `faceID`；同步不再切换到另一个标识，保持原有 `overwrite: true`，会替换当前标识的基准。用户手动修改标识后同步也继续使用该值。
+- 按钮改为“同步演示人脸图片 / 同步演示人脸特征”，移除同步标识说明及结果框底部小字，删除对应无用样式。保留四种活体组合、模式快照、防重复、离页取消和删除确认。
+- 更新现有页面回归，16 项通过，覆盖默认/自定义标识同步、覆盖参数与原有交互。HBuilderX 5.34 的 Vue3 App 资源和 Web 导出编译成功，uvue SFC 脚本及 Kotlin/Swift 模板检查通过；实际导出 JS 的两个新文案存在，旧标识和两条底部说明不存在。未调用真机同步或改写设备基准，未新增真人识别验收。
+
+## 2026-11-11 Demo 四种活体组合
+
+- 根 Vue 和独立 uvue 示例将两个含义不够明确的验证按钮改为“静默活体 / 动作活体”独立开关和一个“开始 1:1 验证”按钮，覆盖仅比对、仅静默、仅动作、静默 + 动作四种组合。默认静默开启、动作关闭；直接向 `verifyFace` 传布尔值和动作数组，动作固定为眨眼、点头。SDK 0.8.11、原生 API、阈值、默认值及存储不变。
+- 显示当前组合及操作说明，两种活体关闭时明确显示只做人脸比对；调用期间禁用开关并拦截重复调用。结果区域记录本次提交的组合，之后调整开关只影响下一次调用，录入/同步/删除时清除上次验证模式。
+- `npm run check` 通过 113 项（85 JS、28 Python）、37 个 SDK 校验与三端 UTS 转换。新增页面脚本检查逐一确认四种选择传给 `verifyFace` 的参数、等待期间锁定和结果模式保留；测试使用原生调用替身，不模拟识别成功。插件说明已同步到 uvue 副本。
+- HBuilderX 5.34 的 Vue3 App 资源导出和 Web 导出编译成功；官方 uvue 编译器的 SFC 脚本编译及 Kotlin/Swift 模板生成通过，不代表 uvue 完整原生 App 链接或真机验收。
+- 浏览器实际点击两项开关，四种组合说明都正确更新；390px 手机宽度截图正常，320px 时卡片边界为 x=16..304，无横向溢出。Web 点击验证仍提示去 App 真机体验，没有伪造通过结果。证据位于忽略目录 `unpackage/validation/liveness-combinations-*`；本轮未新增真人录入/比对或活体四组合的实机验收。
 
 ## 2026-11-11 三端样式与交互复查
 

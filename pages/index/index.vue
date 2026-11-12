@@ -8,19 +8,38 @@
         <input class="input" v-model="faceID" :disabled="busy" maxlength="64" placeholder="录入与验证使用同一标识" />
       </view>
       <button class="action" :disabled="busy" @click="enroll">相机录入人脸</button>
-      <button class="action" :disabled="busy" @click="verify(false)">1:1 人脸识别 + 静默活体</button>
-      <button class="action" :disabled="busy" @click="verify(true)">1:1 人脸识别 + 动作活体</button>
-      <button class="action" :disabled="busy" @click="syncImage">同步外部人脸图片</button>
-      <button class="action" :disabled="busy" @click="syncFeature">同步外部人脸特征</button>
+      <view class="verification-card">
+        <text class="section-title">1:1 人脸验证</text>
+        <label class="liveness-row">
+          <view class="liveness-copy">
+            <text class="liveness-title">静默活体</text>
+            <text class="liveness-detail">无需指定动作，检测是否为真人</text>
+          </view>
+          <switch :checked="silentLiveness" :disabled="busy" color="#6865C6" @change="changeSilent" />
+        </label>
+        <label class="liveness-row">
+          <view class="liveness-copy">
+            <text class="liveness-title">动作活体</text>
+            <text class="liveness-detail">按提示依次完成眨眼、点头</text>
+          </view>
+          <switch :checked="actionLiveness" :disabled="busy" color="#6865C6" @change="changeActions" />
+        </label>
+        <view class="mode-summary">
+          <text class="mode-title">{{ verificationMode }}</text>
+          <text class="mode-detail">{{ verificationHint }}</text>
+        </view>
+        <button class="action verify-action" :disabled="busy" @click="verify">开始 1:1 验证</button>
+      </view>
+      <button class="action" :disabled="busy" @click="syncImage">同步演示人脸图片</button>
+      <button class="action" :disabled="busy" @click="syncFeature">同步演示人脸特征</button>
       <button class="action" :disabled="busy" @click="remove">删除人脸信息</button>
-      <text class="sync-hint">同步示例使用 AI 人脸，faceID 为 external-demo；本人验证请先相机录入。</text>
       <view class="result-card">
         <view class="result-heading">
           <text class="result-title">调用结果</text>
           <text class="result-label">RESULT</text>
         </view>
+        <text v-if="resultMode.length > 0" class="result-mode">本次验证 · {{ resultMode }}</text>
         <text class="result-text">{{ resultText }}</text>
-        <text class="hint">是否通过以 passed 为准，分数仅供参考。</text>
       </view>
     </view>
   </scroll-view>
@@ -32,7 +51,18 @@ import { demoImageBase64, demoFeature, demoFeatureSpaceID } from '@/demo/face-re
 // #endif
 export default {
   data() {
-    return { faceID: 'demo-user', busy: false, resultText: '先录入或同步基准，再使用同一 faceID 验证。' }
+    return { faceID: 'demo-user', silentLiveness: true, actionLiveness: false, busy: false,
+      resultMode: '', resultText: '先录入或同步基准，再使用同一 faceID 验证。' }
+  },
+  computed: {
+    verificationMode() {
+      if (this.silentLiveness) return this.actionLiveness ? '静默 + 动作活体' : '仅静默活体'
+      return this.actionLiveness ? '仅动作活体' : '仅人脸比对'
+    },
+    verificationHint() {
+      if (!this.silentLiveness && !this.actionLiveness) return '两个活体均已关闭，本次只做 1:1 人脸比对。'
+      return this.actionLiveness ? '正对镜头，按提示完成眨眼、点头。' : '正对镜头即可，无需做指定动作。'
+    }
   },
   onUnload() {
     // #ifdef APP
@@ -40,6 +70,12 @@ export default {
     // #endif
   },
   methods: {
+    changeSilent(event) {
+      if (!this.busy) this.silentLiveness = event.detail.value
+    },
+    changeActions(event) {
+      if (!this.busy) this.actionLiveness = event.detail.value
+    },
     enroll() {
       if (!this.begin('正在录入人脸…')) return
       // #ifdef APP
@@ -52,13 +88,15 @@ export default {
       })
       // #endif
     },
-    verify(withActions) {
+    verify() {
       if (!this.begin('正在验证身份…')) return
+      this.resultMode = this.verificationMode
       // #ifdef APP
       verifyFace({
         faceID: this.faceID,
-        // 默认阈值 0.80、静默活体开启；只传本次需要变化的动作。
-        actions: withActions ? ['blink', 'nodHead'] : [], // 动作模式同时保留静默活体。
+        // 两项独立传入；同时开启时，两种活体都参与本次验证。
+        silentLiveness: this.silentLiveness,
+        actions: this.actionLiveness ? ['blink', 'nodHead'] : [],
         success: this.showResult,
         fail: this.showError,
         complete: this.finish
@@ -68,7 +106,6 @@ export default {
     syncImage() {
       if (!this.begin('正在同步示例基准…')) return
       // #ifdef APP
-      this.faceID = 'external-demo' // 独立示例标识，保留相机录入的 demo-user。
       syncFaceImage({
         faceID: this.faceID, imageBase64: demoImageBase64, overwrite: true,
         success: this.showResult,
@@ -80,7 +117,6 @@ export default {
     syncFeature() {
       if (!this.begin('正在同步示例基准…')) return
       // #ifdef APP
-      this.faceID = 'external-demo' // 独立示例标识，保留相机录入的 demo-user。
       syncFaceFeature({
         faceID: this.faceID, feature: demoFeature, featureSpaceID: demoFeatureSpaceID, overwrite: true,
         success: this.showResult,
@@ -119,6 +155,7 @@ export default {
       // #ifdef APP
       uni.hideKeyboard()
       this.busy = true
+      this.resultMode = ''
       this.resultText = message
       return true
       // #endif
@@ -147,11 +184,20 @@ export default {
 .label { color: #7C8190; font-size: 13px; margin-right: 12px; }
 .input { flex: 1; height: 36px; padding: 0 10px; border: 1px solid #E2E5EA; border-radius: 6px; background-color: #FFFFFF; color: #374151; font-size: 14px; }
 .action { width: 100%; height: 54px; line-height: 52px; margin: 0 0 12px; padding: 0 18px; text-align: left; border: 1px solid #72CCAE; border-radius: 9px; background-color: #FFFFFF; color: #397D4B; font-size: 16px; font-weight: bold; }
-.sync-hint { color: #7C8190; font-size: 11px; line-height: 18px; margin-bottom: 12px; }
+.verification-card { display: flex; flex-direction: column; margin-bottom: 12px; padding: 16px; border: 1px solid #E2E5EA; border-radius: 11px; background-color: #FFFFFF; }
+.section-title { color: #303540; font-size: 16px; font-weight: bold; margin-bottom: 4px; }
+.liveness-row { display: flex; flex-direction: row; align-items: center; justify-content: space-between; min-height: 68px; }
+.liveness-copy { display: flex; flex-direction: column; flex: 1; margin-right: 12px; }
+.liveness-title { color: #374151; font-size: 15px; font-weight: bold; }
+.liveness-detail { color: #7C8190; font-size: 12px; line-height: 18px; margin-top: 4px; }
+.mode-summary { display: flex; flex-direction: column; padding: 12px; margin-top: 8px; margin-bottom: 14px; border-radius: 8px; background-color: #F2F1FB; }
+.mode-title { color: #6865C6; font-size: 14px; font-weight: bold; }
+.mode-detail { color: #7C8190; font-size: 12px; line-height: 19px; margin-top: 5px; }
+.verify-action { margin-bottom: 0; border-color: #6865C6; background-color: #6865C6; color: #FFFFFF; }
+.result-mode { color: #6865C6; font-size: 12px; margin-bottom: 10px; }
 .result-card { display: flex; flex-direction: column; margin-top: 18px; padding: 14px; border: 1px solid #E2E5EA; border-radius: 11px; background-color: #FFFFFF; }
 .result-heading { display: flex; flex-direction: row; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .result-title { color: #303540; font-size: 14px; font-weight: bold; }
 .result-label { color: #9A9DA6; font-size: 11px; }
 .result-text { min-height: 150px; padding: 12px; border: 1px solid #E9EBEF; border-radius: 8px; background-color: #F6F7F9; color: #6865C6; font-size: 14px; line-height: 23px; }
-.hint { color: #9A9DA6; font-size: 10px; line-height: 18px; text-align: left; margin-top: 10px; }
 </style>

@@ -1,4 +1,4 @@
-import { FaceResult, FaceProgress, FaceSuccess, FaceFailure, FaceComplete, FaceProgressCallback, EnrollFaceOptions, VerifyFaceOptions, SetFaceFeatureOptions, SyncFaceImageOptions } from './interface.uts'
+import { FaceResult, FaceProgress, FaceSuccess, FaceFailure, FaceComplete, FaceProgressCallback, EnrollFaceOptions, VerifyFaceOptions, SetFaceFeatureOptions, SyncFaceImageOptions, DetectLivenessOptions, ExtractFaceFeatureOptions } from './interface.uts'
 import { HelloFaceVerifyFailImpl } from './unierror.uts'
 import { resultCode, failureCode, statusMessage, legacyErrorCode } from './status.uts'
 
@@ -24,6 +24,23 @@ export function createVerifyParams(options: VerifyFaceOptions): UTSJSONObject {
   if (options.featureSpaceID != null) params['featureSpaceID'] = options.featureSpaceID
   return params
 }
+export function createLivenessParams(options: DetectLivenessOptions): UTSJSONObject {
+  const params = createFaceParams('')
+  params['actions'] = options.actions ?? [] as string[]
+  params['actionTimeoutMs'] = options.actionTimeoutMs ?? 10000
+  params['faceTimeoutMs'] = options.faceTimeoutMs ?? 15000
+  params['camera'] = options.camera ?? 'front'
+  return params
+}
+export function createExtractParams(options: ExtractFaceFeatureOptions): UTSJSONObject {
+  return { faceID: '', imageBase64: normalizedImage(options.imageBase64) } as UTSJSONObject
+}
+function normalizedImage(value: string): string {
+  const image = typeof value == 'string' ? value : ''
+  if (image.startsWith('data:image/png;base64,')) return image.substring(22)
+  if (image.startsWith('data:image/jpeg;base64,')) return image.substring(23)
+  return image
+}
 export function createFeatureParams(options: SetFaceFeatureOptions): UTSJSONObject {
   const params = createFaceParams(options.faceID)
   params['feature'] = options.feature
@@ -33,10 +50,7 @@ export function createFeatureParams(options: SetFaceFeatureOptions): UTSJSONObje
 }
 export function createImageParams(options: SyncFaceImageOptions): UTSJSONObject {
   const params = createFaceParams(options.faceID)
-  let image = typeof options.imageBase64 == 'string' ? options.imageBase64 : ''
-  if (image.startsWith('data:image/png;base64,')) image = image.substring(22)
-  else if (image.startsWith('data:image/jpeg;base64,')) image = image.substring(23)
-  params['imageBase64'] = image
+  params['imageBase64'] = normalizedImage(options.imageBase64)
   params['overwrite'] = options.overwrite ?? false
   return params
 }
@@ -50,22 +64,22 @@ function validateFeature(feature: string | null, space: string | null): string |
 }
 export function validateParams(method: string, params: UTSJSONObject): string | null {
   const faceID = params.getString('faceID') ?? ''
-  if (method != 'cancel' && (faceID.length == 0 || faceID.length > 64 || faceID.indexOf('\u0000') >= 0)) {
+  if (method != 'cancel' && method != 'detectLiveness' && method != 'extractFaceFeature' && (faceID.length == 0 || faceID.length > 64 || faceID.indexOf('\u0000') >= 0)) {
     return invalidArgument('faceID must contain 1..64 UTF-16 units without NUL after trimming')
   }
   if (method == 'enrollFace' || method == 'setFaceFeature' || method == 'syncFaceFeature' || method == 'syncFaceImage') {
     if (params.getBoolean('overwrite') == null) return invalidArgument('overwrite must be a boolean')
   }
-  if (method == 'enrollFace' || method == 'verifyFace') {
+  if (method == 'enrollFace' || method == 'verifyFace' || method == 'detectLiveness') {
     const camera = params.getString('camera') ?? ''
     if (camera != 'front' && camera != 'back') return invalidArgument('camera must be front or back')
   }
-  if (method == 'verifyFace') {
+  if (method == 'verifyFace' || method == 'detectLiveness') {
     const threshold = params.getNumber('threshold') ?? -1
     const actionTimeout = params.getNumber('actionTimeoutMs') ?? -1
     const faceTimeout = params.getNumber('faceTimeoutMs') ?? -1
-    if (!Number.isFinite(threshold) || threshold < 0 || threshold > 1) return invalidArgument('threshold must be within 0..1')
-    if (params.getBoolean('silentLiveness') == null) return invalidArgument('silentLiveness must be a boolean')
+    if (method == 'verifyFace' && (!Number.isFinite(threshold) || threshold < 0 || threshold > 1)) return invalidArgument('threshold must be within 0..1')
+    if (method == 'verifyFace' && params.getBoolean('silentLiveness') == null) return invalidArgument('silentLiveness must be a boolean')
     if (!Number.isInteger(actionTimeout) || actionTimeout < 2000 || actionTimeout > 30000) return invalidArgument('actionTimeoutMs must be an integer within 2000..30000')
     if (!Number.isInteger(faceTimeout) || faceTimeout < 1000 || faceTimeout > 60000) return invalidArgument('faceTimeoutMs must be an integer within 1000..60000')
     const actions = params.getArray<string>('actions')
@@ -73,7 +87,7 @@ export function validateParams(method: string, params: UTSJSONObject): string | 
     for (let i = 0; i < actions.length; i++) {
       if (!['blink', 'openMouth', 'shakeHead', 'nodHead'].includes(actions[i])) return invalidArgument('actions supports blink, openMouth, shakeHead and nodHead only')
     }
-    if (params['referenceFeature'] != null || params['featureSpaceID'] != null) {
+    if (method == 'verifyFace' && (params['referenceFeature'] != null || params['featureSpaceID'] != null)) {
       const error = validateFeature(params.getString('referenceFeature'), params.getString('featureSpaceID'))
       if (error != null) return invalidArgument('referenceFeature and featureSpaceID must be supplied together: ' + error)
     }
@@ -82,7 +96,7 @@ export function validateParams(method: string, params: UTSJSONObject): string | 
     const error = validateFeature(params.getString('feature'), params.getString('featureSpaceID'))
     if (error != null) return invalidArgument(error)
   }
-  if (method == 'syncFaceImage') {
+  if (method == 'syncFaceImage' || method == 'extractFaceFeature') {
     const image = params.getString('imageBase64') ?? ''
     if (image.length == 0 || image.length > 8388608 || image.length % 4 != 0 ||
       !/^[A-Za-z0-9+/]+={0,2}$/.test(image)) return invalidArgument('imageBase64 must be standard Base64 encoding of a PNG/JPEG, at most 6 MiB')
@@ -121,7 +135,7 @@ export function createDispatcher(method: string, faceID: string,
     let event: UTSJSONObject | null = null
     try { event = JSON.parseObject(raw) } catch (_) { /* Converted to BRIDGE_ERROR below. */ }
     const data = event?.getJSON('data')
-    const cameraMethod = method == 'enrollFace' || method == 'verifyFace'
+    const cameraMethod = method == 'enrollFace' || method == 'verifyFace' || method == 'detectLiveness'
     if (cameraMethod && isProgress(event)) {
       const progress: FaceProgress = {
         faceID: faceID, stage: data?.getString('stage') ?? '', action: data?.getString('action') ?? null,
@@ -135,7 +149,8 @@ export function createDispatcher(method: string, faceID: string,
     const validResult = event?.getString('event') == 'result' &&
       (!cameraMethod || (data?.getBoolean('passed') != null && data?.getString('outcome') != null)) &&
       (method != 'enrollFace' || data?.getBoolean('passed') != true || data?.getString('feature') != null) &&
-      ((method != 'getFaceFeature' && method != 'setFaceFeature' && method != 'syncFaceFeature' && method != 'syncFaceImage') || data?.getString('feature') != null)
+      ((method != 'getFaceFeature' && method != 'setFaceFeature' && method != 'syncFaceFeature' && method != 'syncFaceImage' && method != 'extractFaceFeature') || data?.getString('feature') != null) &&
+      (method != 'getFaceStatue' || data?.getBoolean('exists') != null)
     if (code == 'OK' && !validResult) code = 'BRIDGE_ERROR'
     if (code != 'OK') {
       const status = failureCode(code)
@@ -155,11 +170,12 @@ export function createDispatcher(method: string, faceID: string,
     const result: FaceResult = {
       code: status, msg: statusMessage(status, method),
       errMsg: method + ':ok', faceID: faceID,
-      feature: method == 'enrollFace' || method == 'getFaceFeature' || method == 'setFaceFeature' || method == 'syncFaceFeature' || method == 'syncFaceImage' ? (data?.getString('feature') ?? null) : null,
+      feature: method == 'enrollFace' || method == 'getFaceFeature' || method == 'setFaceFeature' || method == 'syncFaceFeature' || method == 'syncFaceImage' || method == 'extractFaceFeature' ? (data?.getString('feature') ?? null) : null,
       featureSpaceID: 'jdx-feature-v1',
+      exists: method == 'getFaceStatue' ? (data?.getBoolean('exists') ?? false) : null,
       passed: passed, outcome: outcome,
       similarity: method == 'verifyFace' ? score(data ?? null, 'similarity') : null,
-      livenessScore: method == 'verifyFace' ? score(data ?? null, 'livenessScore') : null
+      livenessScore: method == 'verifyFace' || method == 'detectLiveness' ? score(data ?? null, 'livenessScore') : null
     }
     try { success?.(result) } finally { complete?.(result) }
   }

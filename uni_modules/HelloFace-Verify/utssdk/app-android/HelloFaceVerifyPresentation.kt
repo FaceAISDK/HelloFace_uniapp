@@ -46,6 +46,8 @@ internal object HelloFaceVerifyPresentation {
     const val actionFallback: String = "请按提示完成动作"
     const val stageFallback: String = "请正对镜头"
     const val cancelCapture: String = "取消录入"
+    const val livenessHeading: String = "活体检测"
+    const val livenessPhase: String = "实时活体检测"
     const val sideInset: Int = 24
     const val headerInset: Int = 8
     const val backInset: Int = 12

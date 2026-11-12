@@ -1,6 +1,6 @@
 # HelloFaceVerify 接入与 API
 
-插件入口：`@/uni_modules/HelloFace-Verify`。八个接口在 Android、iOS、HarmonyOS 上使用相同参数和回调，兼容 uni-app Vue2/Vue3 与 uni-app x uvue。原生相机、权限申请、特征加密和 SDK 生命周期由插件处理，业务页面无需先初始化 SDK。
+插件入口：`@/uni_modules/HelloFace-Verify`。十一个接口在 Android、iOS、HarmonyOS 上使用相同参数和回调，兼容 uni-app Vue2/Vue3 与 uni-app x uvue。原生相机、权限申请、特征加密和 SDK 生命周期由插件处理，业务页面无需先初始化 SDK。
 
 ## 先选择基准来源
 
@@ -53,7 +53,7 @@ verifyFace({
 | `onProgress` | function | 可选 | 过程通知；原生页面已提供提示，可不传 |
 | `success / fail / complete` | function | 可选 | 见回调约定 |
 
-录入固定为“采集 → 预览 → 确认保存”。重新采集或确认前取消不会替换原基准。下文两种超时参数仅用于验证，录入不接受它们，也不支持跳过确认。
+录入固定为“采集 → 预览 → 确认保存”。重新采集或确认前取消不会替换原基准。下文两种超时参数用于验证和独立活体，录入不接受它们，也不支持跳过确认。
 
 ### verifyFace(options)
 
@@ -83,7 +83,57 @@ verifyFace({
 })
 ```
 
+静默与动作是两个独立选项，组合如下；Demo 的动作开关使用眨眼、点头两步：
+
+| `silentLiveness` | `actions` | 验证内容 |
+| --- | --- | --- |
+| `false` | `[]` | 仅 1:1 比对 |
+| `true` | `[]` | 比对 + 静默活体（默认） |
+| `false` | `['blink', 'nodHead']` | 比对 + 动作活体 |
+| `true` | `['blink', 'nodHead']` | 比对 + 静默活体 + 动作活体 |
+
+两种活体一起启用时，在同一次 `verifyFace` 调用中传入 `silentLiveness: true` 和非空 `actions`，使用最终 `passed` 判断整个验证是否通过。Demo 的 `actionLiveness` 只是页面状态，对外 API 仍使用动作数组；组合选择不影响录入、同步或删除基准。
+
 两个超时都是 SDK 流程参数，不是整个接口调用的总时长，不包含系统权限对话框，也不是录入确认的等待时长。多脸默认拒绝。`silentLiveness: false` 且 `actions: []` 会关闭可选活体，仅做 1:1 比对；是否启用活体与阈值由业务评估，比对分数和 SDK 通过结论须区分。
+
+### 独立活体、图片提取与基准状态
+
+```js
+import { detectLiveness, extractFaceFeature, getFaceStatue } from '@/uni_modules/HelloFace-Verify'
+
+// 无需 faceID 或已录基准。省略 actions 时只做静默活体；传入后再叠加动作。
+detectLiveness({
+  actions: ['blink', 'nodHead'],
+  success: res => { if (res.passed === true) { /* 活体通过，不表示身份匹配 */ } },
+  fail: err => { /* err.code / err.msg */ }
+})
+
+// 只提取，不保存到本机；不要把返回的原始特征写入日志。
+extractFaceFeature({
+  imageBase64: photoBase64,
+  success: res => { /* 使用 res.feature 和 res.featureSpaceID */ }
+})
+
+// 名称按本工程 API 保留为 getFaceStatue；正常缺少基准不是接口错误。
+getFaceStatue({
+  faceID: 'demo-user',
+  success: res => { if (res.exists === true) { /* 基准存在且可读取 */ } }
+})
+```
+
+| 接口 | 必要输入 | 可选配置 | 成功结果 |
+| --- | --- | --- | --- |
+| `detectLiveness` | options 对象，可为 `{}` | `actions: []`、`actionTimeoutMs: 10000`、`faceTimeoutMs: 15000`、`camera: 'front'`、`onProgress` | `passed / outcome / livenessScore`；`feature / similarity` 为 null |
+| `extractFaceFeature` | `imageBase64` | 通用回调 | `feature / featureSpaceID`；不作身份或活体判定 |
+| `getFaceStatue` | `faceID` | 通用回调 | `exists: true / false`；不返回原始特征，不初始化识别 SDK |
+
+三者沿用 `success / fail / complete`，返回 `void`。独立活体与图片提取不绑定用户，回调 `faceID` 为空串；状态查询返回归一化后的输入标识。独立活体支持进度与 `cancel()`，参数限制及后台释放/亮度恢复与验证共用。取消只作用于相机，不取消图片提取或存储操作；操作槽未释放前其他调用仍返回 104。
+
+当前 SDK 0.8.11 的独立活体流程**始终包含静默活体**，非空 `actions` 叠加动作挑战，因此该接口不提供 `silentLiveness` 开关；需要对身份比对配置四种组合时继续使用 `verifyFace`。依据 [锁定 SDK 的公开说明](https://github.com/FaceSDKPro/HelloFace/blob/dc60c7b15ebf8038fb73a752bcea3590bbd86eaf/platforms/Harmony/SDK.zh-CN.md#相机流程生命周期)。
+
+图片提取复用 `syncFaceImage` 的 PNG/JPEG、Base64、6 MiB、EXIF、像素及人脸大小限制，但不读取或写入任何基准，不覆盖已录用户，也不落盘图片。状态查询只读：不存在返回 `code: 0, exists: false`，存在且能读取返回 `exists: true`；读取/解密失败走 `fail`（302），不能把异常当作未录入。存在状态不等于身份或活体通过，也不能恢复已被清除的基准。
+
+新增原生接口后需重新原生联编或重建调试基座/完整 HAP；仅刷新 Vue 页面不会为旧基座增加接口。11 个方法保持同一套错误码和互斥机制，原有调用不变。
 
 ### getFaceFeature / setFaceFeature / deleteFace
 
@@ -131,7 +181,7 @@ syncFaceFeature({
 
 `syncFaceFeature` 与 `setFaceFeature` 使用同一存储语义，保留旧接口兼容。服务器下发特征可来自其他设备，但必须来自兼容模型/预处理的 SDK，并同时传递返回的 `featureSpaceID`。仅用于本次验证且不保存时，仍可用 `verifyFace({ faceID, referenceFeature, featureSpaceID })`。
 
-两套 Demo 的同步按钮读取同一份 [AI 示例基准](../demo/README.md)：200×200 PNG 经 TinyPNG 压缩，HF1 由压缩后图片通过真实 SDK 提取。按钮使用独立 `external-demo` 标识并显式覆盖示例基准，不影响默认相机录入的 `demo-user`。AI 人脸用于演示数据同步，不能拿本人通过该人脸的活体验证。业务接入时换成自己的照片/服务器特征，通常保留 `overwrite: false`。
+两套 Demo 的同步按钮读取同一份 [AI 示例基准](../demo/README.md)：200×200 PNG 经 TinyPNG 压缩，HF1 由压缩后图片通过真实 SDK 提取。按钮与录入、验证、删除共用输入框中的 `faceID`，默认 `demo-user`，并显式覆盖当前标识的基准。同步演示人脸后，如需验证本人，应重新相机录入本人。AI 人脸用于演示数据同步，不能拿本人通过该人脸的活体验证。业务接入时换成自己的照片/服务器特征，通常保留 `overwrite: false`。
 
 ### faceID 与特征规则
 
@@ -169,11 +219,11 @@ setFaceFeature({ faceID: 'user-001', feature: savedFeature, featureSpaceID: save
 | `msg` | string | 可直接展示的短提示 |
 | `errMsg` | string | 如 `verifyFace:ok`，用于区分接口完成状态 |
 | `faceID` | string | 规范化后的用户标识；cancel 为空 |
-| `passed` | boolean / null | 录入/验证的 SDK 判定；管理接口、cancel 为 null |
+| `passed` | boolean / null | 录入/验证/独立活体的 SDK 判定；其他接口为 null |
 | `outcome` | string / null | SDK 业务结果，未产生为 null |
 | `similarity` | number / null | 仅验证返回实际相似度；其他接口、未产生或非有限值为 null |
-| `livenessScore` | number / null | 仅验证返回实际活体分数；其他接口、未产生或非有限值为 null |
-| `feature` | string / null | 录入、读取、同步可返回基准；验证、删除、取消不返回特征 |
+| `livenessScore` | number / null | 验证/独立活体返回实际活体分数；其他接口、未产生或非有限值为 null |
+| `feature` | string / null | 录入、读取、同步、图片提取返回 HF1；验证、独立活体、状态查询不返回特征 |
 | `featureSpaceID` | string | 当前 SDK 的特征空间，跨设备传递时保留 |
 
 已知 outcome：`PASSED`、`NOT_MATCHED`、`SPOOF_DETECTED`、`NO_FACE_TIMEOUT`、`FACE_LOST`、`MULTIPLE_FACES`、`ACTION_TIMEOUT`、`FINAL_CAPTURE_TIMEOUT`。未产生的分数为 null，不能当成 0；也不能用高相似度覆盖 `passed: false`。
@@ -213,6 +263,8 @@ setFaceFeature({ faceID: 'user-001', feature: savedFeature, featureSpaceID: save
 例如未检测到人脸时返回 `success({ code: 203, msg: '未检测到人脸', passed: false, outcome: 'NO_FACE_TIMEOUT', ... })`，不是接口异常。原任务被取消返回 `fail({ code: 103, msg: '已取消', ... })`；主动调用 `cancel()` 本身成功时则为 `code: 0 / msg: '已取消'`。
 
 `msg` 仅用于显示，业务不要解析提示文字。验证仍判断 `passed`；本机特征管理判断 code 是否为 0。错误排查用 `sdkCode + detail`，无需让页面显示底层长文案。进度通知继续使用 stage/action，不携带终态 code。
+
+`getFaceStatue` 的结果额外包含可选布尔字段 `exists`，其他接口为 null；不会为查询返回 `feature`。
 
 `onProgress` 可多次回调 `{ faceID, stage, action, stepNumber, stepCount }`。常见 stage 包括 `WAITING_FOR_FACE`、`PERFORM_ACTION`、`HOLD_STILL` 等 SDK 阶段；action 无动作时为 null。进度不触发 complete，不等于识别成功。
 

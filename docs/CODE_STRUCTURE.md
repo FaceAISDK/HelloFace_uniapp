@@ -4,9 +4,9 @@
 
 页面从 `@/uni_modules/HelloFace-Verify` 导入公开 API；不直接访问原生类或 `utssdk` 内部文件。插件按调用初始化 SDK 并管理相机权限、采集页面和资源，无需业务再包一层初始化或相机组件。
 
-录入只需 `enrollFace({ faceID, success, fail, complete })`；验证只需 `verifyFace({ faceID, success, fail, complete })`。默认前置相机、阈值 0.80、开启静默活体。需要动作活体再传 `actions: ['blink', 'nodHead']`；不要为了缩短示例关闭活体或修改阈值。
+录入只需 `enrollFace({ faceID, success, fail, complete })`；验证只需 `verifyFace({ faceID, success, fail, complete })`。默认前置相机、阈值 0.80、开启静默活体。静默与动作独立：Demo 用两个开关展示四种组合，显式传入 `silentLiveness`，按动作开关传 `actions: ['blink', 'nodHead']` 或空数组。保留插件默认值与阈值，录入和存储行为不受验证选项影响。
 
-根 Vue 和独立 uvue 示例保持相同的按钮与调用顺序：每个动作直接调用 API，`begin` 拦截重复点击，`showResult / showError` 只展示结果，`finish` 在 complete 中解除忙碌。Vue/uvue Options API 的页面方法用作回调时保持页面实例绑定；uvue 的结果、错误和 complete 参数按接口声明提供类型。删除先确认，离页取消相机任务，页面不保留返回的原始生物特征。同步按钮使用独立的 AI 示例基准，说明见 [外部基准](../demo/README.md)。
+根 Vue 和独立 uvue 示例保持相同的按钮与调用顺序：每个动作直接调用 API，`begin` 拦截重复点击，`showResult / showError` 只展示结果，`finish` 在 complete 中解除忙碌。Vue/uvue Options API 的页面方法用作回调时保持页面实例绑定；uvue 的结果、错误和 complete 参数按接口声明提供类型。删除先确认，离页取消相机任务，页面不保留返回的原始生物特征。同步按钮使用内置 AI 演示基准，与录入、验证、删除共用当前 `faceID`（默认 `demo-user`），说明见 [外部基准](../demo/README.md)。
 
 `success` 表示接口正常完成，验证必须检查 `passed === true`；2xx 未通过结果仍走 success。`complete` 只做收尾；不要在这里读取业务字段，也不要因相似度高而改写 passed。
 
@@ -53,3 +53,9 @@ Android 云基座与本地联编模块的名称不同，跨文件桥接访问器
 修改共享 UTS 或三端入口后执行 `npm run check`；它覆盖真实源码的参数/回调测试、SDK 完整性和三端 UTS 转换。另执行 `npm run android:uts-check` 及其 `-- --uni-app-x` 模式，检查实际 Kotlin/DEX 与桥接 ABI。Demo 修改还应使用 HBuilderX 编译对应 Vue/uvue 页面，不能仅靠 JS 替身测试推导原生编译通过。
 
 原生修改需相应平台编译和必要真机回归。HAR 构建、UTS 转换、完整 HAP 构建与真机验收分别记录，不能互相代替。鸿蒙操作步骤见 [鸿蒙调试](HARMONY_DEBUG.md)，实际结果和限制见 [验证记录](VALIDATION.md)。
+
+## 独立能力的复用边界
+
+`detectLiveness` 复用原生相机页、进度、权限、取消、互斥及释放，直接启动 SDK 独立活体请求，不构造虚假基准、不读取用户存储。SDK 的该入口始终静默，动作数组只追加挑战。
+
+`extractFaceFeature` 复用 `FaceImageImporter`，与图片同步共用输入限制和参数归一化，纯提取路径不访问基准存储；只有同步分支写入。Android 的 ReferenceStore 延迟构造，避免纯提取/活体误读存储。`getFaceStatue` 则实际只读/解密基准后返回 exists，异常继续走 fail；不创建 SDK，不返回特征，不改变存储格式。

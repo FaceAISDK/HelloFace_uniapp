@@ -31,7 +31,8 @@ import kotlin.math.min
 
 /** Presentation only: the circular opening never crops frames submitted to the SDK. */
 internal class HelloFaceVerifyCameraView(context: Context, private val enrollment: Boolean,
-    private val onCancel: () -> Unit, private val onRetake: () -> Unit, private val onConfirm: () -> Unit) : FrameLayout(context) {
+    private val onCancel: () -> Unit, private val onRetake: () -> Unit, private val onConfirm: () -> Unit,
+    private val liveness: Boolean = false) : FrameLayout(context) {
     val preview = PreviewView(context).apply {
         implementationMode = PreviewView.ImplementationMode.COMPATIBLE
         scaleType = PreviewView.ScaleType.FIT_CENTER
@@ -53,7 +54,7 @@ internal class HelloFaceVerifyCameraView(context: Context, private val enrollmen
     private val back = button("‹", Color.TRANSPARENT, INK).apply {
         textSize = UI.fontBack; contentDescription = UI.backLabel; setOnClickListener { onCancel() }
     }
-    private val heading = label(if (enrollment) UI.enrollHeading else UI.verifyHeading, UI.fontHeading, INK, true)
+    private val heading = label(if (enrollment) UI.enrollHeading else if (liveness) UI.livenessHeading else UI.verifyHeading, UI.fontHeading, INK, true)
     private val local = label(UI.localLabel, UI.fontLocal, GREEN).apply { background = rounded(UI.colorLocalFill, UI.pillRadius.toFloat()) }
     private val title = label(UI.preparingTitle, UI.fontTitle, INK, true).apply {
         accessibilityLiveRegion = ACCESSIBILITY_LIVE_REGION_POLITE
@@ -113,7 +114,7 @@ internal class HelloFaceVerifyCameraView(context: Context, private val enrollmen
         saving = false
         captured = false; photo.setImageDrawable(null); photo.visibility = GONE
         title.text = UI.liveTitle; detail.text = UI.liveDetail
-        phase.text = UI.phase(enrollment)
+        phase.text = if (liveness) UI.livenessPhase else UI.phase(enrollment)
         tips.visibility = VISIBLE
         listOf(confirmation, retake, confirm).forEach { it.visibility = GONE }
         back.isEnabled = true; retake.isEnabled = true; confirm.isEnabled = true
@@ -125,7 +126,7 @@ internal class HelloFaceVerifyCameraView(context: Context, private val enrollmen
         if (captured) return
         val instruction = UI.guidance(stage, action)
         if (title.text != instruction) title.text = instruction
-        val phaseText = UI.phase(enrollment, stage, step, count)
+        val phaseText = if (liveness && stage != "PERFORM_ACTION") UI.livenessPhase else UI.phase(enrollment, stage, step, count)
         if (phase.text != phaseText) phase.text = phaseText
         mask.updateProgress(enrollment && stage == "HOLD_STILL")
         mask.tint = if (UI.isWarning(stage)) AMBER else if (enrollment) UI.colorOuterRing else BLUE

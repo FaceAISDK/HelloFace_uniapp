@@ -1,8 +1,13 @@
 ## 未发布
 
+- 新增 detectLiveness：无需基准的独立活体，默认静默，可叠加动作；沿用进度、取消与相机资源释放。
+- 新增 extractFaceFeature：Base64 图片只提取，不保存或覆盖基准；复用现有图片限制与解码流程。
+- 新增 getFaceStatue：只读返回 exists，不输出特征；缺少基准成功返回 false，读取错误仍走 fail。
+- 三端复用参数校验、结果回调和错误码，旧接口兼容；新增原生方法需要重新联编/构建基座。
+
 - 新增 syncFaceImage / syncFaceFeature：同步外部 Base64 图片或同模型 HF1 基准，无需本机重新录入；保留 setFaceFeature。
 - 三端使用通用 extractFeature 图片入口，统一 PNG/JPEG、大小限制、EXIF 方向、覆盖保护和空判定字段；新增 107–109 图片短错误码。
-- Vue/uvue 增加两个直接调用示例，使用同一张 200×200 AI 人脸和压缩后图片经 SDK 提取的特征，独立保存到 external-demo。
+- Vue/uvue 增加两个直接调用示例，使用同一张 200×200 AI 人脸和压缩后图片经 SDK 提取的特征，统一使用当前 faceID（默认 demo-user），同步显式覆盖演示基准。
 
 - 三端统一增加 code/msg：0 成功、1xx 操作问题、2xx 识别未通过、3xx 运行异常，使用短提示；SDK 判定和回调语义保持不变。
 - 原 errCode、sdkCode、outcome 保留兼容，fail 的 errMsg 缩短为“方法名:fail 短提示”，原始说明移至 detail。Vue/uvue 示例直接展示 code/msg。

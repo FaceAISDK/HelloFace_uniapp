@@ -37,6 +37,9 @@ export function statusMessage(code: FaceCode, method: string): string {
   if (code == 0) {
     if (method == 'enrollFace') return '录入成功'
     if (method == 'verifyFace') return '验证通过'
+    if (method == 'detectLiveness') return '活体通过'
+    if (method == 'extractFaceFeature') return '提取成功'
+    if (method == 'getFaceStatue') return '查询成功'
     if (method == 'getFaceFeature') return '读取成功'
     if (method == 'syncFaceImage' || method == 'syncFaceFeature') return '同步成功'
     if (method == 'setFaceFeature') return '保存成功'

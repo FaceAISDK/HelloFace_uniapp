@@ -1,5 +1,5 @@
-import { EnrollFace, VerifyFace, GetFaceFeature, SetFaceFeature, DeleteFace, EnrollFaceOptions, VerifyFaceOptions, FaceIDOptions, SetFaceFeatureOptions, SyncFaceImage, SyncFaceFeature, SyncFaceImageOptions, SyncFaceFeatureOptions, CancelOptions } from '../interface.uts'
-import { invokeFaceMethod, createFaceParams, createEnrollParams, createVerifyParams, createFeatureParams, createImageParams } from '../shared.uts'
+import { EnrollFace, VerifyFace, GetFaceFeature, SetFaceFeature, DeleteFace, EnrollFaceOptions, VerifyFaceOptions, FaceIDOptions, SetFaceFeatureOptions, SyncFaceImage, SyncFaceFeature, SyncFaceImageOptions, SyncFaceFeatureOptions, CancelOptions, DetectLiveness, DetectLivenessOptions, ExtractFaceFeature, ExtractFaceFeatureOptions, GetFaceStatue } from '../interface.uts'
+import { invokeFaceMethod, createFaceParams, createEnrollParams, createVerifyParams, createFeatureParams, createImageParams, createLivenessParams, createExtractParams } from '../shared.uts'
 
 // 平台适配边界：公共参数与回调语义由 shared.uts 处理。
 const invokeNative = function (method: string, raw: string, callback: (raw: string) => void): void {
@@ -51,4 +51,20 @@ export const deleteFace: DeleteFace = function (options: FaceIDOptions) {
 export function cancel(options: CancelOptions | null = null): void {
   invokeFaceMethod('cancel', createFaceParams(''),
     options?.success ?? null, options?.fail ?? null, options?.complete ?? null, null, invokeNative)
+}
+
+export const detectLiveness: DetectLiveness = function (options: DetectLivenessOptions) {
+  invokeFaceMethod('detectLiveness', createLivenessParams(options),
+    options.success ?? null, options.fail ?? null, options.complete ?? null,
+    options.onProgress ?? null, invokeNative)
+}
+
+export const extractFaceFeature: ExtractFaceFeature = function (options: ExtractFaceFeatureOptions) {
+  invokeFaceMethod('extractFaceFeature', createExtractParams(options),
+    options.success ?? null, options.fail ?? null, options.complete ?? null, null, invokeNative)
+}
+
+export const getFaceStatue: GetFaceStatue = function (options: FaceIDOptions) {
+  invokeFaceMethod('getFaceStatue', createFaceParams(options.faceID),
+    options.success ?? null, options.fail ?? null, options.complete ?? null, null, invokeNative)
 }

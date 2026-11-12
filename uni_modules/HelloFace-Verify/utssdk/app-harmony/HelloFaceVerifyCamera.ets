@@ -5,7 +5,7 @@ import { systemDateTime } from '@kit.BasicServicesKit';
 import { ComponentContent, window, display, promptAction, ImmersiveMode } from '@kit.ArkUI';
 import { HiFaceSdk, FaceRequest, FaceFlowListener, FaceFlowProgress, FaceFlowResult,
   FaceFlowStage, FaceFlowOutcome, FaceAction, HiFaceError, HiFaceErrorCode,
-  FaceVerificationConfig, Yuv420Frame, YuvPlane, YuvColorRange, YuvColorMatrix } from 'hiface';
+  FaceVerificationConfig, FaceLivenessConfig, Yuv420Frame, YuvPlane, YuvColorRange, YuvColorMatrix } from 'hiface';
 import { BridgeError, FaceParams, NativeData, envelope, errorEnvelope, unwrap } from './BridgeTypes';
 import { ReferenceStore } from './ReferenceStore';
 import { HelloFaceVerifyPresentation as UI } from './HelloFaceVerifyPresentation';
@@ -54,12 +54,12 @@ struct FaceCameraDialog {
     this.safeTop = flow.safeTop; this.safeBottom = flow.safeBottom;
     this.safeLeft = flow.safeLeft; this.safeRight = flow.safeRight;
     this.viewportWidth = flow.viewportWidth; this.viewportHeight = flow.viewportHeight;
-    this.phase = UI.phase(flow.isEnrollment());
+    this.phase = flow.isLiveness() ? UI.livenessPhase : UI.phase(flow.isEnrollment());
     flow.onPreviewSize = (width: number, height: number): void => { this.previewRatio = width / height; };
     flow.onStatus = (stage: string, action: string | undefined, step: number, count: number): void => {
       if (!this.visible || this.captured) return;
       this.guidance = UI.guidance(stage, action);
-      this.phase = UI.phase(flow.isEnrollment(), stage, step, count);
+      this.phase = flow.isLiveness() && stage !== 'PERFORM_ACTION' ? UI.livenessPhase : UI.phase(flow.isEnrollment(), stage, step, count);
       this.warning = UI.isWarning(stage);
       this.updateCaptureProgress(stage);
       this.drawMask();
@@ -216,7 +216,7 @@ struct FaceCameraDialog {
         .fontColor(CAMERA_INK).backgroundColor(Color.Transparent).borderRadius(UI.backSize / 2)
         .position({ x: this.safeLeft + UI.backInset, y: this.safeTop + UI.headerInset }).accessibilityText(UI.backLabel)
         .opacity(this.saving ? UI.disabledAlpha : 1).enabled(!this.saving).onClick((): void => { this.flow?.cancel(); })
-      Text(this.flow?.isEnrollment() === true ? UI.enrollHeading : UI.verifyHeading).fontSize(UI.fontHeading).fontWeight(FontWeight.Medium)
+      Text(this.flow?.isEnrollment() === true ? UI.enrollHeading : (this.flow?.isLiveness() === true ? UI.livenessHeading : UI.verifyHeading)).fontSize(UI.fontHeading).fontWeight(FontWeight.Medium)
         .fontColor(CAMERA_INK).textAlign(TextAlign.Center).width(UI.headingWidth).height(UI.backSize)
         .position({ x: this.centerX() - UI.headingWidth / 2, y: this.safeTop + UI.headerInset })
       Text(UI.localLabel).fontSize(UI.fontLocal).fontColor(CAMERA_GREEN).textAlign(TextAlign.Center)
@@ -341,6 +341,7 @@ export class CameraFlow {
     this.startup = this.setup(surfaceID).catch((error: Error): void => { this.fail(error); });
   }
   isEnrollment(): boolean { return this.method === 'enrollFace'; }
+  isLiveness(): boolean { return this.method === 'detectLiveness'; }
   isFrontCamera(): boolean { return this.params.camera !== 'back'; }
   private async prepareScreen(): Promise<void> {
     try { await this.mainWindow.setWindowKeepScreenOn(true); this.changedKeepScreenOn = true; } catch (_) {}
@@ -380,10 +381,16 @@ export class CameraFlow {
         if (value === 'shakeHead') return FaceAction.SHAKE_HEAD;
         return FaceAction.NOD_HEAD;
       });
-      const config = new FaceVerificationConfig(this.reference ?? '', this.params.threshold ?? 0.80,
-        this.params.silentLiveness ?? true, actions, this.params.actionTimeoutMs ?? 10000,
-        this.params.faceTimeoutMs ?? 15000, false);
-      this.request = unwrap(await this.sdk.verification().startCameraVerification(config, listener));
+      if (this.method === 'detectLiveness') {
+        const config = new FaceLivenessConfig(actions, this.params.actionTimeoutMs ?? 10000,
+          this.params.faceTimeoutMs ?? 15000, false);
+        this.request = unwrap(await this.sdk.liveness().startCameraLiveness(config, listener));
+      } else {
+        const config = new FaceVerificationConfig(this.reference ?? '', this.params.threshold ?? 0.80,
+          this.params.silentLiveness ?? true, actions, this.params.actionTimeoutMs ?? 10000,
+          this.params.faceTimeoutMs ?? 15000, false);
+        this.request = unwrap(await this.sdk.verification().startCameraVerification(config, listener));
+      }
     }
     this.checkActive();
     const manager = camera.getCameraManager(this.context);
@@ -539,7 +546,7 @@ export class CameraFlow {
   cancel(): void { if (!this.committing) this.finish(envelope('error', 'CANCELLED', 'Face operation cancelled')); }
   private resultData(value: FaceFlowResult): NativeData {
     return { feature: this.method === 'enrollFace' ? value.feature : undefined, passed: value.isPassed(),
-      outcome: FaceFlowOutcome[value.outcome], similarity: value.similarity, livenessScore: value.livenessScore };
+      outcome: FaceFlowOutcome[value.outcome], similarity: this.method === 'verifyFace' ? value.similarity : undefined, livenessScore: value.livenessScore };
   }
   private fail(error: Error): void { this.finish(errorEnvelope(error)); }
   private finish(response: string): void {

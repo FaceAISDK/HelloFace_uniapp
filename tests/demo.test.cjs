@@ -31,41 +31,51 @@ function loadPage(filename, app = true) {
   })
   assert.equal(diagnostics.length, 0)
   const calls = [], modals = [], exports = {}
-  const sandbox = { exports, demoImageBase64: 'external-demo-photo', demoFeature: 'external-demo-feature', demoFeatureSpaceID: 'jdx-feature-v1', uni: { hideKeyboard() {}, showModal: options => modals.push(options) } }
+  const sandbox = { exports, demoImageBase64: 'demo-photo', demoFeature: 'demo-feature', demoFeatureSpaceID: 'jdx-feature-v1', uni: { hideKeyboard() {}, showModal: options => modals.push(options) } }
   for (const name of ['syncFaceImage', 'syncFaceFeature', 'enrollFace', 'verifyFace', 'getFaceFeature', 'deleteFace', 'cancel']) {
     sandbox[name] = options => calls.push({ name, options })
   }
   vm.runInNewContext(outputText, sandbox, { filename })
   const page = exports.default
   const state = page.data()
+  for (const [name, getter] of Object.entries(page.computed || {})) {
+    Object.defineProperty(state, name, { get: getter.bind(state) })
+  }
   for (const [name, method] of Object.entries(page.methods)) state[name] = method.bind(state)
   return { state, calls, modals, unload: () => page.onUnload.call(state) }
 }
 
 for (const file of ['pages/index/index.vue', 'examples/uni-app-x/pages/index/index.uvue']) {
-  test(`${file}: external demo sync works without local enrollment or reading a device feature`, () => {
+  test(`${file}: demo sync keeps the current faceID without enrollment or reading device features`, () => {
     const { state, calls } = loadPage(file)
     state.syncImage()
     assert.equal(calls[0].name, 'syncFaceImage')
-    assert.equal(calls[0].options.imageBase64, 'external-demo-photo')
-    assert.equal(calls[0].options.faceID, 'external-demo')
-    calls[0].options.success({ code: 0, msg: '同步成功', faceID: 'external-demo', passed: null })
+    assert.equal(calls[0].options.imageBase64, 'demo-photo')
+    assert.equal(calls[0].options.faceID, 'demo-user')
+    assert.equal(state.faceID, 'demo-user')
+    assert.equal(calls[0].options.overwrite, true)
+    calls[0].options.success({ code: 0, msg: '同步成功', faceID: 'demo-user', passed: null })
     calls[0].options.complete({})
     assert.ok(!state.resultText.includes('passed:'))
+    state.faceID = 'chosen-user'
     state.syncFeature()
     assert.equal(calls[1].name, 'syncFaceFeature')
-    assert.equal(calls[1].options.feature, 'external-demo-feature')
+    assert.equal(calls[1].options.feature, 'demo-feature')
     assert.equal(calls[1].options.featureSpaceID, 'jdx-feature-v1')
+    assert.equal(calls[1].options.faceID, 'chosen-user')
+    assert.equal(state.faceID, 'chosen-user')
+    assert.equal(calls[1].options.overwrite, true)
     assert.equal(calls.length, 2)
   })
-  test(`${file}: verification displays the SDK verdict and uses the chosen action mode`, () => {
+  test(`${file}: verification displays the SDK verdict and retains the submitted liveness mode`, () => {
     const { state, calls } = loadPage(file)
-    state.verify(true)
+    state.changeActions({ detail: { value: true } })
+    state.verify()
     const options = calls[0].options
     assert.equal(options.faceID, 'demo-user')
-    // Demo 省略默认项，由插件统一提供阈值与静默活体默认值。
+    // 阈值使用插件默认值；静默活体必须显式传递用户选择。
     assert.equal(options.threshold, undefined)
-    assert.equal(options.silentLiveness, undefined)
+    assert.equal(options.silentLiveness, true)
     assert.deepEqual(Array.from(options.actions), ['blink', 'nodHead'])
     options.success({ code: 202, msg: '活体未通过', errMsg: 'verifyFace:ok', faceID: 'demo-user', passed: false,
       outcome: 'SPOOF_DETECTED', similarity: 0.999, livenessScore: null })
@@ -77,16 +87,47 @@ for (const file of ['pages/index/index.vue', 'examples/uni-app-x/pages/index/ind
     assert.match(state.resultText, /similarity: 0\.999/)
     assert.ok(!state.resultText.includes('livenessScore:'))
     assert.equal(state.busy, false)
-    state.verify(false)
+    assert.equal(state.resultMode, '静默 + 动作活体')
+    state.changeActions({ detail: { value: false } })
+    assert.equal(state.resultMode, '静默 + 动作活体') // 切换下次选项不改写上次结果的模式。
+    state.verify()
     assert.deepEqual(Array.from(calls[1].options.actions), [])
-    assert.equal(calls[1].options.silentLiveness, undefined)
+    assert.equal(calls[1].options.silentLiveness, true)
+  })
+
+  test(`${file}: all four liveness choices reach verifyFace independently and stay locked while busy`, () => {
+    for (const [silent, actions, mode] of [
+      [false, false, '仅人脸比对'], [true, false, '仅静默活体'],
+      [false, true, '仅动作活体'], [true, true, '静默 + 动作活体']
+    ]) {
+      const { state, calls } = loadPage(file)
+      assert.equal(state.silentLiveness, true)
+      assert.equal(state.actionLiveness, false)
+      state.changeSilent({ detail: { value: silent } })
+      state.changeActions({ detail: { value: actions } })
+      assert.equal(state.verificationMode, mode)
+      state.verify()
+      assert.equal(calls[0].name, 'verifyFace')
+      assert.equal(calls[0].options.silentLiveness, silent)
+      assert.deepEqual(Array.from(calls[0].options.actions), actions ? ['blink', 'nodHead'] : [])
+      assert.equal(state.resultMode, mode)
+      state.changeSilent({ detail: { value: !silent } })
+      state.changeActions({ detail: { value: !actions } })
+      state.verify()
+      assert.equal(calls.length, 1)
+      assert.equal(state.silentLiveness, silent)
+      assert.equal(state.actionLiveness, actions)
+      calls[0].options.complete({})
+      state.syncImage()
+      assert.equal(state.resultMode, '')
+    }
   })
 
   test(`${file}: enrollment calls the plugin directly without retaining biometric features`, () => {
     const { state, calls } = loadPage(file)
     state.enroll()
     state.enroll()
-    state.verify(false)
+    state.verify()
     assert.equal(calls.length, 1)
     assert.equal(calls[0].name, 'enrollFace')
     assert.equal(calls[0].options.overwrite, true)
@@ -103,7 +144,7 @@ for (const file of ['pages/index/index.vue', 'examples/uni-app-x/pages/index/ind
     const { state, calls, modals } = loadPage(file)
     state.remove()
     assert.equal(calls.length, 0)
-    state.verify(false)
+    state.verify()
     assert.equal(calls.length, 0)
     modals[0].success({ confirm: false })
     assert.equal(calls.length, 0)
@@ -121,7 +162,7 @@ for (const file of ['pages/index/index.vue', 'examples/uni-app-x/pages/index/ind
 
   test(`${file}: failures release the buttons and unloading cancels active work`, () => {
     const { state, calls, unload } = loadPage(file)
-    state.verify(false)
+    state.verify()
     calls[0].options.fail({ code: 102, msg: '相机未授权', errCode: 9011002, sdkCode: 'PERMISSION_DENIED',
       faceID: 'demo-user', errMsg: 'verifyFace:fail 相机未授权', detail: 'Original camera diagnostics' })
     calls[0].options.complete({})
@@ -130,7 +171,7 @@ for (const file of ['pages/index/index.vue', 'examples/uni-app-x/pages/index/ind
     assert.ok(!state.resultText.includes('Original camera diagnostics'))
     assert.match(state.resultText, /faceID: demo-user/)
     assert.equal(state.busy, false)
-    state.verify(false)
+    state.verify()
     unload()
     assert.equal(calls[2].name, 'cancel')
   })
@@ -147,7 +188,7 @@ for (const file of ['pages/index/index.vue', 'examples/uni-app-x/pages/index/ind
   test(`${file}: browser preview never simulates recognition success`, () => {
     const { state, calls } = loadPage(file, false)
     for (const action of ['enroll', 'verify', 'remove']) {
-      state[action](false)
+      state[action]()
       assert.match(state.resultText, /请在 App 真机体验/)
       assert.equal(state.busy, false)
       assert.equal(calls.length, 0)

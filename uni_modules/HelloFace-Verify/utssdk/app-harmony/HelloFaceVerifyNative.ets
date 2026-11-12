@@ -50,7 +50,7 @@ export class HelloFaceVerifyNative {
       try { callback(result); }
       finally { cancellations.forEach((cancelled: (value: string) => void): void => { cancelled(envelope()); }); }
     };
-    if (method === 'enrollFace' || method === 'verifyFace') HelloFaceVerifyNative.cameraCallback = callback;
+    if (method === 'enrollFace' || method === 'verifyFace' || method === 'detectLiveness') HelloFaceVerifyNative.cameraCallback = callback;
     HelloFaceVerifyNative.execute(context, method, raw, token, callback, finish).catch((error: Error): void => {
       finish(errorEnvelope(error));
     });
@@ -61,9 +61,12 @@ export class HelloFaceVerifyNative {
     const params = JSON.parse(raw) as FaceParams;
     const store = new ReferenceStore(context);
     const feature = method === 'verifyFace' && params.referenceFeature !== undefined ? params.referenceFeature :
-      (method === 'deleteFace' ? undefined : await store.get(params.faceID));
+      (method === 'deleteFace' || method === 'detectLiveness' || method === 'extractFaceFeature' ? undefined : await store.get(params.faceID));
     if (token !== HelloFaceVerifyNative.generation) return;
-    if (method === 'getFaceFeature') {
+    if (method === 'getFaceStatue') {
+      // 缺少基准是正常查询结果；解密/存储异常由上层 fail 返回，不伪装成不存在。
+      finish(envelope('result', 'OK', '', { exists: feature !== undefined }));
+    } else if (method === 'getFaceFeature') {
       if (feature === undefined) throw new BridgeError('NOT_FOUND', 'No enrolled face for faceID');
       finish(envelope('result', 'OK', '', { feature: feature }));
     } else if (method === 'deleteFace') {
@@ -72,12 +75,12 @@ export class HelloFaceVerifyNative {
       if (feature !== undefined && params.overwrite !== true) throw new BridgeError('ALREADY_EXISTS', 'Face already enrolled');
       await store.save(params.faceID, params.feature ?? '');
       finish(envelope('result', 'OK', '', { feature: params.feature }));
-    } else if (method === 'syncFaceImage') {
-      if (feature !== undefined && params.overwrite !== true) throw new BridgeError('ALREADY_EXISTS', 'Face already enrolled');
+    } else if (method === 'syncFaceImage' || method === 'extractFaceFeature') {
+      if (method === 'syncFaceImage' && feature !== undefined && params.overwrite !== true) throw new BridgeError('ALREADY_EXISTS', 'Face already enrolled');
       const incoming = await FaceImageImporter.extract(context, params.imageBase64 ?? '');
-      await store.save(params.faceID, incoming);
+      if (method === 'syncFaceImage') await store.save(params.faceID, incoming);
       finish(envelope('result', 'OK', '', { feature: incoming }));
-    } else if (method === 'enrollFace' || method === 'verifyFace') {
+    } else if (method === 'enrollFace' || method === 'verifyFace' || method === 'detectLiveness') {
       if (method === 'enrollFace' && feature !== undefined && params.overwrite !== true) {
         throw new BridgeError('ALREADY_EXISTS', 'Face already enrolled');
       }

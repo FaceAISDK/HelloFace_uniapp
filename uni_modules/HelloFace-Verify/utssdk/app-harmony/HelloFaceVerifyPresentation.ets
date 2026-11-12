@@ -44,6 +44,8 @@ export class HelloFaceVerifyPresentation {
     static readonly actionFallback: string = "请按提示完成动作";
     static readonly stageFallback: string = "请正对镜头";
     static readonly cancelCapture: string = "取消录入";
+    static readonly livenessHeading: string = "活体检测";
+    static readonly livenessPhase: string = "实时活体检测";
     static readonly sideInset: number = 24;
     static readonly headerInset: number = 8;
     static readonly backInset: number = 12;
