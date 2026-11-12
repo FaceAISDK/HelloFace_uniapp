@@ -1,0 +1,11 @@
+// 本地 Xcode 宿主的 Release 配置示例；HBuilderX 云打包不会自动读取此文件。
+// 优化封装与宿主代码，不改动锁定的预编译 SDK、模型或对外符号契约。
+SWIFT_OPTIMIZATION_LEVEL = -Osize
+GCC_OPTIMIZATION_LEVEL = s
+DEAD_CODE_STRIPPING = YES
+STRIP_INSTALLED_PRODUCT = YES
+COPY_PHASE_STRIP = YES
+ARCHS = arm64
+ONLY_ACTIVE_ARCH = NO
+// 符号单独保存在 Archive/dSYM，不放入 IPA；保留用于崩溃还原。
+DEBUG_INFORMATION_FORMAT = dwarf-with-dsym

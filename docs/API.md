@@ -11,7 +11,7 @@
 | 同步后离线使用 | `syncFaceFeature({ faceID, feature, featureSpaceID })` | 后续只传 `faceID` | 是 |
 | 外部已录照片 | `syncFaceImage({ faceID, imageBase64 })` | 后续只传 `faceID` | 是 |
 
-`faceID` 始终必填，是业务账号标识而非相机采集结果。直接传基准时它用于关联回调，不要求本机已经录入。录入/同步/删除只影响本机，不会调用业务服务器。
+录入、验证和基准管理接口的 `faceID` 必填，是业务账号标识而非相机采集结果。直接传基准验证时它用于关联回调，不要求本机已经录入；独立活体 `detectLiveness` 和纯图片提取 `extractFaceFeature` 不需要该参数。录入/同步/删除只影响本机，不会调用业务服务器。
 
 ## 最小调用
 
@@ -65,7 +65,7 @@ verifyFace({
 | `threshold` | number | `0.80` | 有限数值 0..1；相似度不是身份概率，调低会放宽要求 |
 | `silentLiveness` | boolean | `true` | 是否开启静默活体；false 不会清除 actions |
 | `actions` | FaceAction[] | `[]` | 按顺序执行，最多 4 步，可重复；空数组不做动作活体 |
-| `actionTimeoutMs` | number | `10000` | 每步动作超时，2000..30000 的整数毫秒 |
+| `actionTimeoutMs` | number | `3000` | 每步动作超时，2000..30000 的整数毫秒 |
 | `faceTimeoutMs` | number | `15000` | SDK 等待人脸的超时，1000..60000 的整数毫秒 |
 | `camera` | FaceCamera | `'front'` | 前置/后置 |
 | `onProgress` | function | 可选 | 过程通知 |
@@ -78,12 +78,12 @@ verifyFace({
 verifyFace({
   faceID: 'user-001',
   actions: ['blink', 'nodHead'],
-  actionTimeoutMs: 10000,
+  actionTimeoutMs: 3000,
   success: (res) => { /* 仍以 res.passed === true 判断 */ }
 })
 ```
 
-静默与动作是两个独立选项，组合如下；Demo 的动作开关使用眨眼、点头两步：
+静默与动作是两个独立选项，组合如下。Demo 默认勾选眨眼、点头，开启动作后可从四种动作中选择，至少保留一项，按列表顺序执行：
 
 | `silentLiveness` | `actions` | 验证内容 |
 | --- | --- | --- |
@@ -123,13 +123,15 @@ getFaceStatue({
 
 | 接口 | 必要输入 | 可选配置 | 成功结果 |
 | --- | --- | --- | --- |
-| `detectLiveness` | options 对象，可为 `{}` | `actions: []`、`actionTimeoutMs: 10000`、`faceTimeoutMs: 15000`、`camera: 'front'`、`onProgress` | `passed / outcome / livenessScore`；`feature / similarity` 为 null |
+| `detectLiveness` | options 对象，可为 `{}` | `actions: []`、`actionTimeoutMs: 3000`、`faceTimeoutMs: 15000`、`camera: 'front'`、`onProgress` | `passed / outcome / livenessScore`；`feature / similarity` 为 null |
 | `extractFaceFeature` | `imageBase64` | 通用回调 | `feature / featureSpaceID`；不作身份或活体判定 |
 | `getFaceStatue` | `faceID` | 通用回调 | `exists: true / false`；不返回原始特征，不初始化识别 SDK |
 
 三者沿用 `success / fail / complete`，返回 `void`。独立活体与图片提取不绑定用户，回调 `faceID` 为空串；状态查询返回归一化后的输入标识。独立活体支持进度与 `cancel()`，参数限制及后台释放/亮度恢复与验证共用。取消只作用于相机，不取消图片提取或存储操作；操作槽未释放前其他调用仍返回 104。
 
 当前 SDK 0.8.11 的独立活体流程**始终包含静默活体**，非空 `actions` 叠加动作挑战，因此该接口不提供 `silentLiveness` 开关；需要对身份比对配置四种组合时继续使用 `verifyFace`。依据 [锁定 SDK 的公开说明](https://github.com/FaceSDKPro/HelloFace/blob/dc60c7b15ebf8038fb73a752bcea3590bbd86eaf/platforms/Harmony/SDK.zh-CN.md#相机流程生命周期)。
+
+Vue/uvue 首页在“1:1 人脸验证”下方提供“独立活体检测”卡片，点击“开始活体检测”即可演示；无需先录入或填写 faceID。该卡片单独保存动作开关和勾选结果，关闭动作时只做静默活体，打开时追加所选动作，默认眨眼、点头，至少保留一项。`detectLiveness({ actions: [] })` 是有效的静默活体调用，现有接口没有“两种活体都关闭”的状态；“两个都关闭应报参数错误”不适用于当前契约。身份验证的两个开关都关闭时，`verifyFace` 仍按既有约定只比对身份。
 
 图片提取复用 `syncFaceImage` 的 PNG/JPEG、Base64、6 MiB、EXIF、像素及人脸大小限制，但不读取或写入任何基准，不覆盖已录用户，也不落盘图片。状态查询只读：不存在返回 `code: 0, exists: false`，存在且能读取返回 `exists: true`；读取/解密失败走 `fail`（302），不能把异常当作未录入。存在状态不等于身份或活体通过，也不能恢复已被清除的基准。
 
@@ -187,7 +189,7 @@ syncFaceFeature({
 
 `faceID` 自动去除两端空白，长度为 1..64 个 UTF-16 单元，禁止 NUL。建议使用稳定的账号 ID，不使用手机号展示名等会变动的文本。特征空间参与本机存储键，已有加密存储键未因本次升级改变。
 
-HF1 是当前 SDK 的 604 字符特征编码，本身不是加密格式，不是图片/base64。`feature` 与 `featureSpaceID` 必须成对保存和传递；当前空间为 `jdx-feature-v1`，旧 FaceAISDK-Core 或其他模型特征不能直接使用。格式、空间、数值范围不符时在进入原生流程前 fail(9011001)，错误说明不回显完整特征。
+HF1 是当前 SDK 的 604 字符特征编码，本身不是加密格式，不是图片/base64。`feature` 与 `featureSpaceID` 必须成对保存和传递；当前空间为 `jdx-feature-v1`，旧 FaceAISDK-Core 或其他模型特征不能直接使用。共享层检查 HF1 长度、字符集和空间，不符时在进入原生流程前 fail(9011001)；特征内容是否可用于比对由真实 SDK 判断，不能把格式通过当作有效身份基准。错误说明不回显完整特征。
 
 ```js
 import { verifyFace, setFaceFeature } from '@/uni_modules/HelloFace-Verify'
@@ -218,7 +220,8 @@ setFaceFeature({ faceID: 'user-001', feature: savedFeature, featureSpaceID: save
 | `code` | FaceCode | 简短返回码，见下表 |
 | `msg` | string | 可直接展示的短提示 |
 | `errMsg` | string | 如 `verifyFace:ok`，用于区分接口完成状态 |
-| `faceID` | string | 规范化后的用户标识；cancel 为空 |
+| `faceID` | string | 规范化后的用户标识；cancel、独立活体、纯图片提取为空串 |
+| `exists` | boolean / null，可选字段 | 仅 getFaceStatue 返回 true/false，其他接口为 null；读取异常走 fail |
 | `passed` | boolean / null | 录入/验证/独立活体的 SDK 判定；其他接口为 null |
 | `outcome` | string / null | SDK 业务结果，未产生为 null |
 | `similarity` | number / null | 仅验证返回实际相似度；其他接口、未产生或非有限值为 null |

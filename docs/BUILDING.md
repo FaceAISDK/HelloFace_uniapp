@@ -26,7 +26,9 @@
 
 ## 通用准备
 
-在仓库根目录执行：
+以下命令用于 GitHub 源码的 SDK 安装和仓库检查，不是插件运行时依赖。已从插件市场导入完整 SDK 的使用者，可直接在 HBuilderX 配置并构建 Demo，无需安装 Python；也可按 `sdk-artifacts.json` 手动补齐 SDK。Python 仅是安装、校验、同步示例等辅助脚本的环境要求。Android / iOS 的云端自定义基座和完整本地构建均可，鸿蒙走本地构建，不强制在线制作基座。
+
+选择脚本准备时，在仓库根目录执行：
 
 ```sh
 npm ci --ignore-scripts
@@ -159,6 +161,14 @@ HBuilderX 官方鸿蒙流程在本机调用 DevEco 工具链完成构建，不�
 当前已完成根 Vue3 示例的完整 HAP 构建、签名、安装及鸿蒙 API 26 真机运行。本机匹配的调试签名配置在被 Git 忽略的 `harmony-configs/build-profile.json5`，其他电脑需配置自己的身份及匹配 Profile。独立 uni-app x 完整 App、HarmonyOS 6 实机及真人用例的验收边界见 [验证记录](VALIDATION.md)。两套示例的最低鸿蒙版本均固定为 `6.0.0(20)`，以满足真实 HAR 的 API 20 要求。
 
 本工程的设备连接、签名匹配、CLI 运行、断点、日志和修改后重建步骤见 [鸿蒙真机运行与调试](HARMONY_DEBUG.md)。
+
+## 市场示例包体积
+
+根目录 `.npmignore` 按 [DCloud 发布忽略规则](https://uniapp.dcloud.net.cn/plugin/uni_modules#npmignore) 排除构建缓存、签名文件、生成的 uvue 副本及图标原始画稿/提示词；它接替 `.gitignore` 参与示例打包，因此维护时应同步保留私密文件的排除项。仓库仍保留这些素材，示例保留全部运行图标、源码、文档与 SDK 安装脚本。示例源码 ZIP 的大小不代表完整 App 或 SDK 插件包的大小。
+
+图标已无损压缩，尺寸、透明度、像素及色彩元数据保持不变。以后更新图标时执行 `npm run icons:build`、`npm run icons:optimize`、`npm run demo:prepare`；可选压缩工具的环境说明见 [图标说明](../app-icons/README.md)。正常导入和构建示例不需要安装该工具。示例包不携带本机安装的 SDK 二进制，下载后按“通用准备”执行 `sdk:install`；独立发布的插件包仍需包含真实 SDK 及其资源，不应为缩小示例而移除插件依赖。
+
+APK / IPA / HAP 的发行压缩、混淆、原生库裁剪及实测边界见 [Demo 安装包体积](APP_SIZE.md)，不能用源码 ZIP 大小推算安装包。根 Vue 可用 `npm run android:release` 制作正式 APK；鸿蒙通过公开的 `harmony-configs` Release 配置优化，iOS 本地宿主配置见对应章节。
 
 ## 发布前验证
 

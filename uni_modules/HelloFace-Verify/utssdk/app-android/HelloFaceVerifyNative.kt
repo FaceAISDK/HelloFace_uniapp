@@ -10,7 +10,10 @@ import java.util.UUID
 import java.util.concurrent.Executors
 
 internal class CameraJob(val id: String, val method: String, val params: JSONObject,
-    val callback: (String) -> Unit, var reference: String? = null, var committing: Boolean = false)
+    val callback: (String) -> Unit, var reference: String? = null, var committing: Boolean = false) {
+    var ending = false
+    val cancellations = mutableListOf<(String) -> Unit>()
+}
 
 object HelloFaceVerifyNative {
     // 云基座与本地联编模块名不同；PublishedApi 保持访问器 JVM 名称一致，避免旧后缀导致 NoSuchMethodError。
@@ -24,19 +27,29 @@ object HelloFaceVerifyNative {
         .put("message", message).put("data", data).toString()
 
     @PublishedApi internal fun finish(id: String, response: String) {
-        main.post {
-            // 只允许当前任务收尾；旧相机或后台工作线程的迟到回调不能结束新任务。
-            val current = job
-            if (current?.id != id) return@post
-            job = null
-            camera.get()?.takeIf { it.jobID == id }?.let { it.shutdownCamera(); it.finish() }
-            camera.clear()
-            current.callback(response)
+        main.post { finishOnMain(id, response) }
+    }
+
+    private fun finishOnMain(id: String, response: String) {
+        val current = job
+        if (current?.id != id || current.ending) return
+        current.ending = true
+        val activity = camera.get()?.takeIf { it.jobID == id }
+        val complete = {
+            // 等待在途帧归还后再释放槽位；旧任务的迟到结果不能结束新任务。
+            if (job === current) {
+                activity?.finish()
+                job = null
+                camera.clear()
+                try { current.callback(response) }
+                finally { current.cancellations.forEach { it(envelope()) } }
+            }
         }
+        if (activity == null) complete() else activity.shutdownCamera(complete)
     }
 
     @PublishedApi internal fun progress(id: String, data: JSONObject) {
-        main.post { job?.takeIf { it.id == id }?.callback?.invoke(envelope("progress", data = data)) }
+        main.post { job?.takeIf { it.id == id && !it.ending }?.callback?.invoke(envelope("progress", data = data)) }
     }
 
     @JvmStatic fun invoke(context: Context, method: String, raw: String, completion: (String) -> Unit) {
@@ -47,12 +60,9 @@ object HelloFaceVerifyNative {
                 if (current == null || current.method !in listOf("enrollFace", "verifyFace", "detectLiveness")) callback(envelope())
                 else if (current.committing) callback(envelope("error", "BUSY", "Enrollment is being saved"))
                 else {
-                    // Clear the task before callbacks to make reentrant calls safe.
-                    job = null
-                    camera.get()?.let { it.shutdownCamera(); it.finish() }
-                    camera.clear()
-                    try { current.callback(envelope("error", "CANCELLED", "Face operation cancelled")) }
-                    finally { callback(envelope()) }
+                    // 收尾期间重复 cancel 也等待同一次释放，不抢占已确定的 SDK 结果。
+                    current.cancellations.add(callback)
+                    finishOnMain(current.id, envelope("error", "CANCELLED", "Face operation cancelled"))
                 }
                 return@post
             }
@@ -111,7 +121,7 @@ object HelloFaceVerifyNative {
                             } else {
                                 current.reference = feature
                                 main.post {
-                                    if (job?.id == current.id) {
+                                    if (job?.id == current.id && !current.ending) {
                                         try {
                                             context.startActivity(Intent(context, HelloFaceVerifyCameraActivity::class.java)
                                                 .putExtra("requestID", current.id).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))

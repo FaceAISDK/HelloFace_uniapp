@@ -80,16 +80,23 @@ struct FaceCameraDialog {
   private contentLeft(): number { return this.safeLeft + UI.sideInset; }
   private contentWidth(): number { return Math.max(UI.minCircle, this.viewportWidth - this.safeLeft - this.safeRight - UI.sideInset * 2); }
   private centerX(): number { return this.contentLeft() + this.contentWidth() / 2; }
+  private headingLeft(): number { return this.safeLeft + UI.backInset + UI.backSize + UI.headingGap; }
+  private backPath(): string {
+    // Path commands 使用像素，组件宽高使用 vp；不换算会让箭头缩小并偏向左上。
+    const ui = this.getUIContext();
+    const edge = ui.vp2px(UI.backIconStroke / 2);
+    const width = ui.vp2px(UI.backIconWidth); const height = ui.vp2px(UI.backIconHeight);
+    return `M ${edge + width} ${edge} L ${edge} ${edge + height / 2} L ${edge + width} ${edge + height}`;
+  }
   private titleY(): number {
     return this.safeTop + UI.headerInset + (this.viewportHeight - this.safeTop - this.safeBottom < UI.compactHeight ? UI.compactTitleOffset : UI.titleOffset);
   }
-  private circleY(): number { return this.titleY() + UI.circleOffset; }
+  private circleY(): number { return this.titleY() + UI.circleOffset - UI.circleExpansion; }
   private diameter(): number {
     return Math.max(UI.minCircle, Math.min(this.contentWidth(), (this.viewportWidth - this.safeLeft - this.safeRight) * UI.circleRatio,
-      this.viewportHeight - this.safeBottom - UI.liveReserve - this.circleY()));
+      this.viewportHeight - this.safeBottom - UI.liveReserve - (this.titleY() + UI.circleOffset))) + UI.circleExpansion * 2;
   }
   private phaseY(): number { return this.circleY() + this.diameter() + UI.phaseOffset; }
-  private privacyY(): number { return this.viewportHeight - this.safeBottom - UI.footerInset; }
   private previewWidth(): number { return Math.min(this.viewportWidth, this.viewportHeight * this.previewRatio); }
   private previewHeight(): number { return this.previewWidth() / this.previewRatio; }
   private updateCaptureProgress(stage: string): void {
@@ -124,8 +131,7 @@ struct FaceCameraDialog {
     context.globalCompositeOperation = 'destination-out';
     context.beginPath(); context.arc(x, y, radius, 0, Math.PI * 2); context.fill();
     context.globalCompositeOperation = 'source-over';
-    context.lineWidth = UI.borderWidth; context.strokeStyle = UI.colorOuterRing;
-    context.beginPath(); context.arc(x, y, radius + UI.outerRingGap, 0, Math.PI * 2); context.stroke();
+    // 灰色底圈、状态颜色和稳定进度共用同一圆周，不再绘制分离的外圈。
     context.lineWidth = UI.ringWidth;
     const enrollment = this.flow?.isEnrollment() === true;
     context.strokeStyle = this.captured ? CAMERA_GREEN : (this.warning ? UI.colorAmber :
@@ -212,16 +218,20 @@ struct FaceCameraDialog {
         })
       Canvas(this.canvas).width('100%').height('100%').hitTestBehavior(HitTestMode.None)
         .onReady((): void => { this.canvasReady = true; this.drawMask(); })
-      Button('‹', { type: ButtonType.Normal }).width(UI.backSize).height(UI.backSize).fontSize(UI.fontBack)
+      Button({ type: ButtonType.Normal }) {
+        Path().commands(this.backPath()).width(UI.backIconWidth + UI.backIconStroke).height(UI.backIconHeight + UI.backIconStroke)
+          .fill(Color.Transparent).stroke(CAMERA_INK).strokeWidth(UI.backIconStroke)
+          .strokeLineCap(LineCapStyle.Round).strokeLineJoin(LineJoinStyle.Round)
+          // 汉字墨迹中心比 ArkUI 行框中心略高；只补偿图形，不移动按钮点击区域。
+          .translate({ y: -1 })
+      }.width(UI.backSize).height(UI.backSize).padding(0)
         .fontColor(CAMERA_INK).backgroundColor(Color.Transparent).borderRadius(UI.backSize / 2)
         .position({ x: this.safeLeft + UI.backInset, y: this.safeTop + UI.headerInset }).accessibilityText(UI.backLabel)
         .opacity(this.saving ? UI.disabledAlpha : 1).enabled(!this.saving).onClick((): void => { this.flow?.cancel(); })
       Text(this.flow?.isEnrollment() === true ? UI.enrollHeading : (this.flow?.isLiveness() === true ? UI.livenessHeading : UI.verifyHeading)).fontSize(UI.fontHeading).fontWeight(FontWeight.Medium)
-        .fontColor(CAMERA_INK).textAlign(TextAlign.Center).width(UI.headingWidth).height(UI.backSize)
-        .position({ x: this.centerX() - UI.headingWidth / 2, y: this.safeTop + UI.headerInset })
-      Text(UI.localLabel).fontSize(UI.fontLocal).fontColor(CAMERA_GREEN).textAlign(TextAlign.Center)
-        .backgroundColor(UI.colorLocalFill).borderRadius(UI.pillRadius).width(UI.localWidth).height(UI.localHeight)
-        .position({ x: this.contentLeft() + this.contentWidth() - UI.localWidth, y: this.safeTop + UI.headerInset + UI.localOffset })
+        .fontColor(CAMERA_INK).textAlign(TextAlign.Start).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+        .width(Math.max(0, this.contentLeft() + this.contentWidth() - this.headingLeft())).height(UI.backSize)
+        .position({ x: this.headingLeft(), y: this.safeTop + UI.headerInset })
       Text(this.saving ? UI.savingTitle : this.guidance).fontSize(UI.fontTitle).fontWeight(FontWeight.Medium).fontColor(CAMERA_INK)
         .textAlign(TextAlign.Center).maxLines(2).width(this.contentWidth()).height(UI.titleHeight)
         .position({ x: this.contentLeft(), y: this.titleY() })
@@ -243,10 +253,6 @@ struct FaceCameraDialog {
         }.backgroundColor(Color.White).borderRadius(UI.tipsRadius).width(this.contentWidth()).height(UI.tipsHeight)
           .position({ x: this.contentLeft(), y: this.phaseY() + UI.tipsOffset })
       }
-      Text(UI.privacy).fontSize(UI.fontPrivacy).fontColor(CAMERA_MUTED).textAlign(TextAlign.Center)
-        .width(this.contentWidth()).height(UI.privacyHeight).position({ x: this.contentLeft(), y: this.privacyY() })
-      Text(UI.brand).fontSize(UI.fontBrand).fontColor(UI.colorBrand).textAlign(TextAlign.Center)
-        .width(this.contentWidth()).height(UI.brandHeight).position({ x: this.contentLeft(), y: this.privacyY() + UI.brandOffset })
       if (this.captured) { this.ConfirmationDialog() }
     }.width('100%').height('100%').backgroundColor(CAMERA_BACKGROUND)
       .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
@@ -382,12 +388,12 @@ export class CameraFlow {
         return FaceAction.NOD_HEAD;
       });
       if (this.method === 'detectLiveness') {
-        const config = new FaceLivenessConfig(actions, this.params.actionTimeoutMs ?? 10000,
+        const config = new FaceLivenessConfig(actions, this.params.actionTimeoutMs ?? 3000,
           this.params.faceTimeoutMs ?? 15000, false);
         this.request = unwrap(await this.sdk.liveness().startCameraLiveness(config, listener));
       } else {
         const config = new FaceVerificationConfig(this.reference ?? '', this.params.threshold ?? 0.80,
-          this.params.silentLiveness ?? true, actions, this.params.actionTimeoutMs ?? 10000,
+          this.params.silentLiveness ?? true, actions, this.params.actionTimeoutMs ?? 3000,
           this.params.faceTimeoutMs ?? 15000, false);
         this.request = unwrap(await this.sdk.verification().startCameraVerification(config, listener));
       }

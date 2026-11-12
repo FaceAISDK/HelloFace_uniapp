@@ -94,7 +94,7 @@ export type VerifyFaceOptions = {
   silentLiveness?: boolean,
   /** 默认 []。启用动作直接传 ['blink', 'nodHead']；不会自动关闭静默活体。 */
   actions?: FaceAction[],
-  /** 每步动作的超时，整数毫秒 2000..30000；默认 10000。不是整个流程总时长。 */
+  /** 每步动作的超时，整数毫秒 2000..30000；默认 3000。不是整个流程总时长。 */
   actionTimeoutMs?: number,
   /** 等待首次人脸的超时，整数毫秒 1000..60000；默认 15000。仅作用于验证。 */
   faceTimeoutMs?: number,
@@ -112,7 +112,7 @@ export type VerifyFaceOptions = {
 export type DetectLivenessOptions = {
   /** 默认 []，仅静默；可传 ['blink', 'nodHead'] 叠加动作，最多 4 步。 */
   actions?: FaceAction[],
-  /** 默认 10000；每步动作超时，2000..30000 整数毫秒。 */
+  /** 默认 3000；每步动作超时，2000..30000 整数毫秒。 */
   actionTimeoutMs?: number,
   /** 默认 15000；首次人脸等待超时，1000..60000 整数毫秒。 */
   faceTimeoutMs?: number,

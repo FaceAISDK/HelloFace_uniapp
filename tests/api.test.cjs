@@ -102,7 +102,7 @@ for (const platform of ['app-android', 'app-ios', 'app-harmony']) {
       success: r => successes.push(r), complete: r => completed.push(r) })
     assert.equal(calls.length, 1)
     assert.deepEqual(calls[0].params, { faceID: 'user-1', threshold: 0.8, silentLiveness: true,
-      actions: [], actionTimeoutMs: 10000, faceTimeoutMs: 15000, camera: 'front' })
+      actions: [], actionTimeoutMs: 3000, faceTimeoutMs: 15000, camera: 'front' })
     calls[0].reply(JSON.stringify({ event: 'progress', code: 'OK', data: { stage: 'PERFORM_ACTION', action: 'blink', stepNumber: 1, stepCount: 2 } }))
     assert.equal(progress[0].action, 'blink')
     assert.equal(progress[0].code, undefined) // A progress event is not a terminal result.
@@ -279,6 +279,24 @@ for (const platform of ['app-android', 'app-ios', 'app-harmony']) {
     assert.equal(complete, 1)
   })
 
+  test(`${platform}: contradictory passed outcomes fail closed and complete once`, () => {
+    for (const method of ['enrollFace', 'verifyFace', 'detectLiveness']) {
+      for (const outcome of ['', 'NOT_MATCHED', 'SPOOF_DETECTED', 'NO_FACE_TIMEOUT', 'UNKNOWN']) {
+        const { api, calls } = load(platform)
+        let complete = 0, failed = 0
+        api[method]({ faceID: 'u', success: () => assert.fail('Contradictory SDK result passed'),
+          fail: error => { assert.equal(error.sdkCode, 'BRIDGE_ERROR'); assert.equal(error.code, 305); failed++ },
+          complete: () => complete++ })
+        const response = JSON.stringify({ event: 'result', code: 'OK', data: {
+          passed: true, outcome, feature: 'HF1:' + 'A'.repeat(600), similarity: 1, livenessScore: 1
+        } })
+        calls[0].reply(response)
+        calls[0].reply(response)
+        assert.deepEqual([failed, complete], [1, 1])
+      }
+    }
+  })
+
   test(`${platform}: each API returns consistent nullable fields despite native payload extras`, () => {
     const feature = 'HF1:' + 'A'.repeat(600)
     for (const method of ['enrollFace', 'verifyFace', 'getFaceFeature', 'setFaceFeature', 'deleteFace', 'cancel']) {
@@ -384,7 +402,7 @@ for (const platform of ['app-android', 'app-ios', 'app-harmony']) {
     let result, complete = 0, progress = 0
     api.detectLiveness({ onProgress: () => progress++, success: value => { result = value }, complete: () => complete++ })
     assert.equal(calls[0].method, 'detectLiveness')
-    assert.deepEqual(calls[0].params, { faceID: '', actions: [], actionTimeoutMs: 10000, faceTimeoutMs: 15000, camera: 'front' })
+    assert.deepEqual(calls[0].params, { faceID: '', actions: [], actionTimeoutMs: 3000, faceTimeoutMs: 15000, camera: 'front' })
     calls[0].reply(JSON.stringify({ event: 'progress', code: 'OK', data: { stage: 'WAITING_FOR_FACE' } }))
     assert.equal(progress, 1)
     assert.equal(complete, 0)

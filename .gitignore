@@ -18,3 +18,5 @@ examples/uni-app-x/app-icons/
 __pycache__/
 examples/uni-app-x/demo/
 examples/uni-app-x/static/
+examples/uni-app-x/harmony-configs/entry/
+examples/uni-app-x/harmony-configs/AppScope/

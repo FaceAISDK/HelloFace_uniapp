@@ -4,11 +4,15 @@
 
 页面从 `@/uni_modules/HelloFace-Verify` 导入公开 API；不直接访问原生类或 `utssdk` 内部文件。插件按调用初始化 SDK 并管理相机权限、采集页面和资源，无需业务再包一层初始化或相机组件。
 
-录入只需 `enrollFace({ faceID, success, fail, complete })`；验证只需 `verifyFace({ faceID, success, fail, complete })`。默认前置相机、阈值 0.80、开启静默活体。静默与动作独立：Demo 用两个开关展示四种组合，显式传入 `silentLiveness`，按动作开关传 `actions: ['blink', 'nodHead']` 或空数组。保留插件默认值与阈值，录入和存储行为不受验证选项影响。
+录入只需 `enrollFace({ faceID, success, fail, complete })`；验证只需 `verifyFace({ faceID, success, fail, complete })`。默认前置相机、阈值 0.80、开启静默活体。静默与动作独立：Demo 用两个开关展示四种组合，显式传入 `silentLiveness`，开启动作时传当前勾选的 `actions`，关闭时传空数组。保留插件默认值与阈值，录入和存储行为不受验证选项影响。
 
 根 Vue 和独立 uvue 示例保持相同的按钮与调用顺序：每个动作直接调用 API，`begin` 拦截重复点击，`showResult / showError` 只展示结果，`finish` 在 complete 中解除忙碌。Vue/uvue Options API 的页面方法用作回调时保持页面实例绑定；uvue 的结果、错误和 complete 参数按接口声明提供类型。删除先确认，离页取消相机任务，页面不保留返回的原始生物特征。同步按钮使用内置 AI 演示基准，与录入、验证、删除共用当前 `faceID`（默认 `demo-user`），说明见 [外部基准](../demo/README.md)。
 
 `success` 表示接口正常完成，验证必须检查 `passed === true`；2xx 未通过结果仍走 success。`complete` 只做收尾；不要在这里读取业务字段，也不要因相似度高而改写 passed。
+
+独立活体卡片直接调用 `detectLiveness`，不传 faceID/身份基准。SDK 始终静默，因此该卡片只提供一个独立的动作开关；不复用身份验证开关，以免将“仅比对身份”误解为活体选项。两类调用共用 busy、结果回调、complete 和离页取消，结果保留提交时的模式快照；空 faceID 不显示无意义的标识行。
+
+两类流程各自保存四种动作的勾选结果，默认眨眼、点头，按列表顺序归一化。四项在同一行显示，文字 12px，label 保留 44px 点击高度。动作开启时至少一项：最后一个已选 checkbox 禁止取消，提交前仍校验非空；关闭开关保留选择但传空数组。忙碌时锁定勾选，提交数组取副本，结果模式同时快照动作名称，后续修改不影响上次结果。
 
 ## 插件分层
 
@@ -26,13 +30,25 @@
 
 这些路径均相对 `uni_modules/HelloFace-Verify`。插件副本 `examples/uni-app-x/uni_modules/HelloFace-Verify` 由 `npm run demo:prepare` 同步，不在副本中单独修复。
 
+Demo 宿主的鸿蒙发行配置位于根目录 `harmony-configs/entry` 和 `harmony-configs/AppScope`，同步脚本只复制这两个公开目录，不复制包含证书材料的根级 build-profile。安装包的压缩、混淆和实测边界见 [安装包体积](APP_SIZE.md)。
+
 ## 异步流程的约束
 
 调用顺序是「构造默认参数 → 创建本次分发器 → 校验 → 平台适配器 → 原生操作」。校验错误也走 fail 和 complete；三端无需各自复制此逻辑。新增 API 时，先定义类型和参数规则，再选择原生方法，保持这条路径。
 
 原生可以多次发进度，终态只能一次。共享分发器在调用业务回调前标记 ended，避免业务重入或迟到原生事件导致重复 complete；即使 success/fail 抛异常，也通过 finally 收尾。损坏响应走 BRIDGE_ERROR，不产生伪成功。
 
+原生录入、验证和活体页的导航标题位于返回按钮之后，同高度垂直居中；中部动态提示保持原位。不再创建“本机处理”或底部说明/品牌控件。circleExpansion 将原圆形开孔每侧扩大 7 个逻辑单位，覆盖原外圈位置；三端状态边框和录入进度弧必须沿开孔的同一圆周绘制，避免重新出现双圈。相机帧与 SDK 裁剪、阈值不参与这项布局调整。
+
+导航标题使用返回按钮右侧的剩余宽度，单行显示并在空间不足时尾部省略，避免固定宽度在大字体时换行。返回按钮点击区域统一为 48 个逻辑单位；标题与按钮共用顶部及高度。尺寸和间距从 native-ui.json 生成，已经不再使用的旧确认页定位常量不保留。
+
+返回箭头不使用字体字符 ‹：Android 由 Button 绘制路径，iOS 使用 CAShapeLayer，鸿蒙使用 Path，避免字体基线使字形看起来偏移。鸿蒙 Path commands 的像素坐标须通过当前 UIContext.vp2px 换算，并对汉字墨迹中心作 1vp 的图形补偿；不能仅凭按钮/标题控件边界相同便认定视觉对齐。
+
+Demo 的 verifyFace 直接处理失败回调：code 105 在结果区之外立即 Toast“请先录入或同步人脸”。不额外预读 getFaceStatue，也不让取消/离页弹出无基准提示；complete 仍负责解除 busy。
+
 原生任务标识（Android job ID、iOS activeID、鸿蒙 generation）隔离取消、重拍和下一轮操作。鸿蒙授权弹窗尚未返回时也可能取消，必须在 await 之后重新检查代次。不要只隐藏相机页面而保留旧任务。
+
+Android 的 clearAnalyzer 不等待当前帧结束。停止送帧后在同一个分析执行器排入屏障，等 ImageProxy 的 finally 执行后，再在主线程解绑、关闭 SDK、重拍或回调；收尾期间仍占用操作槽。重复 cancel 等待同一次释放，不覆盖已经确定的终态。共享层拒绝 passed 为 true 而 outcome 非 PASSED 的矛盾响应，按 BRIDGE_ERROR 收尾。
 
 用户确认录入后进入提交状态，不能再报告“已取消但基准已保存”。取消确认应在相机/窗口释放及操作槽归还后发出，才能在 cancel 的 success 回调立即重试。相机释放前需等待正在处理的帧；窗口常亮和可见性监听也需要恢复/解除。
 

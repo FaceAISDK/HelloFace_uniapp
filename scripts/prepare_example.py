@@ -16,4 +16,7 @@ shutil.copytree(root / 'uni_modules' / plugin_id, destination, dirs_exist_ok=Tru
 shutil.copytree(root / 'app-icons', destination.parent.parent / 'app-icons', dirs_exist_ok=True)
 shutil.copytree(root / 'demo', destination.parent.parent / 'demo', dirs_exist_ok=True)
 shutil.copytree(root / 'static', destination.parent.parent / 'static', dirs_exist_ok=True)
+# 仅同步公开的模块发行配置；根目录的签名资料继续由应用所有者单独配置。
+shutil.copytree(root / 'harmony-configs' / 'entry', destination.parent.parent / 'harmony-configs' / 'entry', dirs_exist_ok=True)
+shutil.copytree(root / 'harmony-configs' / 'AppScope', destination.parent.parent / 'harmony-configs' / 'AppScope', dirs_exist_ok=True)
 print('Prepared ' + str(destination.parent.parent))

@@ -2,8 +2,8 @@
   "name": "HelloFaceVerify 1:1 Demo",
   "appid": "__UNI__DC2611F",
   "description": "HelloFaceVerify 离线人脸识别与 1:1 人脸比对 UTS 示例",
-  "versionName": "0.1.5",
-  "versionCode": "105",
+  "versionName": "0.2.0",
+  "versionCode": "200",
   "vueVersion": "3",
   "app-plus": {
     "usingComponents": true,
@@ -11,6 +11,7 @@
       "android": {
         "minSdkVersion": 23,
         "enableOAID": false,
+        "enableResourceOptimizations": true,
         "abiFilters": [
           "arm64-v8a",
           "armeabi-v7a"
@@ -22,6 +23,9 @@
       },
       "ios": {
         "deploymentTarget": "15.0",
+        "validArchitectures": [
+          "arm64"
+        ],
         "privacyDescription": {
           "NSCameraUsageDescription": "用于人脸录入与身份验证"
         },

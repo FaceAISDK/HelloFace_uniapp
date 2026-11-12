@@ -128,6 +128,31 @@ class AndroidDebugTests(unittest.TestCase):
         with patch.object(debug, 'run', return_value='Broadcast completed: result=-1, data="' + json.dumps(value) + '"'):
             self.assertEqual(debug.broadcast(['adb'], 'dev.example.demo', 'INFO'), value)
 
+    def test_broadcast_works_when_api23_am_has_no_receiver_foreground_option(self):
+        value = {'protocol': 1, 'code': 'OK', 'fingerprint': 'hfv1:' + 'a' * 64}
+        def legacy_am(command, **kwargs):
+            if '--receiver-foreground' in command:
+                return 'Error: Unknown option: --receiver-foreground\nBroadcasting: null'
+            self.assertIn('-f', command)
+            self.assertEqual(command[command.index('-f') + 1], '0x10000000')
+            return 'Broadcast completed: result=-1, data="' + json.dumps(value) + '"'
+        with patch.object(debug, 'run', side_effect=legacy_am):
+            self.assertEqual(debug.broadcast(['adb'], 'dev.example.demo', 'INFO'), value)
+
+    def test_pidof_ignoring_package_falls_back_to_exact_process_name(self):
+        result = type('Result', (), {'returncode': 0, 'stdout': '1 22 33 44\n'})()
+        rows = 'USER PID NAME\nroot 1 init\nu0_a1 33 dev.example.demo\nu0_a1 44 dev.example.demo:jse\n'
+        for unsupported in ['Error: Unknown option -A', 'USER PID NAME\n']:
+            with patch.object(debug.subprocess, 'run', return_value=result), \
+                 patch.object(debug, 'run', side_effect=[unsupported, rows]):
+                self.assertEqual(debug.app_pids(['adb'], 'dev.example.demo'), ['33'])
+
+    def test_pidof_single_result_remains_a_fast_path(self):
+        result = type('Result', (), {'returncode': 0, 'stdout': '33\n'})()
+        with patch.object(debug.subprocess, 'run', return_value=result), patch.object(debug, 'run') as ps:
+            self.assertEqual(debug.app_pids(['adb'], 'dev.example.demo'), ['33'])
+            ps.assert_not_called()
+
     def test_resource_archive_preserves_content_and_rejects_links_and_oversize(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory); (root / 'manifest.json').write_text('plain content')
@@ -175,6 +200,52 @@ class AndroidDebugTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, '非页面数据'):
                 run_android.migrate_legacy_resources(['adb'], 'dev.example.demo', '__UNI__TEST')
         self.assertFalse(any('mv' in args for args in calls))
+
+    def test_missing_sha256sum_uses_apk_bytes_even_when_old_shell_reports_success(self):
+        scripts = str(Path(__file__).resolve().parents[1] / 'scripts')
+        sys.path.insert(0, scripts)
+        try:
+            import run_android
+        finally:
+            sys.path.pop(0)
+        import subprocess
+        import hashlib
+        for data in [b'PK\x03\x04synthetic-apk', b'/system/bin/sh: cat: file not found']:
+            responses = [subprocess.CompletedProcess([], 0, 'package:/data/app/demo/base.apk\n', ''),
+                         subprocess.CompletedProcess([], 0, '/system/bin/sh: sha256sum: not found\n', ''),
+                         subprocess.CompletedProcess([], 0, data, b'')]
+            with patch.object(run_android.subprocess, 'run', side_effect=responses) as calls:
+                self.assertEqual(run_android.installed_hash(['adb'], 'dev.example.demo'),
+                                 hashlib.sha256(data).hexdigest() if data.startswith(b'PK\x03\x04') else None)
+                self.assertIn('exec-out', calls.call_args_list[-1].args[0])
+
+    def test_valid_device_hash_does_not_download_apk(self):
+        scripts = str(Path(__file__).resolve().parents[1] / 'scripts')
+        sys.path.insert(0, scripts)
+        try:
+            import run_android
+        finally:
+            sys.path.pop(0)
+        import subprocess
+        responses = [subprocess.CompletedProcess([], 0, 'package:/data/app/demo/base.apk\n', ''),
+                     subprocess.CompletedProcess([], 0, 'AB' * 32 + '  /data/app/demo/base.apk\n', '')]
+        with patch.object(run_android.subprocess, 'run', side_effect=responses) as calls:
+            self.assertEqual(run_android.installed_hash(['adb'], 'dev.example.demo'), 'ab' * 32)
+            self.assertEqual(calls.call_count, 2)
+
+    def test_page_size_uses_smaps_on_old_shell_and_never_guesses(self):
+        scripts = str(Path(__file__).resolve().parents[1] / 'scripts')
+        sys.path.insert(0, scripts)
+        try:
+            import run_android
+        finally:
+            sys.path.pop(0)
+        for responses, expected in [(['16384'], 16384),
+                                    (['/system/bin/sh: getconf: not found', 'KernelPageSize:        4 kB\n'], 4096),
+                                    (['not found', 'permission denied'], None),
+                                    ([RuntimeError('no getconf'), RuntimeError('no smaps')], None)]:
+            with patch.object(run_android, 'command', side_effect=responses):
+                self.assertEqual(run_android.device_page_size(['adb']), expected)
 
     def test_legacy_migration_preserves_mixed_owner_backup_without_moving_active_pages(self):
         scripts = str(Path(__file__).resolve().parents[1] / 'scripts')

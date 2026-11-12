@@ -1,6 +1,6 @@
 {
-  "name": "hellofaceverify-uniapp",
-  "version": "0.1.5",
+  "name": "helloface-uniapp",
+  "version": "0.2.0",
   "license": "SEE LICENSE IN LICENSE",
   "private": true,
   "scripts": {
@@ -10,6 +10,8 @@
     "android:check": "python3 scripts/run_android.py --check",
     "android:prepare": "python3 scripts/android_debug.py prepare",
     "android:base": "python3 scripts/build_android_base.py",
+    "android:release": "python3 scripts/build_android_base.py --release",
+    "android:variant": "python3 scripts/make_apk_variant.py",
     "android:devices": "python3 scripts/android_debug.py devices",
     "android:dev": "python3 scripts/dev_android.py",
     "android:logs": "python3 scripts/android_debug.py logs",
@@ -22,6 +24,8 @@
     "android:uts-check": "node scripts/check_android_uts.cjs",
     "ios:check": "python3 scripts/check_ios_native.py",
     "icons:build": "swift scripts/generate_app_icons.swift",
+    "icons:optimize": "python3 scripts/optimize_icon_png.py",
+    "size:inspect": "python3 scripts/inspect_app_size.py",
     "ui:build": "python3 scripts/generate_native_ui.py",
     "ui:check": "python3 scripts/generate_native_ui.py --check"
   },

@@ -30,9 +30,9 @@ function loadPage(filename, app = true) {
     compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS }
   })
   assert.equal(diagnostics.length, 0)
-  const calls = [], modals = [], exports = {}
-  const sandbox = { exports, demoImageBase64: 'demo-photo', demoFeature: 'demo-feature', demoFeatureSpaceID: 'jdx-feature-v1', uni: { hideKeyboard() {}, showModal: options => modals.push(options) } }
-  for (const name of ['syncFaceImage', 'syncFaceFeature', 'enrollFace', 'verifyFace', 'getFaceFeature', 'deleteFace', 'cancel']) {
+  const calls = [], modals = [], toasts = [], exports = {}
+  const sandbox = { exports, demoImageBase64: 'demo-photo', demoFeature: 'demo-feature', demoFeatureSpaceID: 'jdx-feature-v1', uni: { hideKeyboard() {}, showModal: options => modals.push(options), showToast: options => toasts.push(options) } }
+  for (const name of ['syncFaceImage', 'syncFaceFeature', 'enrollFace', 'verifyFace', 'detectLiveness', 'getFaceFeature', 'deleteFace', 'cancel']) {
     sandbox[name] = options => calls.push({ name, options })
   }
   vm.runInNewContext(outputText, sandbox, { filename })
@@ -42,10 +42,26 @@ function loadPage(filename, app = true) {
     Object.defineProperty(state, name, { get: getter.bind(state) })
   }
   for (const [name, method] of Object.entries(page.methods)) state[name] = method.bind(state)
-  return { state, calls, modals, unload: () => page.onUnload.call(state) }
+  return { state, calls, modals, toasts, unload: () => page.onUnload.call(state) }
 }
 
 for (const file of ['pages/index/index.vue', 'examples/uni-app-x/pages/index/index.uvue']) {
+  test(`${file}: missing reference shows an immediate toast and complete unlocks retry`, () => {
+    const { state, calls, toasts } = loadPage(file)
+    state.verify()
+    calls[0].options.fail({ code: 105, msg: '请先录入', faceID: 'demo-user' })
+    assert.equal(toasts.length, 1)
+    assert.equal(toasts[0].title, '请先录入或同步人脸')
+    assert.equal(toasts[0].icon, 'none')
+    assert.match(state.resultText, /code: 105/)
+    assert.equal(state.busy, true)
+    calls[0].options.complete({})
+    assert.equal(state.busy, false)
+    state.verify()
+    assert.equal(calls.length, 2)
+    calls[1].options.fail({ code: 103, msg: '已取消', faceID: 'demo-user' })
+    assert.equal(toasts.length, 1) // 离页/取消不弹出无基准提示。
+  })
   test(`${file}: demo sync keeps the current faceID without enrollment or reading device features`, () => {
     const { state, calls } = loadPage(file)
     state.syncImage()
@@ -87,9 +103,9 @@ for (const file of ['pages/index/index.vue', 'examples/uni-app-x/pages/index/ind
     assert.match(state.resultText, /similarity: 0\.999/)
     assert.ok(!state.resultText.includes('livenessScore:'))
     assert.equal(state.busy, false)
-    assert.equal(state.resultMode, '静默 + 动作活体')
+    assert.equal(state.resultMode, '静默 + 动作活体 · 眨眼、点头')
     state.changeActions({ detail: { value: false } })
-    assert.equal(state.resultMode, '静默 + 动作活体') // 切换下次选项不改写上次结果的模式。
+    assert.equal(state.resultMode, '静默 + 动作活体 · 眨眼、点头') // 切换下次选项不改写上次结果的模式。
     state.verify()
     assert.deepEqual(Array.from(calls[1].options.actions), [])
     assert.equal(calls[1].options.silentLiveness, true)
@@ -110,7 +126,7 @@ for (const file of ['pages/index/index.vue', 'examples/uni-app-x/pages/index/ind
       assert.equal(calls[0].name, 'verifyFace')
       assert.equal(calls[0].options.silentLiveness, silent)
       assert.deepEqual(Array.from(calls[0].options.actions), actions ? ['blink', 'nodHead'] : [])
-      assert.equal(state.resultMode, mode)
+      assert.equal(state.resultMode, mode + (actions ? ' · 眨眼、点头' : ''))
       state.changeSilent({ detail: { value: !silent } })
       state.changeActions({ detail: { value: !actions } })
       state.verify()
@@ -121,6 +137,122 @@ for (const file of ['pages/index/index.vue', 'examples/uni-app-x/pages/index/ind
       state.syncImage()
       assert.equal(state.resultMode, '')
     }
+  })
+
+  test(`${file}: standalone liveness needs no faceID, keeps its own action choice and snapshots the submitted mode`, () => {
+    const { state, calls } = loadPage(file)
+    state.faceID = ''
+    state.changeSilent({ detail: { value: false } })
+    state.changeActions({ detail: { value: false } })
+    assert.equal(state.livenessActions, false)
+    state.detect()
+    const options = calls[0].options
+    assert.equal(calls[0].name, 'detectLiveness')
+    assert.equal(options.faceID, undefined)
+    assert.equal(options.referenceFeature, undefined)
+    assert.equal(options.silentLiveness, undefined) // SDK 始终静默；页面不传虚假的关闭参数。
+    assert.deepEqual(Array.from(options.actions), [])
+    state.changeLivenessActions({ detail: { value: true } })
+    state.detect()
+    state.verify()
+    assert.equal(state.livenessActions, false)
+    assert.equal(calls.length, 1)
+    options.success({ code: 203, msg: '未检测到人脸', faceID: '', passed: false,
+      similarity: null, livenessScore: 0.123, feature: null })
+    options.complete({})
+    assert.equal(state.busy, false)
+    assert.match(state.resultText, /passed: false/)
+    assert.match(state.resultText, /livenessScore: 0.123/)
+    assert.ok(!state.resultText.includes('faceID:'))
+    assert.ok(!state.resultText.includes('similarity:'))
+    assert.equal(state.resultMode, '独立活体 · 仅静默活体')
+    state.changeLivenessActions({ detail: { value: true } })
+    assert.equal(state.resultMode, '独立活体 · 仅静默活体')
+    state.detect()
+    assert.equal(calls[1].name, 'detectLiveness')
+    assert.deepEqual(Array.from(calls[1].options.actions), ['blink', 'nodHead'])
+    assert.equal(state.resultMode, '独立活体 · 静默 + 动作活体 · 眨眼、点头')
+    assert.equal(state.actionLiveness, false) // 独立活体选项不改写身份验证的选择。
+  })
+
+  test(`${file}: standalone liveness reports permission errors and cancels on leaving`, () => {
+    const { state, calls, unload } = loadPage(file)
+    state.detect()
+    calls[0].options.fail({ code: 102, msg: '相机未授权', faceID: '' })
+    calls[0].options.complete({})
+    assert.equal(state.busy, false)
+    assert.equal(state.resultText, 'code: 102\nmsg: 相机未授权')
+    state.detect()
+    unload()
+    assert.deepEqual(calls.map(call => call.name), ['detectLiveness', 'detectLiveness', 'cancel'])
+  })
+
+  test(`${file}: every nonempty action selection reaches both APIs in displayed order`, () => {
+    const available = ['blink', 'openMouth', 'shakeHead', 'nodHead']
+    for (const standalone of [false, true]) {
+      for (let mask = 1; mask < 16; mask++) {
+        const { state, calls } = loadPage(file)
+        const selected = available.filter((_, index) => mask & (1 << index))
+        state[standalone ? 'changeLivenessActions' : 'changeActions']({ detail: { value: true } })
+        state.changeSelectedActions({ detail: { value: selected.slice().reverse() } }, standalone)
+        state[standalone ? 'detect' : 'verify']()
+        assert.equal(calls[0].name, standalone ? 'detectLiveness' : 'verifyFace')
+        assert.deepEqual(Array.from(calls[0].options.actions), selected)
+        assert.ok(state.resultMode.endsWith(state.actionNames(selected)))
+      }
+    }
+  })
+
+  test(`${file}: enabled actions cannot become empty or silently submit without a challenge`, () => {
+    for (const standalone of [false, true]) {
+      const { state, calls, toasts } = loadPage(file)
+      const switchMethod = standalone ? 'changeLivenessActions' : 'changeActions'
+      const selectedKey = standalone ? 'detectActions' : 'verifyActions'
+      const start = standalone ? 'detect' : 'verify'
+      state[switchMethod]({ detail: { value: true } })
+      state.changeSelectedActions({ detail: { value: ['openMouth'] } }, standalone)
+      state.changeSelectedActions({ detail: { value: [] } }, standalone)
+      assert.deepEqual(Array.from(state[selectedKey]), ['openMouth'])
+      assert.equal(toasts.at(-1).title, '请至少选择一个动作')
+      // 提交处也校验，避免状态被外部清空时降级成无动作验证。
+      state[selectedKey] = []
+      state[start]()
+      assert.equal(calls.length, 0)
+      assert.equal(state.busy, false)
+      state[switchMethod]({ detail: { value: false } })
+      state[switchMethod]({ detail: { value: true } })
+      assert.ok(state[selectedKey].length > 0)
+      state[start]()
+      assert.ok(calls[0].options.actions.length > 0)
+    }
+  })
+
+  test(`${file}: action selections stay independent, locked while busy and retained when switched off`, () => {
+    const { state, calls } = loadPage(file)
+    state.changeActions({ detail: { value: true } })
+    state.changeSelectedActions({ detail: { value: ['openMouth', 'shakeHead'] } }, false)
+    state.changeLivenessActions({ detail: { value: true } })
+    state.changeSelectedActions({ detail: { value: ['nodHead'] } }, true)
+    state.verify()
+    const submitted = calls[0].options.actions
+    const snapshot = state.resultMode
+    assert.match(snapshot, /张嘴、摇头/)
+    state.changeSelectedActions({ detail: { value: ['blink'] } }, false)
+    state.changeSelectedActions({ detail: { value: ['blink'] } }, true)
+    assert.deepEqual(Array.from(state.verifyActions), ['openMouth', 'shakeHead'])
+    assert.deepEqual(Array.from(state.detectActions), ['nodHead'])
+    calls[0].options.complete({})
+    state.changeSelectedActions({ detail: { value: ['blink'] } }, false)
+    assert.equal(state.resultMode, snapshot)
+    assert.deepEqual(Array.from(submitted), ['openMouth', 'shakeHead'])
+    state.changeActions({ detail: { value: false } })
+    state.verify()
+    assert.deepEqual(Array.from(calls[1].options.actions), [])
+    calls[1].options.complete({})
+    state.changeActions({ detail: { value: true } })
+    assert.deepEqual(Array.from(state.verifyActions), ['blink'])
+    state.detect()
+    assert.deepEqual(Array.from(calls[2].options.actions), ['nodHead'])
   })
 
   test(`${file}: enrollment calls the plugin directly without retaining biometric features`, () => {
@@ -187,7 +319,7 @@ for (const file of ['pages/index/index.vue', 'examples/uni-app-x/pages/index/ind
 
   test(`${file}: browser preview never simulates recognition success`, () => {
     const { state, calls } = loadPage(file, false)
-    for (const action of ['enroll', 'verify', 'remove']) {
+    for (const action of ['enroll', 'verify', 'detect', 'remove']) {
       state[action]()
       assert.match(state.resultText, /请在 App 真机体验/)
       assert.equal(state.busy, false)

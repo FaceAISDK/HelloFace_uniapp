@@ -13,6 +13,7 @@ import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.text.TextUtils
 import android.view.Gravity
 import android.view.View
 import android.view.ViewOutlineProvider
@@ -51,11 +52,13 @@ internal class HelloFaceVerifyCameraView(context: Context, private val enrollmen
         }
         visibility = GONE
     }
-    private val back = button("‹", Color.TRANSPARENT, INK).apply {
-        textSize = UI.fontBack; contentDescription = UI.backLabel; setOnClickListener { onCancel() }
+    private val back = BackButton(context).apply {
+        contentDescription = UI.backLabel; setOnClickListener { onCancel() }
     }
-    private val heading = label(if (enrollment) UI.enrollHeading else if (liveness) UI.livenessHeading else UI.verifyHeading, UI.fontHeading, INK, true)
-    private val local = label(UI.localLabel, UI.fontLocal, GREEN).apply { background = rounded(UI.colorLocalFill, UI.pillRadius.toFloat()) }
+    private val heading = label(if (enrollment) UI.enrollHeading else if (liveness) UI.livenessHeading else UI.verifyHeading, UI.fontHeading, INK, true).apply {
+        gravity = Gravity.START or Gravity.CENTER_VERTICAL
+        maxLines = 1; ellipsize = TextUtils.TruncateAt.END
+    }
     private val title = label(UI.preparingTitle, UI.fontTitle, INK, true).apply {
         accessibilityLiveRegion = ACCESSIBILITY_LIVE_REGION_POLITE
     }
@@ -77,8 +80,6 @@ internal class HelloFaceVerifyCameraView(context: Context, private val enrollmen
         background = rounded(Color.WHITE, UI.buttonRadius.toFloat(), UI.colorButtonBorder); setOnClickListener { onRetake() }
     }
     private val confirm = button(UI.confirm, BLUE, Color.WHITE).apply { setOnClickListener { onConfirm() } }
-    private val privacy = label(UI.privacy, UI.fontPrivacy, MUTED)
-    private val brand = label(UI.brand, UI.fontBrand, UI.colorBrand)
     private var safeLeft = 0
     private var safeTop = 0
     private var safeRight = 0
@@ -98,7 +99,7 @@ internal class HelloFaceVerifyCameraView(context: Context, private val enrollmen
     init {
         setBackgroundColor(BACKGROUND)
         addView(preview); addView(mask)
-        listOf(back, heading, local, title, detail, phase, tips, privacy, brand)
+        listOf(back, heading, title, detail, phase, tips)
             .forEach { addView(it) }
         showLive()
     }
@@ -222,8 +223,8 @@ internal class HelloFaceVerifyCameraView(context: Context, private val enrollmen
         val width = contentRight - contentLeft; val center = (contentLeft + contentRight) / 2
         val headerY = safeTop + dp(UI.headerInset)
         place(back, safeLeft + dp(UI.backInset), headerY, dp(UI.backSize), dp(UI.backSize))
-        place(heading, center - dp(UI.headingWidth) / 2, headerY, dp(UI.headingWidth), dp(UI.backSize))
-        place(local, contentRight - dp(UI.localWidth), headerY + dp(UI.localOffset), dp(UI.localWidth), dp(UI.localHeight))
+        val headingLeft = safeLeft + dp(UI.backInset + UI.backSize + UI.headingGap)
+        place(heading, headingLeft, headerY, (contentRight - headingLeft).coerceAtLeast(0), dp(UI.backSize))
         val compact = h - safeTop - safeBottom < dp(UI.compactHeight)
         val titleY = headerY + dp(if (compact) UI.compactTitleOffset else UI.titleOffset)
         place(title, contentLeft, titleY, width, dp(UI.titleHeight))
@@ -233,13 +234,13 @@ internal class HelloFaceVerifyCameraView(context: Context, private val enrollmen
         val diameter = min(min(width.toFloat(), (w - safeLeft - safeRight) * UI.circleRatio),
             (h - safeBottom - footerReserve - circleTop).toFloat()).coerceAtLeast(dp(UI.minCircle).toFloat()).toInt()
         val circleLeft = center - diameter / 2
-        mask.setCircle(RectF(circleLeft.toFloat(), circleTop.toFloat(), (circleLeft + diameter).toFloat(),
-            (circleTop + diameter).toFloat()))
-        val phaseY = circleTop + diameter + dp(UI.phaseOffset)
+        // 扩大到原灰色外圈的位置，预览开孔、状态圈和进度弧共用同一轮廓。
+        val circle = RectF(circleLeft.toFloat(), circleTop.toFloat(), (circleLeft + diameter).toFloat(),
+            (circleTop + diameter).toFloat()).apply { inset(-dp(UI.circleExpansion).toFloat(), -dp(UI.circleExpansion).toFloat()) }
+        mask.setCircle(circle)
+        val phaseY = circle.bottom.toInt() + dp(UI.phaseOffset)
         val phaseWidth = min(width, dp(UI.phaseWidth))
         place(phase, center - phaseWidth / 2, phaseY, phaseWidth, dp(UI.phaseHeight))
-        val privacyY = h - safeBottom - dp(UI.footerInset)
-        place(privacy, contentLeft, privacyY, width, dp(UI.privacyHeight)); place(brand, contentLeft, privacyY + dp(UI.brandOffset), width, dp(UI.brandHeight))
         place(tips, contentLeft, phaseY + dp(UI.tipsOffset), width, dp(UI.tipsHeight))
     }
 
@@ -263,6 +264,29 @@ internal class HelloFaceVerifyCameraView(context: Context, private val enrollmen
     }
     private fun dp(value: Int) = dp(value.toFloat())
     private fun dp(value: Float) = (value * resources.displayMetrics.density + .5f).toInt()
+
+    /** 箭头按几何中心绘制，避免不同系统字体的 ‹ 字形基线造成视觉偏移。 */
+    private class BackButton(context: Context) : Button(context) {
+        private val arrow = Path()
+        private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = INK; style = Paint.Style.STROKE
+            strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND
+        }
+        init {
+            text = ""; setBackgroundColor(Color.TRANSPARENT); setPadding(0, 0, 0, 0)
+            minimumWidth = 0; minimumHeight = 0; stateListAnimator = null
+        }
+        override fun onDraw(canvas: Canvas) {
+            super.onDraw(canvas)
+            val density = resources.displayMetrics.density
+            val x = width / 2f; val y = height / 2f
+            val halfWidth = UI.backIconWidth * density / 2f; val halfHeight = UI.backIconHeight * density / 2f
+            arrow.reset(); arrow.moveTo(x + halfWidth, y - halfHeight)
+            arrow.lineTo(x - halfWidth, y); arrow.lineTo(x + halfWidth, y + halfHeight)
+            paint.strokeWidth = UI.backIconStroke * density
+            canvas.drawPath(arrow, paint)
+        }
+    }
 
     private class CameraMask(context: Context) : View(context) {
         private val hole = RectF()
@@ -301,8 +325,6 @@ internal class HelloFaceVerifyCameraView(context: Context, private val enrollmen
                 canvas.drawArc(hole, -90f, 360f * progress, false, paint)
                 paint.strokeCap = Paint.Cap.BUTT
             }
-            val outer = RectF(hole); outer.inset(-resources.displayMetrics.density * UI.outerRingGap, -resources.displayMetrics.density * UI.outerRingGap)
-            paint.strokeWidth = resources.displayMetrics.density; paint.color = UI.colorOuterRing; canvas.drawOval(outer, paint)
         }
     }
 

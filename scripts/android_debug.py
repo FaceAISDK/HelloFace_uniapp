@@ -141,7 +141,8 @@ def select_device(adb, serial=None):
 
 
 def broadcast(target, package, suffix, extras=None):
-    command = target + ['shell', 'am', 'broadcast', '--receiver-foreground', '--include-stopped-packages', '-n', package + '/' + RECEIVER,
+    # API 23 的 am 不认识 --receiver-foreground；数值标志在新旧系统含义相同。
+    command = target + ['shell', 'am', 'broadcast', '-f', '0x10000000', '--include-stopped-packages', '-n', package + '/' + RECEIVER,
                         '-a', ACTION + suffix]
     for key, value in (extras or {}).items():
         command += ['--es', key, value]
@@ -230,14 +231,23 @@ def log_snapshot(target, package):
 def app_pids(target, package):
     result = subprocess.run(target + ['shell', 'pidof', package], capture_output=True, text=True, timeout=10)
     if result.returncode == 0:
-        return [value for value in result.stdout.split() if value.isdigit()]
-    # Older vendor Android 6 images may not ship pidof.
-    rows = run(target + ['shell', 'ps']).splitlines()
-    if not rows or 'PID' not in rows[0].split():
-        return []
-    index = rows[0].split().index('PID')
-    return [parts[index] for line in rows[1:] if (parts := line.split()) and
-            len(parts) > index and parts[-1] == package and parts[index].isdigit()]
+        values = result.stdout.split()
+        if len(values) == 1 and values[0].isdigit():
+            return values
+    # 旧厂商 pidof 可能忽略包名并返回所有进程；多结果必须按 ps 的进程名核对。
+    for options in (['ps', '-A'], ['ps']):
+        try:
+            rows = run(target + ['shell'] + options).splitlines()
+        except RuntimeError:
+            continue
+        if not rows or 'PID' not in rows[0].split():
+            continue
+        index = rows[0].split().index('PID')
+        matches = [parts[index] for line in rows[1:] if (parts := line.split()) and
+                   len(parts) > index and parts[-1] == package and parts[index].isdigit()]
+        if matches:
+            return matches
+    return []
 
 
 def main():

@@ -1,0 +1,22 @@
+{
+  "apiType": "stageMode",
+  "buildOption": {},
+  "buildOptionSet": [
+    {
+      "name": "release",
+      "nativeLib": {
+        "debugSymbol": { "strip": true },
+        "filter": { "excludes": ["**/x86_64/**"] }
+      },
+      "arkOptions": {
+        "obfuscation": {
+          "ruleOptions": {
+            "enable": true,
+            "files": ["./obfuscation-rules.txt"]
+          }
+        }
+      }
+    }
+  ],
+  "targets": [{ "name": "default" }, { "name": "ohosTest" }]
+}

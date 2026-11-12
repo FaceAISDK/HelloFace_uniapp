@@ -130,10 +130,29 @@ def installed_hash(target, package):
         return None
     result = subprocess.run(target + ['shell', 'sha256sum', paths[0]], capture_output=True, text=True)
     if result.returncode == 0 and result.stdout.split():
-        return result.stdout.split()[0]
+        value = result.stdout.split()[0]
+        # 旧 ADB shell 即使命令不存在也可能返回 0；只接受真正的 SHA-256。
+        if re.fullmatch(r'[0-9a-fA-F]{64}', value):
+            return value.lower()
     # The APK is public code, not app-private user data. Support older vendor shells.
     result = subprocess.run(target + ['exec-out', 'cat', paths[0]], capture_output=True, timeout=60)
-    return hashlib.sha256(result.stdout).hexdigest() if result.returncode == 0 else None
+    return hashlib.sha256(result.stdout).hexdigest() if result.returncode == 0 and result.stdout.startswith(b'PK\x03\x04') else None
+
+
+def device_page_size(target):
+    """Read the actual page size; old vendor shells may lack getconf."""
+    try:
+        value = command(target + ['shell', 'getconf', 'PAGE_SIZE'], capture=True)
+        if re.fullmatch(r'[1-9]\d*', value):
+            return int(value)
+    except RuntimeError:
+        pass
+    try:
+        maps = command(target + ['shell', 'cat', '/proc/self/smaps'], capture=True)
+        match = re.search(r'^KernelPageSize:\s+([1-9]\d*)\s+kB\s*$', maps, re.MULTILINE)
+        return int(match.group(1)) * 1024 if match else None
+    except RuntimeError:
+        return None
 
 
 def startup_health(target, package, api):
@@ -224,14 +243,15 @@ def main():
         device_abis = command(target + ['shell', 'getprop', 'ro.product.cpu.abi'], capture=True)
     if not abis.intersection(device_abis.split(',')):
         raise RuntimeError('The base does not contain a native library for this device ABI.')
-    page_size = command(target + ['shell', 'getconf', 'PAGE_SIZE'], capture=True)
+    page_size = device_page_size(target)
     apk_hash = hashlib.sha256(apk.read_bytes()).hexdigest()
     receipt = project / 'unpackage/debug/base-build.json'
     if receipt.is_file():
         recorded = json.loads(receipt.read_text())
         if recorded.get('apkSha256') == apk_hash and recorded.get('hostFingerprint') != expected_host:
             raise RuntimeError('宿主原生配置已改变，请执行 npm run android:base 重建基座。')
-    print(f'PASS: API {api}, 内存页 {page_size} B, 基座 {base["runTimeVersion"]}, 原生指纹一致', flush=True)
+    page_description = f'{page_size} B' if page_size is not None else '未知'
+    print(f'PASS: API {api}, 内存页 {page_description}, 基座 {base["runTimeVersion"]}, 原生指纹一致', flush=True)
     if args.check:
         return
     same_base = installed_hash(target, package) == apk_hash

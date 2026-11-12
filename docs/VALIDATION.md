@@ -2,6 +2,135 @@
 
 更新日期：2026-11-12。当前原生 SDK 0.8.11 Beta，上游提交 `dc60c7b15ebf8038fb73a752bcea3590bbd86eaf`；下方旧版本记录按当时版本保留。
 
+## 2026-11-12 0.2.0 代码整理与提交检查
+
+- 归档本轮累计的三端原生页面、Demo 活体组合/动作勾选、图标、发行体积工具及发布/真机文档。根 manifest 恢复统一 JSON 缩进，字段和值保持不变；Android UTS 检查脚本共用 JDK 工具路径与运行时 classpath，修正检查说明的章节层级。
+- 修复单 ABI 打包工具按字符串选择 Build-Tools、可能把 9.x 选在 36.x 前面且接受低于 35 版本的问题。新增两项回归在修复前均失败，修复后通过；当前机器正确选择 36.0.0 的 zipalign / apksigner。此修复仅影响维护工具，插件文件与保留的 0.2.0 发布包本地副本逐文件一致，未变更已发布业务实现。
+- `npm run check` 通过 151 项检查（112 JS、39 Python）、37 个 SDK 文件校验及三端 UTS 转换。Android uni-app / uni-app x 两种模式均通过官方 UTS/Kotlin/DEX、稳定桥接 ABI、真实编译类的存储和取消协调器边界检查；这些边界检查不等于手机验收。日志为 `unpackage/validation/commit-0.2.0-{check,android-uts,android-uts-x}.log`。本轮未安装设备 App、变更签名或新增真人验收；既有未验项继续保留。
+
+## 2026-11-12 插件 0.2.0 发布
+
+- 插件、根工程与独立 uvue 示例版本同步为 0.2.0，Demo versionCode 为 200；更新日志归档至 0.2.0，保留“仅测试-”名称前缀、SDK、License、AppID 和签名配置。隐私声明仅保留实际数据处理行为，移除没有验收依据的泛化合规/上架承诺。
+- `npm run check` 通过 149 项检查（112 JS、37 Python）、37 个 SDK 文件校验及三端 UTS 转换；HBuilderX 官方 CLI 的发布校验和 dry-run 均通过。完整插件包含三端真实 SDK，包内未发现签名资料、构建缓存或真机生物特征测试证据；示例包按既有规则排除 SDK 二进制，由市场完整插件提供依赖。
+- 已通过 HBuilderX 5.34 `uni_modules --publish` 实际提交插件、示例及一张不含人脸的真实首页截图，返回 `success: true` / `outcome: published`。随后用未登录浏览器打开[公开插件页面](https://ext.dcloud.net.cn/plugin?name=HelloFace-Verify)，确认显示版本 0.2.0、更新日期 2026-11-12 及本次更新日志，不只是上传成功或待确认状态。
+- 发布回执中的插件 ZIP 为 29,361,662 字节，示例 ZIP 为 2,189,485 字节。CLI 会清理临时 ZIP，故使用同一 HBuilderX 打包实现按提交后的源码保留本地副本，字节长度与回执一致；没有声称已对服务器 ZIP 做哈希比对。本地产物在 `unpackage/release/plugin-0.2.0/`，校验/检查/提交回执在 `unpackage/validation/plugin-0.2.0-*.log`。
+- 本轮是版本整理与发布，没有新增真人或平台验收。下方鸿蒙真机结果来自发布前同一业务实现，测试 App 当时版本为 0.1.5；Android 新正式包、iOS 完整 App、真人识别/动作通过及独立 uvue App 的未验边界继续保留。升级须重新联编或重建包含原生依赖的运行产物。本轮没有自行提交或推送 Git。
+
+## 2026-11-12 优化后完整 App 真机主流程回归
+
+本轮针对根 Vue3 示例；没有安装临时预览宿主，没有卸载或清除数据。以下结果不包含真人识别通过，也不沿用此前版本的真人反馈。
+
+- **鸿蒙完整 Release App 已实际运行**：HBuilderX 5.34 导出当前资源，DevEco 26 / Hvigor 以 `product=default`、`buildMode=release` 构建并沿用原本开发签名，覆盖安装到 Mate 60 Pro / ALN-AL80 / API 26。系统确认 `debug=false`，UID、首次安装时间、AppIdentifier 和签名叶证书保持一致。该身份用于本机验证，不代表已取得应用市场发行签名。签名 HAP 为 17,539,010 字节，SHA-256 `1a00a0c88978bd4882072d9fdc216f3b6af4d23e051be91f3773498e70536679`。
+- **未录入提示与操作恢复**：不存在的临时 faceID 发起验证，立即出现“请先录入或同步人脸”Toast，结果 code 105；后续操作可继续。录入、1:1 验证、独立活体均能打开实际原生相机页；返回取消得到 code 103，后续可重新进入。录入期间回桌面再返回，任务已取消，页面解除忙碌。连续双击独立活体按钮只出现一个原生检测页。
+- **验证与活体的真实超时分支**：独立活体两次、1:1 默认静默模式和静默加眨眼/点头模式各一次，实际采集后返回 code 203“未检测到人脸”、`passed: false`，界面可继续调用；动作模式结果快照保留“静默 + 动作活体 · 眨眼、点头”。这些结果证明真实采集的无人脸超时分支，不代表真人活体或动作通过；本轮没有受控的真人/照片攻击场景。
+- **Demo 交互**：真机切换显示仅静默、静默加动作、仅动作、仅人脸比对四种组合；四动作可全选、按固定顺序展示，取消到最后一个动作时仍保留该项。重启后恢复静默开/动作关与默认眨眼、点头选择。以上是交互验证，未声称四种模式均完成真人验收。
+- **同步、持久化与清理**：仅向本轮不存在的临时标识同步内置 AI 演示图片及特征，两种方式均返回 code 0。重启 App 后该临时基准仍能解密并进入验证；删除确认选择取消时保留记录，确定后删除成功。整个过程逐条比较既有加密记录的键/密文摘要：原有 1 条记录逐字节不变，临时记录已全部清理。未导出或保存原始基准特征、采集照片。
+- **资源与日志**：捕获到窗口亮度进入设为 `1`、退出/后台/超时恢复 `-1`（跟随系统），结果均为 0；所捕获应用日志没有 FATAL、JsError 或 Unhandled 标记。系统 faultlogger 目录拒绝读取，因此没有将系统崩溃目录检查记作通过。
+- **Android 本轮尚未完成新版验收**：GRA-UL00 / API 23 / ARM64 已连接。25,054,129 字节 ARM64 正式包与原 App 证书相同，但覆盖安装在华为系统确认页要求确认读写 SD 卡权限，未代用户确认。核对发现旧/新 Manifest 均声明这两项权限，不能称为新版新增声明。已取消该次安装，并恢复为安装准备而暂存的原始生成页面缓存；原 APK、UID、两条基准密文聚合摘要和密钥存在状态保持不变。`android:check` 判定现有旧调试基座与当前源码不匹配，因此没有把原基座运行记作本轮新版通过。需要用户决定允许当前安装，或先去除多余权限并重建。
+- **仍需配合/条件**：最新版本的真人确认录入、本人 1:1 通过、所选动作实际通过，以及他人/照片拒绝均未完成；每步 3 秒的真人动作可用性尚未验收。iOS 没有连接设备且仍受现有 Xcode/SDK 工具链限制；独立 uvue 完整 App 本轮未测。本轮未发现需要修改插件业务源码的问题，仅补充实际验证记录，没有自行提交推送。
+
+本轮私有本地证据位于忽略目录 `unpackage/validation/mainflow-20261112/`：`harmony-tested-artifact.json`、安装前后包信息、`hm-*-result.json` / `hm-*-timeout*.json`、`harmony-*-references.json`、`harmony-final-live-log.txt`，以及 Android 安装确认页布局、缓存恢复和前后只读审计。当前测试 HAP 位于 `unpackage/dist/build/app-harmony/entry/build/default/outputs/default/entry-default-signed.hap`。
+
+## 2026-11-12 Demo 安装包体积与发行配置
+
+- 仅优化 Demo 的 APK / IPA / HAP，未改锁定 SDK、License、签名身份、API、阈值和存储。Android 资源名称优化显式开启（5.34 已默认开启，不能算新增收益），通用包保留 ARM64 / ARMv7；iOS 根 Vue 固定 SDK 支持的 ARM64，并提供仅供本地宿主使用的 Release.xcconfig。详细构建方式、混淆边界和工具见 [安装包体积](APP_SIZE.md)。
+- Android 云端正式构建成功，保留版本 0.1.5、包名和原证书，关闭 debuggable：通用 APK 31,777,772 字节，原调试基座 32,383,813 字节。随后从同一正式包生成 ARM64 直接分发副本 25,054,129 字节，通用包未修改；保留文件逐项哈希一致。两个 APK 均通过签名、SDK 原生库哈希、模型不压缩和 16KB 检查。正式 CLI 只返回临时下载地址，构建工具已补齐保密下载与异常响应校验，3 项回归覆盖 ANSI 链接、误取推广链接和过期 HTML，不重复提交云构建。
+- 鸿蒙通过 HBuilderX 正式资源编译、Hvigor Release 完整 HAP 构建及原有本机调试身份签名，`app.debug=false`。签名 HAP 从 22,180,901 降至 17,539,009 字节（-20.93%）；无源码映射或 x86_64 库，存在混淆映射。SDK libhiface.so 哈希及证书链与原包一致，hap-sign-tool 验证通过。保留属性、导出和文件名称，仅默认局部混淆/压缩；已编译二进制 HAR 不会再次混淆。AppScope 增加必要 icon/label 引用，修复生成工程必填字段缺失。
+- iOS 仍受 Xcode 15.2 无法完整编译 Swift 6.1.2 SDK、原生宿主/签名未完成等条件限制，没有本轮 IPA 前后体积或真机结果。以上 APK / HAP 未安装到手机，未新增真人识别或压缩后版本的真机回归，也未卸载/清数据。前后 Debug / Release 页面版本不同，不是单独切换混淆的对照实验。
+- `npm run check` 通过 149 项检查（112 JS、37 Python）、37 个 SDK 文件校验及三端 UTS 转换。证据：`unpackage/validation/app-size-{before,after}.json`、`app-size-harmony-result.json`、`app-size-harmony-{pack,sign,verify}.log`；正式 APK 与变体在 `unpackage/release/apk`，签名 HAP 为 `unpackage/validation/HelloFace-Demo-release.hap`。`app-size-check.log` 保存本轮检查结果。
+
+## 2026-11-12 每步动作默认超时 3 秒
+
+- `verifyFace` 和 `detectLiveness` 的共享默认 `actionTimeoutMs` 改为 3000，Android 直接读取共享参数，iOS/鸿蒙原生缺省值同步为 3000。显式配置仍优先，2000–30000 毫秒范围和等待人脸超时保持不变；接口注释、API、README、更新日志及 uvue 副本已同步。
+- `npm run check` 通过 146 项检查（112 JS、34 Python）、37 个 SDK 文件校验及三端 UTS 转换；iOS 相机控制器 Swift 语法检查通过。日志：`unpackage/validation/action-timeout-check.log`。本轮未构建安装完整 App 或新增真机计时验收，设备需重新编译运行后使用新的默认值。
+
+## 2026-11-12 Demo 四种动作勾选
+
+- Vue/uvue 的身份验证与独立活体分别提供眨眼、张嘴、摇头、点头勾选，默认眨眼、点头；保留静默开/动作关和身份验证四种组合。动作开启时至少保留一项，最后一项禁止取消，提交处也校验非空；关闭开关保留选择但不传动作。按列表顺序调用，忙碌时锁定选项，结果快照包含本次动作名称。公共 API、SDK、存储及阈值未改动。
+- 28 项页面行为检查通过，覆盖两类流程全部 15 种非空动作组合、顺序归一化、空选择拦截、独立选项、忙碌锁定及提交快照。HBuilderX 5.34 Vue3 App 资源导出与 Web 编译成功；uvue SFC 脚本、Kotlin/Swift 模板生成及 Android/iOS/HarmonyOS CSS 检查通过。
+- Web 实际交互确认最后一个动作无法取消，四项可全选，两类流程独立。四项同一行、字号 12px、点击高度 44px；320px 窄屏下两组四项的纵坐标一致。证据位于 `unpackage/validation/action-checkboxes-{web-preview.jpg,layout.json,css.json,demo-tests.log}`。预览后恢复默认选项；未安装 App、调用真机相机或新增真人识别验收，模板/CSS 检查不代表完整 uvue 原生 App 验收。
+
+## 2026-11-12 返回箭头视觉对齐与无基准 Toast
+
+- 用户指出文字和箭头仍未垂直对齐：先前只核对控件边界，未能证明字形的视觉中心一致。本轮三端移除字体字符箭头，改用原生图形路径，保持返回按钮点击范围和取消语义。鸿蒙真机进一步发现 Path 坐标使用像素而组件尺寸为 vp，已使用 UIContext.vp2px 统一坐标，并仅对图形作 1vp 的汉字视觉中心补偿。
+- 华为 Mate 60 Pro 上，最终原生录入页顶部裁剪图的箭头/标题墨迹中心差为 0px（按本次截图像素测量），验证文件为 nav-toast-20261112-harmony-header-pixels.json。只保留顶部图，获取它所用的整屏临时图已删除；未保留人脸画面。页面检查后返回 Demo，没有确认保存。
+- Vue/uvue 在现有 fail 回调收到 code 105 时立即 Toast“请先录入或同步人脸”，保留结果区与 complete 收尾，不增加状态预读 API。新增两套 Demo 的回归检查覆盖提示内容、解除 busy 后重试，以及取消不弹无基准提示。华为 Mate 60 Pro 没有基准时实际点击 1:1 验证，最终版本截图确认 Toast 立即出现；未通过删除已有基准来制造条件，偏好目录原本为空。
+- 140 项现有检查（106 JS、34 Python）、37 个 SDK 文件、三端 UTS 转换通过；Android uni-app / uni-app x 官方 UTS/Kotlin/DEX/ABI 通过；Vue3 App 资源编译、uvue SFC 脚本及 Kotlin/Swift 模板生成通过。iOS Swift/状态、UIKit 与编译边界检查通过，真实 SDK/IPA 和真机未验。鸿蒙最终完整签名 App 构建、同身份覆盖安装成功，并重新验证了标题栏和 Toast。
+- Android GRA-UL00 已更新到本轮本地编译指纹 hfv1:ec0ed81a7fcec391f2583bca52eeacaedb53e53836e4eb00716ff375a791df92；但标题像素截图抓到页面切换过程，随后设备自动锁屏，未将该中间截图或未完成的临时 faceID 测试记作最终实机通过。本轮最终实机验收以 Mate 60 Pro 为准；三星按用户后续指示未继续部署这两项最终修复。
+- GRA 的只读记录在本轮期间由 1 条增至 2 条，UID 和密钥条目仍在；无法仅凭聚合摘要判断原记录是否逐条相同。本轮自动操作没有调用保存/删除接口或确认保存，未自动删除或回滚这些记录；已重启 Demo 清除临时输入。该情况没有记录为“基准逐字节不变”。SDK、License、阈值、存储语义及签名身份未改。
+
+证据位于忽略目录 unpackage/validation/nav-toast-20261112-*。Vue/uvue 与规范插件同步，未提交推送。
+
+## 2026-11-12 原生 UI 复查优化及设备运行
+
+- 复查精简页后，将三端导航标题从固定 96 宽改为使用返回按钮右侧剩余空间，保持单行并支持尾部省略；返回按钮点击区域由 44 扩为 48，Android 去掉箭头字体的额外上下留白。清除仅由旧布局遗留的 headingWidth、captureReserve、buttonOffset、confirmationOffset 配置，不改变识别/活体、存储或 SDK。
+- 138 项现有检查（104 JS、34 Python）、37 个 SDK 文件及三端 UTS 转换通过；Android uni-app / uni-app x 官方 UTS/Kotlin/DEX、ABI 和已有边界回归通过。iOS 8 个 Swift 语法、20 项状态、真实 UIKit 与编译边界检查通过；真实 SDK 全量编译、IPA 和真机仍未完成。
+- 鸿蒙重新清理电脑生成工程的 entry 构建输出，使用当前原生源码和真实 SDK 构建完整签名 App。安装前核对 Profile、公钥及 AppIdentifier；同身份 install -r 更新成功，UID、首次安装/安装时间保持一致，已启动新版 Demo。实际打开独立活体页，原生 UI 树确认标题位于返回按钮右侧且同高居中（按钮 [39,149][195,305]、标题 [208,149][1182,305]），指定文案均已移除；随后返回 Demo。未记录真人活体通过。
+- Android 使用现有完整 SDK 0.8.11 基座，加载本轮官方工具链编译的本地 UTS/Kotlin DEX；不是新的完整 APK。华为 API 23 的辅助包安装未完成，因此未执行计划中的离屏组件预览。改为该已核对 API 23 设备的外部开发资源同步：确认包、SDK、AppID 和当前 APK 后，将 20 个页面/DEX 文件写入独立暂存目录，原子替换并完整保留原 www 备份；没有写入私有基准目录。这是该旧系统的现场回退，不适用于 Android 11+ 的受限目录，也未放宽脚本的基座校验。
+- Android 已实际启动，运行指纹为 hfv1:f355b55917063c12f40d357e63dc65c412bed9c2539d75745f96bff26d438fa8，与本次本地编译一致。实际打开录入页并取消；原生 UI 树确认标题 [192,96][1008,240] 紧随返回按钮 [36,96][180,240]，两者垂直中心一致，且没有“本机处理”和底部品牌文字。本轮没有拍摄/保存相机截图或确认保存；打开页面不等同于真人录入/身份验证通过。
+- 本轮开始前发现用户基准密文已与更早记录不同，因此重新只读采样作为本轮基线，未沿用旧摘要。更新后及实际录入页取消后均核对原 1 条基准、相同密文摘要、Keystore 密钥及 UID，没有确认覆盖或同步演示基准。当前 Android App 启动采样日志未见原生崩溃或脚本异常。
+- 三星 SM-S9210 始终未恢复连接；按本次“运行到设备”指示，已运行到在线的华为 GRA-UL00 和鸿蒙 Mate 60 Pro，没有改为操作其他在线手机。三星与 iOS 的本轮界面实机验收仍未完成。
+
+证据位于忽略目录 unpackage/validation/native-ui-review-20261112-*；原生相机页面仅保存 UI 层级文字/坐标，不保存人脸图像。规范插件和说明已同步至 uvue，未提交推送。
+
+## 2026-11-12 原生页面精简与标题左移
+
+- 三端录入、身份验证和独立活体共用页移除“本机处理”徽标及底部“人脸处理在本机完成 / HelloFaceVerify”两行；同步删除对应控件、布局和共用配置中的无用项。导航标题紧跟返回按钮，采用同一高度并垂直居中，动态引导提示保持原位。
+- 预览开孔向外扩大 7dp/vp/pt 至原灰色外圈的位置，只绘制一条状态轮廓；录入进度弧沿相同圆周绘制。SDK、相机分辨率、识别/活体参数、确认保存与取消逻辑均未改变。
+- npm run check 通过 138 项（104 JS、34 Python）、37 个 SDK 文件和三端 UTS 转换。Android uni-app / uni-app x 的官方 UTS/Kotlin/DEX、ABI 及现有编译产物边界检查通过；本轮本地编译指纹为 hfv1:147401e022baf9f472359de2496989b62eb6989d5fe7764d052907b2d2b613d3。iOS 8 个 Swift 语法、20 项状态、真实 UIKit 与编译边界检查通过；真实 SDK/IPA 和 iOS 真机仍未验。
+- 鸿蒙真实 HAR 编译通过；初次完整 App 增量构建仍复用了旧 entry 缓存，随后清理生成工程的 entry 构建输出并重建完整签名 App 成功，已检查 entry 新编译代码含 circleExpansion/headingGap，且不再包含 localLabel。清理范围仅为电脑上的生成构建目录，没有清理手机 App 数据。
+- 用户要求优先运行到三星：曾检测到 SM-S9210，但读取设备/应用信息前即从 ADB 列表断开，后续复查仍未连接，已请求重新连接并授权。新 Demo 与官方编译的原生 DEX 已准备好，尚未在三星安装、运行或进行本轮界面实机验收；未改为部署到其他手机，未触碰已有基准。本轮不将此前版本截图或真人结果当作新版 UI 验收。
+
+证据位于忽略目录 unpackage/validation/native-ui-simple-20261112-*；规范插件及说明已同步至 uvue 副本，未提交推送。
+
+## 2026-11-12 最新版重新运行到连接设备
+
+- 鸿蒙 Mate 60 Pro / API 26：重新导出完整 Vue3 示例，并用现有 debug 身份构建签名 HAP。核对 Profile Bundle、AppIdentifier 和 EC 公钥与已安装应用一致，手动 hdc install -r 覆盖安装成功；保留 UID 20020223、firstInstallTime、installTime 和签名身份。11:04 启动后实机显示最新绿色验证卡片、独立活体入口；HAP 内 UniApp 图标层已检查。偏好目录更新前后均为空，没有写入演示基准。当前进程采样日志未见崩溃或脚本错误。
+- Android GRA-UL00 / API 23：新基座于 11:17:56 构建成功，SDK/模型、源码指纹及 16KB 静态检查通过。证书与原包相同，11:19:31 覆盖安装成功，保留 UID 10118 及首次安装时间 2026-11-09 19:38:18。安装后和页面同步后均只读复核：原 1 条基准、密文 SHA-256 及 Keystore 密钥均保持不变。APK 内放大并下移的 UniApp 图标已检查。
+- Android 发现旧 www 中 UTS 热更新 DEX 使运行指纹仍为旧版，且 HBuilderX CLI 未下发新页面。采用独立包名、相同证书且无 Activity 的 instrumentation 暂存纯页面 ZIP，再调用既有 DEBUG_SYNC，19 个文件更新，旧 www 移至备份。重启后实际运行指纹为 hfv1:9c0bc7a1b26d0a0b7ffa195e56f45654bca187bfff5a3ac9f9ef23d7fca11f88，与新 APK 一致；实机截图确认绿色边框、白底验证按钮及独立活体卡片，App 保持前台运行。
+- 实测修复 API 23 am 不支持 --receiver-foreground，以及厂商 pidof 忽略包名的问题；20 项调试脚本检查通过，实际进程过滤已复核。当前 Android App 主进程/JS 子进程采样日志未见 FATAL EXCEPTION、脚本异常或页面加载失败。
+- 本次只验证完整更新、启动、页面与图标资源、运行原生版本和数据保留，没有调用相机、录入、同步演示基准或新增真人识别/活体验收；iOS 无连接设备，未运行。证据位于忽略目录 unpackage/validation/device-run-20261112-*，未提交推送。
+
+## 2026-11-12 全局扫描与 UniApp 图标
+
+- 扫描三端公开入口、共享参数/结果分发、原生互斥、权限、帧处理、取消/重拍、亮度与存储，以及 Vue/uvue 接入。保留 SDK 0.8.11、公共 API、阈值、签名、License、存储格式和已有工作；两套 Demo 保留单一标识、四种验证组合、独立活体入口及直接 API 调用，没有增加多余封装。
+- 修复 Android clearAnalyzer 后立即关闭 SDK/释放操作槽的时序：停止接收旧帧，在串行分析队列排入屏障，等待 ImageProxy finally 后再解绑、关闭或重拍。取消确认等待释放；重复取消共用收尾，首个终态不被覆盖，迟到结果不能结束重入的新任务。依据 CameraX 图像分析和锁定 SDK 的缓冲借用契约，见 [官方核对](OFFICIAL_REVIEW.md)。
+- 三端共享分发器拒绝 passed=true 但 outcome 不是 PASSED 的矛盾响应，返回 BRIDGE_ERROR，fail/complete 各一次，不修改合法 SDK 结果。API 文档纠正了“UTS 已检查特征数值内容”的过度描述：共享层只查长度、字符集、空间，实际比对由 SDK 完成。
+- npm run check 通过 135 项（104 JS、31 Python）、37 个 SDK 文件及三端 UTS 转换；Android uni-app / uni-app x 的官方 UTS/Kotlin/DEX、桥接 ABI、3 项存储边界和 4 组实际编译协调器时序回归通过。后者使用可控主循环/Activity 释放边界，不代表真实 CameraX 帧或真人识别。DevEco 使用本次共享层官方 ArkTS 输出及真实 0.8.11 SDK 构建 HAR 成功。
+- iOS 8 个 Swift 语法、20 项纯状态、真实 UIKit 和编译用 SDK 边界类型检查通过，保留旧 UIKit 并发警告；Xcode 15.2 仍未完成真实 Swift 6.1.2 SDK 编译、完整 IPA 或真机验证。本轮未安装 App、调用相机或读写用户基准；Android 新的取消/重拍帧收尾、三端当前版本真人主流程和更新后桌面图标观感待真机复验，旧结果不计入本轮。
+- 图标以保留的最初底图重新添加红色 UniApp，文字约为旧版两倍，并按用户反馈再下移约 16px，保留头发上方空隙。母版 1024×1024，无 alpha；19 份母版/平台 PNG 检查通过（鸿蒙前景保留透明边距），Vue/uvue 资源副本一致。需要重建原生基座/安装包，页面刷新不能替换桌面图标。
+
+本轮构建与检查证据：忽略目录 unpackage/validation/global-audit-20261112-*。未提交推送。
+
+## 2026-11-12 独立活体 Demo 入口
+
+- 此前只有插件接口，首页没有独立活体入口。Vue/uvue 现在在“1:1 人脸验证”下方增加“独立活体检测 → 开始活体检测”，直接调用 detectLiveness，不传 faceID/基准，不读写身份数据；单独的动作开关默认关闭，开启后追加眨眼、点头，不改变身份验证的两个开关。
+- SDK 0.8.11 始终执行静默活体，界面明确说明“只验真人、不比对身份”，未展示不存在的静默关闭能力。actions 为空是有效的静默检测；“两个都关报参数错误”与当前接口契约不符，API/readme 已补充说明，SDK 和公共 API 未改动。
+- 新入口复用 busy、success/fail/complete 及离页取消；结果标记“独立活体”和提交模式，空 faceID 不显示标识行。20 项页面检查通过，覆盖空标识、独立动作选择、忙碌锁定、结果快照、权限错误、complete 收尾、离页取消及 Web 拦截。全套检查通过 132 项（101 JS、31 Python）、37 个 SDK 文件校验和三端 UTS 转换。
+- HBuilderX 5.34 的 Vue3 App 资源和 Web 导出编译成功，uvue SFC 脚本与 Kotlin/Swift 模板生成通过。360px Web 预览确认入口、用途说明及独立动作开关：切换独立动作时，身份验证仍为静默开/动作关，检查后恢复默认。证据为忽略目录 `unpackage/validation/demo-liveness-20261112-*`；本轮没有调用真机相机、安装 App 或新增真人活体验收。旧基座若缺少 detectLiveness，需要先原生联编/重建，再运行新版页面。
+
+## 2026-11-12 Demo 字号与开关尺寸
+
+- Vue/uvue 同步去掉“插件调用示例”标题和对应无用样式；辅助说明缩为 11–12px，结果文本为 13px。活体开关以右侧中心为基点等比缩小至 80%，选项行最小高度由 68px 收为 60px，保留 label 行和原有事件、防重复、四种组合及模式快照。
+- 验证卡片四边改为与功能按钮相同的绿色线框；“开始 1:1 验证”直接继承通用 action 按钮的白底、绿色边框和绿字，仅保留卡片内部所需的底部间距。Vue/uvue 两页同步，16 项行为检查、Vue3 App 资源导出和 uvue 脚本/模板检查再次通过。
+- 绿色样式在 360px Web 预览确认：卡片四边均为 `#72CCAE`，验证按钮与其他功能按钮的边框、底色、文字颜色、高度及圆角计算值一致。Web 导出编译成功，截图为 `unpackage/validation/demo-green-20261112-web.png`；Android 当前缓存页面未同步到本次颜色更新，未将旧截图计作新版样式实机确认。
+- 16 项页面行为检查通过，HBuilderX 5.34 的 Vue3 App 资源导出成功，uvue SFC 脚本和 Kotlin/Swift 模板生成通过。Android API 23 上通过已有基座的页面更新实际检查布局、缩小后的动作开关切换和组合说明，随后恢复默认静默开/动作关；没有重新安装 App 或调用录入/同步/识别。截图和日志位于忽略目录 `unpackage/validation/demo-compact-20261112*`；未新增 iOS/鸿蒙真机或完整 uvue App 验收。
+
+## 2026-11-12 官方规范核对与修复
+
+- 核对 DCloud/UTS、CameraX、UIKit/AVFoundation、HarmonyOS/ArkTS 及锁定 SDK 的公开契约；依据、保留项和调整边界见 [官方规范核对](OFFICIAL_REVIEW.md)。修复 Android 分析流的回退候选未限制 SDK 尺寸上限的问题，保留 640×480 偏好和 CameraX 顺序；读取基准时密钥缺失现在直接存储错误，不生成替代密钥，保存逻辑和已有密文格式不变。
+- `npm run check` 最终通过 128 项（97 JS、31 Python）、37 个 SDK 文件校验及三端 UTS 转换。Android 的 uni-app / uni-app x 官方 UTS、Kotlin、DEX 与稳定桥接 ABI 检查通过；两种模式均实际加载编译后的 ReferenceStore，三项 JVM 边界检查通过：缺失密钥读取不生成、已有密钥 AES-GCM 往返、密文绑定 faceID。该提供器/Preferences 边界不是真实 Android Keystore，不计作手机验收；同一回归对修复前的 ReferenceStore 实际失败（读取尝试生成密钥），修复后通过。
+- iOS 8 个 Swift 语法、20 项纯状态、真实 UIKit 和仅供编译的 SDK 边界类型检查通过；保留旧工具链对 UIKit 可访问性常量的并发警告。当前 Xcode 15.2 仍不能完成 Swift 6.1.2 SDK 全量编译/IPA，没有 iOS 真机结果。
+- DevEco 对当前插件及真实 0.8.11 HAR 的 `assembleHar` 通过。HBuilderX 5.34 在 09:15:14 报告完整鸿蒙发行安装包制作成功，产物是 `unpackage/dist/build/app-harmony/build/outputs/release/app-harmony-release-unsigned.app`，发行通道未配置数字证书，因此未签名、未安装。发行工程的原生 .ets 与规范目录逐字节一致；独立 HAR 检查目录的精简 AppScope 缺少 icon/label，直接拿它构建完整 HAP 曾失败，随后通过 HBuilderX 完整发行导出验证，未把精简目录当完整宿主验收。
+- Vue3 App 资源在当前构建中编译成功；uvue SFC 脚本及 Kotlin/Swift 模板生成通过，未完成独立 uvue 原生 App 链接。两套 Demo 的页面源码均未改动；保留单一默认标识、四种活体组合及模式快照。
+- 用户本轮补充反馈“弹窗和图片大小合适”，记为此前鸿蒙新版确认弹窗的界面反馈，不计为本轮新增接口、身份比对或活体通过。
+- Android GRA-UL00 / API 23 重新连接后，先用独立包名、同证书且无 Activity 的 instrumentation 只读记录原基准。最终正式调试基座经源码指纹、SDK/模型/16KB 静态校验后，以相同证书覆盖安装；保留 UID 10118 和首次安装时间 `2026-11-09 19:38:18`。已有 1 条基准的密文摘要逐字节相同，仍能正常解密；没有把公开 AI 图片同步或保存为用户基准，没有卸载/清数据或安装同包名预览宿主。
+- 最终 APK 上 23 项真实原生检查通过：getFaceStatue 的存在/缺少和不泄漏特征、读取原基准、真实 SDK 提取公开 AI 图片得到 HF1 且不作身份判定、独立活体实际 CameraX STREAMING、协商分析尺寸 640×480、共享操作槽 BUSY、满亮与原值恢复、主动取消及槽位复用、独立活体无人脸超时、verifyFace 四种组合均返回实际 NO_FACE_TIMEOUT / passed false、切后台取消及资源复用，以及纯接口前后基准未改。它们直接调用 App 的原生入口；不替代 Vue/uvue 接入和真人识别/活体通过验收。
+- 在这台旧系统上复现并修复脚本把 sha256sum/getconf 的“命令不存在”误当成功输出的问题。新增 3 项 Python 回归通过；APK 字节回退核对确认手机安装包与当前基座相同，smaps 实测 4096 B。run-as 被厂商系统拒绝，改用 HBuilderX 已安装基座通道，09:40:53 Vue3 编译成功、09:40:59 页面同步成功、09:41:02 启动成功；冷启动页面默认静默开/动作关。真实 16KB 系统、iOS 真机仍未验。
+- 完整 Vue 页面以仅静默活体模式触发 verifyFace，当前进程原生日志在 09:47:03 返回 OK / PASSED（3557ms）。操作者随后明确确认“是，本人正对了镜头”，据此补记本轮 SDK 0.8.11 的 Android GRA-UL00 / API 23 完整 Vue Demo 本人验证通过；本次是已有基准的真实 1:1 验证，与上文 instrumentation 的四种组合无人脸拒绝分别记录。本轮动作组合的真人通过、他人拒绝及照片/屏幕攻击仍待验证。页面运行后的只读复查仍为原 1 条基准、相同密文摘要及相同 UID，没有同步替换基准。采样的本进程原生日志未见 FATAL EXCEPTION。
+
+本轮证据位于忽略目录 `unpackage/validation/official-audit-20261112-*`，包含构建日志、APK/鸿蒙产物收据、独立检查源文件和只读摘要。SDK 版本、License、AppID、签名身份和阈值未改，未提交推送。
+
 ## 2026-11-12 三个独立插件接口
 
 - 三端新增 `detectLiveness`、`extractFaceFeature`、`getFaceStatue`，沿用 options、success/fail/complete、code/msg 和统一互斥。独立活体与纯提取不要求 faceID、基准或写入存储；状态查询只读/解密后返回 exists，缺少基准正常返回 false，读写异常仍 fail，不返回原始特征。

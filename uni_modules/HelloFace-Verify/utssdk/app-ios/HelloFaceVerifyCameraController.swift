@@ -156,14 +156,14 @@ final class HelloFaceVerifyCameraController: UIViewController {
             }
             if method == "detectLiveness" {
                 let configuration = try FaceLivenessConfiguration(actions: actions,
-                    actionTimeoutMilliseconds: (params["actionTimeoutMs"] as? NSNumber)?.int64Value ?? 10000,
+                    actionTimeoutMilliseconds: (params["actionTimeoutMs"] as? NSNumber)?.int64Value ?? 3000,
                     faceAcquisitionTimeoutMilliseconds: (params["faceTimeoutMs"] as? NSNumber)?.int64Value ?? 15000)
                 request = pipeline.sdk.startCameraLiveness(configuration: configuration, callbacks: callbacks)
             } else {
                 let configuration = try FaceVerificationConfiguration(referenceFeature: reference ?? "",
                     threshold: (params["threshold"] as? NSNumber)?.floatValue ?? 0.80,
                     requiresSilentLiveness: params["silentLiveness"] as? Bool ?? true, actions: actions,
-                    actionTimeoutMilliseconds: (params["actionTimeoutMs"] as? NSNumber)?.int64Value ?? 10000,
+                    actionTimeoutMilliseconds: (params["actionTimeoutMs"] as? NSNumber)?.int64Value ?? 3000,
                     faceAcquisitionTimeoutMilliseconds: (params["faceTimeoutMs"] as? NSNumber)?.int64Value ?? 15000)
                 request = pipeline.sdk.startCameraVerification(configuration: configuration, callbacks: callbacks)
             }

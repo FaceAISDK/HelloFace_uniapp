@@ -57,8 +57,11 @@ class HelloFaceVerifyCameraActivity : ComponentActivity() {
     private val analyzer = Executors.newSingleThreadExecutor()
     private var aligned: Bitmap? = null
     private var capturedFeature: String? = null
-    private var generation = 0
+    @Volatile private var generation = 0
+    @Volatile private var acceptingFrames = false
     private var stopping = false
+    private var shutdownComplete = false
+    private val shutdownCallbacks = mutableListOf<() -> Unit>()
     private var previousBrightness: Float? = null
     private var brightnessApplied = false
     private val permission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -71,7 +74,7 @@ class HelloFaceVerifyCameraActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         jobID = intent.getStringExtra("requestID") ?: ""
         val pending = HelloFaceVerifyNative.job
-        if (pending == null || pending.id != jobID || savedInstanceState != null) { finish(); return }
+        if (pending == null || pending.id != jobID || pending.ending || savedInstanceState != null) { finish(); return }
         current = pending
         HelloFaceVerifyNative.camera = WeakReference(this)
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
@@ -113,7 +116,7 @@ class HelloFaceVerifyCameraActivity : ComponentActivity() {
             maxOf(insets.systemWindowInsetBottom, cutout?.safeInsetBottom ?: 0))
     }
 
-    private fun active() = HelloFaceVerifyNative.job?.id == jobID && !stopping && !isFinishing
+    private fun active() = HelloFaceVerifyNative.job?.let { it.id == jobID && !it.ending } == true && !stopping && !isFinishing
     override fun onResume() {
         super.onResume()
         if (active()) {
@@ -184,10 +187,17 @@ class HelloFaceVerifyCameraActivity : ComponentActivity() {
                     val display = Preview.Builder().build().apply { setSurfaceProvider(preview.surfaceProvider) }
                     displayPreview = display
                     val resolution = ResolutionSelector.Builder().setResolutionStrategy(
-                        ResolutionStrategy(Size(640, 480), ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER_THEN_HIGHER)).build()
+                        ResolutionStrategy(Size(640, 480), ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER_THEN_HIGHER))
+                        // 640×480 是偏好而非上限；回退尺寸也必须满足 SDK 的 YUV 输入约束。
+                        // 保留 CameraX 的候选顺序；无合规组合时由 bindToLifecycle 的异常正常收尾。
+                        .setResolutionFilter { sizes, _ -> sizes.filter { size ->
+                            size.width > 0 && size.height > 0 && size.width % 2 == 0 && size.height % 2 == 0 &&
+                                maxOf(size.width, size.height) <= 1920 && minOf(size.width, size.height) <= 1080
+                        } }.build()
                     val frames = ImageAnalysis.Builder().setResolutionSelector(resolution)
                         .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST).build()
                     analysis = frames
+                    acceptingFrames = true
                     frames.setAnalyzer(analyzer, object : ImageAnalysis.Analyzer {
                         // Explicit defaults also work when host/plugin desugaring is separate on API 23.
                         override fun getDefaultTargetResolution(): Size? = null
@@ -195,6 +205,7 @@ class HelloFaceVerifyCameraActivity : ComponentActivity() {
                         override fun updateTransform(matrix: Matrix?) {}
                         override fun analyze(image: ImageProxy) {
                             try {
+                                if (!acceptingFrames || generation != attempt) return
                                 val planes = image.planes
                                 val frame = Yuv420Frame(planes[0].buffer, planes[1].buffer, planes[2].buffer,
                                     image.width, image.height, planes[0].rowStride, planes[1].rowStride,
@@ -230,18 +241,23 @@ class HelloFaceVerifyCameraActivity : ComponentActivity() {
 
     private fun confirmCapture(result: FaceCaptureResult) {
         if (!active() || capturedFeature != null) return
-        stopAnalysis()
         aligned = result.alignedFace // The SDK creates a Bitmap; read it only once.
         capturedFeature = result.feature
-        screen.showConfirmation(aligned, current.params.optString("camera", "front") == "front")
+        stopAnalysis {
+            if (active()) screen.showConfirmation(aligned, current.params.optString("camera", "front") == "front")
+        }
     }
     private fun retake() {
         if (!active() || current.committing || capturedFeature == null) return
         generation++ // Ignore cancellation and queued progress from the completed attempt.
         request?.cancel(); request = null
-        stopAnalysis(); sdk?.close(); sdk = null
+        val previousSDK = sdk; sdk = null
         screen.clearPhoto(); aligned = null; capturedFeature = null
-        screen.showLive(); begin()
+        screen.showLive()
+        stopAnalysis {
+            previousSDK?.close()
+            if (active()) begin()
+        }
     }
     private fun confirm() {
         val feature = capturedFeature ?: return
@@ -282,21 +298,37 @@ class HelloFaceVerifyCameraActivity : ComponentActivity() {
         }
         super.onDestroy()
     }
-    private fun stopAnalysis() {
+    private fun stopAnalysis(completion: () -> Unit) {
+        acceptingFrames = false
         analysis?.clearAnalyzer()
         val owned = listOfNotNull<UseCase>(displayPreview, analysis)
-        if (owned.isNotEmpty()) provider?.unbind(*owned.toTypedArray())
+        val cameraProvider = provider
         displayPreview = null; analysis = null
+        // clearAnalyzer 不等待正在执行的 processFrame。串行队列屏障确保 finally 已归还
+        // ImageProxy，随后才能解绑相机、关闭 SDK 或开始重拍，不能阻塞主线程等待。
+        analyzer.execute {
+            runOnUiThread {
+                if (owned.isNotEmpty()) cameraProvider?.unbind(*owned.toTypedArray())
+                completion()
+            }
+        }
     }
-    @PublishedApi internal fun shutdownCamera() {
+    @PublishedApi internal fun shutdownCamera(completion: () -> Unit = {}) {
+        if (shutdownComplete) { completion(); return }
+        shutdownCallbacks.add(completion)
+        if (shutdownCallbacks.size > 1) return
         stopping = true
         if (::screen.isInitialized) screen.clearPhoto()
         restoreBrightness()
         generation++
         request?.cancel(); request = null
-        stopAnalysis()
-        sdk?.close(); sdk = null
-        analyzer.shutdown()
+        stopAnalysis {
+            sdk?.close(); sdk = null
+            analyzer.shutdown()
+            shutdownComplete = true
+            val callbacks = shutdownCallbacks.toList(); shutdownCallbacks.clear()
+            callbacks.forEach { it() }
+        }
     }
     private fun action(value: String): FaceAction = when (value) {
         "blink" -> FaceAction.BLINK; "openMouth" -> FaceAction.MOUTH_OPEN

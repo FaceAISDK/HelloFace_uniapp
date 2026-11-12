@@ -30,3 +30,10 @@ npm run android:native-check -- \
 ```
 
 覆盖真实 `extractFeatureBlocking`、HF1 格式、无身份判定、加密保存/读取、覆盖保护、无效图/无人脸/过小人脸、失败保留基准，以及外部特征同步后往返一致。使用随机测试标识，结束清理测试基准与验收包；指定输出路径时只导出调用者提供的虚构示例特征，不在日志打印。
+## 编译后的存储边界检查
+
+`npm run android:uts-check` 及 `-- --uni-app-x` 在官方 UTS/Kotlin/DEX 与桥接 ABI 检查后，会执行 `ReferenceKeyChecks.java`。它直接加载本轮编译的 `ReferenceStore`，用 JVM JCE 提供器和 SharedPreferences/Base64 边界检查：读取缺失密钥不会生成替代密钥、已有密钥的 AES-GCM 读写，以及密文的 faceID 绑定。
+
+该检查不连接手机，不读写真实 Keystore 或用户基准，不替代前述 Android 真机集成检查。边界代码仅用于检查，不会复制进插件或 App。
+
+同一命令还加载实际编译的 Native 协调器，执行 `coordinator/CoordinatorChecks.java`：相机释放前保持互斥、重复取消、首个终态优先、取消确认顺序、回调重入与旧结果隔离，以及提交中不可取消。主循环、Activity 释放与日志使用可控边界，不模拟相机帧或识别通过；依赖 Gradle 缓存中的 org.json JAR。它验证协调器的时序，不替代真实 CameraX 取消/重拍回归。

@@ -66,6 +66,36 @@ async function main() {
   require('./check_android_bridge_abi.cjs').assertBridgeAbi(path.join(process.env.UNI_OUTPUT_DIR,
     'uni_modules/HelloFace-Verify/utssdk/app-android/classes.dex'))
   console.log('PASS stable Android bridge JVM names')
+  // 以下只检查编译后的真实类和可控 JVM 边界，不读取手机密钥，也不代替真机验收。
+  const runtime = path.join(plugins, 'uniapp-runextension/lib')
+  const stdlibName = fs.readdirSync(runtime).find(name => /^kotlin-stdlib-[\d.]+\.jar$/.test(name))
+  const stdlib = required(stdlibName && path.join(runtime, stdlibName),
+    'HBuilderX Kotlin runtime is missing.')
+  const platform = fs.readdirSync(path.join(sdk, 'platforms')).filter(name => /^android-\d+$/.test(name))
+    .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))[0]
+  const jar = path.join(process.env.HX_DEPENDENCIES_DIR, 'app-android/uts/uni_modules/HelloFace-Verify/index.jar')
+  const runtimeClasspath = [jar, path.join(sdk, 'platforms', platform, 'android.jar'), stdlib]
+  const executable = name => path.join(java, 'bin', name + (process.platform === 'win32' ? '.exe' : ''))
+  const boundary = fs.mkdtempSync(path.join(os.tmpdir(), 'helloface-reference-check-'))
+  try {
+    const classpath = [boundary, ...runtimeClasspath].join(path.delimiter)
+    execFileSync(executable('javac'), ['-d', boundary, path.join(root, 'tests/android/ReferenceKeyChecks.java'),
+      path.join(root, 'tests/android/boundary/android/util/Base64.java')], { stdio: 'inherit' })
+    execFileSync(executable('java'), ['-cp', classpath, 'ReferenceKeyChecks'], { stdio: 'inherit' })
+  } finally { fs.rmSync(boundary, { recursive: true, force: true }) }
+  const jsonRoot = path.join(process.env.GRADLE_USER_HOME || path.join(os.homedir(), '.gradle'), 'caches/modules-2/files-2.1/org.json/json')
+  const jsonJars = exists(jsonRoot) ? fs.readdirSync(jsonRoot, { recursive: true })
+    .filter(name => /json-[\d.]+\.jar$/.test(name)).map(name => path.join(jsonRoot, name)) : []
+  const jsonJar = required(jsonJars[0], 'The Gradle cache must contain org.json for JVM coordinator checks.')
+  const coordinator = fs.mkdtempSync(path.join(os.tmpdir(), 'helloface-coordinator-check-'))
+  try {
+    const classpath = [coordinator, jsonJar, ...runtimeClasspath].join(path.delimiter)
+    const source = path.join(root, 'tests/android/coordinator')
+    execFileSync(executable('javac'), ['-cp', classpath, '-d', coordinator,
+      path.join(source, 'android/os/Looper.java'), path.join(source, 'android/os/Handler.java'), path.join(source, 'android/content/Context.java'),
+      path.join(source, 'CoordinatorChecks.java')], { stdio: 'inherit' })
+    execFileSync(executable('java'), ['-cp', classpath, 'uts.sdk.modules.HelloFaceVerify.CoordinatorChecks'], { stdio: 'inherit' })
+  } finally { fs.rmSync(coordinator, { recursive: true, force: true }) }
   console.log('PASS official UTS + Kotlin compilation: ' + (isX ? 'uni-app x' : 'uni-app'))
 }
 // The compiler owns persistent worker handles; close this CLI once compilation ends.

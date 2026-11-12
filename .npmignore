@@ -1,0 +1,30 @@
+# HBuilderX 示例包使用此文件后不再读取 .gitignore，必须保留以下开发/私密文件排除项。
+.DS_Store
+.hbuilderx/
+unpackage/
+node_modules/
+.sdk-cache/
+.hvigor/
+*.log
+*.keystore
+*.jks
+*.p12
+*.mobileprovision
+local.properties
+/harmony-configs/build-profile.json5
+uni_modules/HelloFace-Verify/utssdk/app-android/libs/*.aar
+uni_modules/HelloFace-Verify/utssdk/app-ios/Frameworks/*.xcframework/
+uni_modules/HelloFace-Verify/utssdk/app-harmony/libs/*.har
+examples/uni-app-x/uni_modules/
+examples/uni-app-x/app-icons/
+examples/uni-app-x/demo/
+examples/uni-app-x/static/
+examples/uni-app-x/harmony-configs/entry/
+examples/uni-app-x/harmony-configs/AppScope/
+__pycache__/
+**/__pycache__/**
+**/*.pyc
+
+# 图标编辑素材仅在仓库保留；示例保留全部运行所需图标和维护脚本。
+/app-icons/source-original.png
+/app-icons/generation-prompt.txt

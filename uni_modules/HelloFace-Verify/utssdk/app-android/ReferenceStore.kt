@@ -16,9 +16,11 @@ import javax.crypto.spec.GCMParameterSpec
 internal class ReferenceStore(context: Context) {
     private val preferences = context.getSharedPreferences("helloface.references.v1", Context.MODE_PRIVATE)
     private val alias = "helloface.references.aes.v1"
-    private fun key(): SecretKey {
+    private fun key(createIfMissing: Boolean): SecretKey {
         val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
         (store.getKey(alias, null) as? SecretKey)?.let { return it }
+        // 读取（含状态查询）必须只读；已有密文但密钥缺失时报告存储异常，不创建替代密钥。
+        check(createIfMissing) { "Face reference key is unavailable" }
         return KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore").apply {
             init(KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
                 .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
@@ -32,14 +34,14 @@ internal class ReferenceStore(context: Context) {
         val data = Base64.decode(encoded, Base64.NO_WRAP)
         require(data.size > 29 && data[0] == 1.toByte()) { "Invalid reference envelope" }
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, data.copyOfRange(1, 13)))
+        cipher.init(Cipher.DECRYPT_MODE, key(createIfMissing = false), GCMParameterSpec(128, data.copyOfRange(1, 13)))
         cipher.updateAAD(account(faceID).toByteArray(Charsets.UTF_8))
         val clear = cipher.doFinal(data.copyOfRange(13, data.size))
         return try { String(clear, Charsets.UTF_8) } finally { clear.fill(0) }
     }
     fun save(faceID: String, feature: String) {
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        cipher.init(Cipher.ENCRYPT_MODE, key())
+        cipher.init(Cipher.ENCRYPT_MODE, key(createIfMissing = true))
         cipher.updateAAD(account(faceID).toByteArray(Charsets.UTF_8))
         val clear = feature.toByteArray(Charsets.UTF_8)
         val encrypted = try { cipher.doFinal(clear) } finally { clear.fill(0) }

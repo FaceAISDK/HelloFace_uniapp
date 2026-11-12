@@ -17,7 +17,7 @@ export function createVerifyParams(options: VerifyFaceOptions): UTSJSONObject {
   params['threshold'] = options.threshold ?? 0.80
   params['silentLiveness'] = options.silentLiveness ?? true
   params['actions'] = options.actions ?? [] as string[]
-  params['actionTimeoutMs'] = options.actionTimeoutMs ?? 10000
+  params['actionTimeoutMs'] = options.actionTimeoutMs ?? 3000
   params['faceTimeoutMs'] = options.faceTimeoutMs ?? 15000
   params['camera'] = options.camera ?? 'front'
   if (options.referenceFeature != null) params['referenceFeature'] = options.referenceFeature
@@ -27,7 +27,7 @@ export function createVerifyParams(options: VerifyFaceOptions): UTSJSONObject {
 export function createLivenessParams(options: DetectLivenessOptions): UTSJSONObject {
   const params = createFaceParams('')
   params['actions'] = options.actions ?? [] as string[]
-  params['actionTimeoutMs'] = options.actionTimeoutMs ?? 10000
+  params['actionTimeoutMs'] = options.actionTimeoutMs ?? 3000
   params['faceTimeoutMs'] = options.faceTimeoutMs ?? 15000
   params['camera'] = options.camera ?? 'front'
   return params
@@ -148,6 +148,8 @@ export function createDispatcher(method: string, faceID: string,
     let code = event?.getString('code') ?? 'BRIDGE_ERROR'
     const validResult = event?.getString('event') == 'result' &&
       (!cameraMethod || (data?.getBoolean('passed') != null && data?.getString('outcome') != null)) &&
+      // 通过必须同时来自 SDK 的 PASSED 终态；矛盾的桥接响应不能产生伪通过。
+      (!cameraMethod || data?.getBoolean('passed') != true || data?.getString('outcome') == 'PASSED') &&
       (method != 'enrollFace' || data?.getBoolean('passed') != true || data?.getString('feature') != null) &&
       ((method != 'getFaceFeature' && method != 'setFaceFeature' && method != 'syncFaceFeature' && method != 'syncFaceImage' && method != 'extractFaceFeature') || data?.getString('feature') != null) &&
       (method != 'getFaceStatue' || data?.getBoolean('exists') != null)

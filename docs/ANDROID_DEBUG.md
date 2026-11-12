@@ -6,7 +6,7 @@
 
 1. 打开工程根目录 `HelloFace_uniapp`，这是 Vue 示例；要调试 uvue 则单独打开 `examples/uni-app-x`，先执行 `npm run demo:prepare` 同步插件。两个示例使用各自的 AppID 和基座。
 2. 本工程包含第三方人脸 SDK，首次运行或 SDK、依赖、资源、Manifest 改动后需要自定义基座，不能选择标准基座。确认 HBuilderX 登录账号拥有当前 `manifest.json` 的 AppID 权限；执行 `npm run android:base` 自动制作并校验基座，或先执行 `npm run android:prepare`，再从 HBuilderX“运行 → 运行到手机或模拟器 → 制作自定义调试基座”制作。
-3. 手机连接 USB 并授权调试。在 HBuilderX 选择“运行 → 运行到手机或模拟器 → 运行到 Android App 基座”，选小米并勾选“使用自定义基座运行”。已有最新版基座时可选“已安装的基座”，包名为 `dev.helloface.uniapp.demo`；使用本地基座时文件为根工程 `unpackage/debug/android_debug.apk`。
+3. 手机连接 USB 并授权调试。在 HBuilderX 选择“运行 → 运行到手机或模拟器 → 运行到 Android App 基座”，选择已连接的目标设备并勾选“使用自定义基座运行”。已有最新版基座时可选“已安装的基座”，包名为 `dev.helloface.uniapp.demo`；使用本地基座时文件为根工程 `unpackage/debug/android_debug.apk`。
 4. 运行成功后，在底部运行控制台点击红色虫子图标，选择“调试”；如需调试 App 初始化，开启后再点击旁边的“重启应用”。双击代码行号添加断点，然后在手机点击录入/验证按钮触发。
 5. 按调用链设置断点：`pages/index/index.vue` 的 `enroll` / `verify` → `utssdk/app-android/index.uts` 的参数创建与原生调用 → `HelloFaceVerifyNative.kt` 的 `invoke` → `HelloFaceVerifyCameraActivity.kt` 的进度、采集、保存回调 → `shared.uts` 的结果分发。调试 Kotlin 时按 HBuilderX 提示安装 `kotlin-language` 插件。SDK AAR 内部源码未随本工程提供，可在调用前后检查参数、结果和日志。
 
@@ -76,6 +76,22 @@ npm run android:base
 基座检查包含：AppID、包名、HBuilderX 运行时版本、API/ABI、原生相机入口、模型不压缩、16KB ELF/RELRO/ZIP 对齐，以及原生源码指纹。检查失败时停止，不退回标准基座。
 
 Android 图标配置和实际 PNG 内容也参与宿主指纹；更换图标后需重制基座。`android:dev` 会监听示例的 Android 图标资源，不会将新图标当成可热更新的页面资源。
+
+## 旧厂商系统的调试命令
+
+GRA-UL00 / API 23 实测没有 `sha256sum` 和 `getconf`，且旧 ADB shell 可能在报错时仍返回 0。脚本只接受 64 位十六进制摘要；命令缺失时读取已安装 APK 字节核对，不会因错误文本而要求重复安装。内存页大小在 getconf 不可用时从 `/proc/self/smaps` 的 KernelPageSize 读取，均不可读时显示未知，不猜测为 4KB。
+
+该设备的 `run-as` 返回 `Could not set capabilities: Operation not permitted`，应用内 ZIP 同步通道不能使用。已安装并校验当前基座后，使用 HBuilderX 的已安装基座通道：
+
+```sh
+npm run android:run -- --hbuilder --skip-install --device 设备序列号
+```
+
+它在核对相同 APK 后同步页面资源；本轮已在该 API 23 手机上编译、同步及启动成功。该设备实际为 4KB 页；16KB 静态检查通过不等于已经在真实 16KB 系统运行。
+
+该系统的 `am` 不支持 `--receiver-foreground`，脚本改用等价的 `-f 0x10000000`。其 `pidof 包名` 还可能忽略包名、输出所有 PID；多结果现在通过 ps 的完整进程名核对，兼容不支持 `ps -A` 或仅返回表头的旧实现，避免日志混入其他进程。
+
+2026-11-12 更新时，HBuilderX CLI 未下发新页面，旧 www 中的 UTS classes.dex 又覆盖了新基座。先确认新旧证书一致及手机 APK 与新产物一致，再由相同证书、独立包名且无 Activity 的 instrumentation 将纯页面 ZIP 放入目标 App 调试收件目录，使用已有 DEBUG_SYNC 完成替换。该路径只更新页面，原 www 留在 debug-backup；重启后必须重新核对运行中的指纹，不能仅检查 APK。本次从旧热更新指纹恢复为当前基座指纹，19 个页面文件已同步，原基准摘要不变。没有卸载、清数据或安装同包名预览宿主；常规开发仍优先使用 HBuilderX 正常运行通道。
 
 ## 资源同步如何实现
 
