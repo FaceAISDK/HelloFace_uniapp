@@ -43,6 +43,8 @@ public final class FaceRequest: @unchecked Sendable {
 }
 public enum HiFaceImageRotation: Sendable { case degrees0 }
 public struct HiFaceCameraFrame: Sendable {
+    public static var maximumLongSidePixels: Int { fatalError("Compile only") }
+    public static var maximumShortSidePixels: Int { fatalError("Compile only") }
     public init(pixelBuffer: CVPixelBuffer, rotation: HiFaceImageRotation, isMirrored: Bool) throws { fatalError("Compile only") }
 }
 public struct FaceLivenessConfiguration: Sendable {
@@ -54,10 +56,11 @@ public struct FaceVerificationConfiguration: Sendable {
                 actions: [FaceAction] = [], actionTimeoutMilliseconds: Int64? = nil,
                 faceAcquisitionTimeoutMilliseconds: Int64? = nil, allowsMultipleFaces: Bool = false) throws { fatalError("Compile only") }
 }
+public struct FaceDetectionResult: Sendable {}
 public final class HiFaceSDK: @unchecked Sendable {
     public init() { fatalError("Compile only") }
     public func close() { fatalError("Compile only") }
-    public func processFrame(_ frame: HiFaceCameraFrame) -> Result<Void, HiFaceError> { fatalError("Compile only") }
+    public func processFrame(_ frame: HiFaceCameraFrame) -> Result<FaceDetectionResult, HiFaceError> { fatalError("Compile only") }
     public func extractFeature(from image: CGImage) async -> Result<String, HiFaceError> { fatalError("Compile only") }
     public func startCameraCapture(callbacks: FaceFlowCallbacks) -> FaceRequest { fatalError("Compile only") }
     public func startCameraLiveness(configuration: FaceLivenessConfiguration, callbacks: FaceFlowCallbacks) -> FaceRequest { fatalError("Compile only") }

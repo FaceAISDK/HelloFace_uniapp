@@ -51,7 +51,7 @@ for (const file of ['pages/index/index.vue', 'examples/uni-app-x/pages/index/ind
     state.verify()
     calls[0].options.fail({ code: 105, msg: '请先录入', faceID: 'demo-user' })
     assert.equal(toasts.length, 1)
-    assert.equal(toasts[0].title, '请先录入或同步人脸')
+    assert.equal(toasts[0].title, '请先录入，code: 105')
     assert.equal(toasts[0].icon, 'none')
     assert.match(state.resultText, /code: 105/)
     assert.equal(state.busy, true)
@@ -60,7 +60,8 @@ for (const file of ['pages/index/index.vue', 'examples/uni-app-x/pages/index/ind
     state.verify()
     assert.equal(calls.length, 2)
     calls[1].options.fail({ code: 103, msg: '已取消', faceID: 'demo-user' })
-    assert.equal(toasts.length, 1) // 离页/取消不弹出无基准提示。
+    assert.equal(toasts.length, 2)
+    assert.equal(toasts[1].title, '已取消，code: 103')
   })
   test(`${file}: demo sync keeps the current faceID without enrollment or reading device features`, () => {
     const { state, calls } = loadPage(file)
@@ -273,7 +274,7 @@ for (const file of ['pages/index/index.vue', 'examples/uni-app-x/pages/index/ind
   })
 
   test(`${file}: deleting a reference requires confirmation`, () => {
-    const { state, calls, modals } = loadPage(file)
+    const { state, calls, modals, unload } = loadPage(file)
     state.remove()
     assert.equal(calls.length, 0)
     state.verify()
@@ -290,10 +291,14 @@ for (const file of ['pages/index/index.vue', 'examples/uni-app-x/pages/index/ind
     assert.match(state.resultText, /msg: 删除成功/)
     assert.ok(!state.resultText.includes('passed:'))
     assert.equal(state.busy, false)
+    state.remove()
+    unload()
+    modals[2].success({ confirm: true }) // 离页后的系统弹窗不能再删除基准。
+    assert.equal(calls.filter(call => call.name == 'deleteFace').length, 1)
   })
 
   test(`${file}: failures release the buttons and unloading cancels active work`, () => {
-    const { state, calls, unload } = loadPage(file)
+    const { state, calls, unload, toasts } = loadPage(file)
     state.verify()
     calls[0].options.fail({ code: 102, msg: '相机未授权', errCode: 9011002, sdkCode: 'PERMISSION_DENIED',
       faceID: 'demo-user', errMsg: 'verifyFace:fail 相机未授权', detail: 'Original camera diagnostics' })
@@ -306,6 +311,12 @@ for (const file of ['pages/index/index.vue', 'examples/uni-app-x/pages/index/ind
     state.verify()
     unload()
     assert.equal(calls[2].name, 'cancel')
+    assert.equal(state.busy, false)
+    const message = state.resultText, toastCount = toasts.length
+    calls[1].options.fail({ code: 103, msg: '已取消', faceID: 'demo-user' })
+    calls[1].options.complete({})
+    assert.equal(toasts.length, toastCount)
+    assert.equal(state.resultText, message)
   })
 
   test(`${file}: a failed confirmation dialog releases the buttons without deleting`, () => {

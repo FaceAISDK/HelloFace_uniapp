@@ -75,7 +75,7 @@ npm run android:base
 
 基座检查包含：AppID、包名、HBuilderX 运行时版本、API/ABI、原生相机入口、模型不压缩、16KB ELF/RELRO/ZIP 对齐，以及原生源码指纹。检查失败时停止，不退回标准基座。
 
-Android 图标配置和实际 PNG 内容也参与宿主指纹；更换图标后需重制基座。`android:dev` 会监听示例的 Android 图标资源，不会将新图标当成可热更新的页面资源。
+Android 图标配置和实际 PNG 内容也参与宿主指纹；更换图标后需重制基座。`android:dev` 会监听示例的 Android 图标资源、插件 Android 目录与全部共享 `*.uts`（含 `status.uts`），发现原生变更仍要求重新编译；不会将新图标或原生代码当成可热更新的页面资源。
 
 ## 旧厂商系统的调试命令
 

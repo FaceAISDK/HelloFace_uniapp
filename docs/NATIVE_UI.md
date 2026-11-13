@@ -1,6 +1,6 @@
 # 原生相机界面
 
-Android、iOS、HarmonyOS 共用同一套视觉布局：浅色背景、圆形相机取景区、动态操作提示、设备端处理标识、底部采集建议和隐私说明。界面参考 HelloFace 的圆形取景与录入确认流程，使用各平台原生控件实现。
+Android、iOS、HarmonyOS 共用同一套视觉布局：浅色背景、圆形相机取景区、动态操作提示、采集建议和居中录入确认弹窗。界面参考 HelloFace 的圆形取景与录入确认流程，使用各平台原生控件实现。
 
 ## 三端共用配置
 
@@ -10,11 +10,13 @@ Android、iOS、HarmonyOS 共用同一套视觉布局：浅色背景、圆形相
 
 三端统一使用“请左右摇头”“请缓慢点头”“请保持面部稳定”等引导。未生成预览时保留重新采集入口、禁用确认按钮；保存期间返回、重新采集、确认按钮全部禁用并使用相同透明度。预览和确认照片均等比显示，前置照片仅显示镜像。
 
-业务调用、参数默认值、错误码、回调次数和结果字段由共用 UTS 层统一。录入只返回采集判定和已保存基准，相似度/活体分数为 `null`；读取/同步/删除/取消不返回识别判定或分数；只有验证返回 SDK 实际产生的分数，缺失或非有限数为 `null`。不根据分数改写 SDK 的 `passed`。
+业务调用、参数默认值、错误码、回调次数和结果字段由共用 UTS 层统一。录入只返回采集判定和已保存基准，相似度/活体分数为 `null`；读取/同步/删除/取消不返回识别判定或分数；身份验证返回 SDK 的相似度和活体分数，独立活体只返回活体分数；缺失或非有限数为 `null`。不根据分数改写 SDK 的 `passed`。
 
 系统权限弹窗、状态栏安全区、字体渲染和相机硬件视角仍由操作系统/设备决定。统一的是插件可控的界面和行为，不能保证不同设备逐像素一致。
 
 录入分为“人脸采集”和“确认保存”两步。采集完成后显示预览，可以重新采集或确认录入；没有有效预览时禁止确认，保存期间禁用返回和重复提交。只有确认后才加密保存特征，预览照片不持久化。
+
+动态提示位于圆框上方，原固定说明已移除；三项采集建议统一使用 `tipsOffset: 73`。确认内容的显隐由 Dialog/遮罩层管理，不再逐个切换旧全屏确认控件。
 
 确认弹窗照片下方的两条说明使用独立的 `dialogTextGap`，间距由 16 缩至 8；照片、标题和按钮区域仍沿用原有间距。三端滚动内容高度同步计算，避免缩小文字间距后留下多余空白。
 
@@ -32,7 +34,7 @@ Android、iOS、HarmonyOS 共用同一套视觉布局：浅色背景、圆形相
 | iOS | `AVCaptureVideoPreviewLayer.videoGravity = .resizeAspect` | `UIImageView.contentMode = .scaleAspectFit` |
 | HarmonyOS | 按实际预览流旋转后的宽高比计算居中容纳区域，`RenderFit.RESIZE_CONTAIN` | `ImageFit.Contain` |
 
-Android 原生 XML 中应使用 `app:scaleType="fitCenter"`，对应命名空间为 `http://schemas.android.com/apk/res-auto`；`android:scaleType` 不能代替 PreviewView 的自定义属性。本工程使用 Kotlin 创建控件，直接设置 scaleType。默认的 FILL_CENTER 会在容器与源画面比例不一致时裁剪，见 [CameraX 官方说明](https://developer.android.com/reference/androidx/camera/view/PreviewView.ScaleType)。iOS 对应配置见 [videoGravity](https://developer.apple.com/documentation/avfoundation/avcapturevideopreviewlayer/videogravity)。
+Android 使用 Kotlin 原生控件并设置 FIT_CENTER，iOS 使用 resizeAspect；配置含义见 [CameraX](https://developer.android.com/reference/androidx/camera/view/PreviewView.ScaleType) 和 [AVFoundation](https://developer.apple.com/documentation/avfoundation/avcapturevideopreviewlayer/videogravity)。
 
 鸿蒙使用相机实际输出尺寸，在 90°/270° 时交换显示宽高，并使 XComponent 保持同一比例；不是单纯把相机表面拉伸到全屏。预览表面锁定旋转，与已有相机输出的旋转锁定配置一致，见 [鸿蒙预览说明](https://developer.huawei.com/consumer/en/doc/harmonyos-guides/camera-preview/)。分析输出、NV21 格式和送帧旋转参数保持原样。
 

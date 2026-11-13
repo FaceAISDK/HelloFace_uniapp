@@ -12,6 +12,12 @@ debug = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(debug)
 
 
+watch_spec = importlib.util.spec_from_file_location('dev_android', Path(__file__).resolve().parents[1] / 'scripts/dev_android.py')
+watch = importlib.util.module_from_spec(watch_spec)
+with patch.dict(sys.modules, {'android_debug': debug}):
+    watch_spec.loader.exec_module(watch)
+
+
 class AndroidDebugTests(unittest.TestCase):
     def project(self, root):
         uts = root / debug.PLUGIN
@@ -23,6 +29,21 @@ class AndroidDebugTests(unittest.TestCase):
         (root / 'manifest.json').write_text(json.dumps({'appid': '__UNI__TEST', 'versionName': '1',
             'app-plus': {'distribute': {'android': {'packagename': 'dev.example.demo', 'minSdkVersion': 23}}}}))
         return uts
+
+    def test_watch_detects_changes_and_removal_of_new_shared_helpers(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); uts = self.project(root)
+            with patch.object(watch, 'ROOT', root):
+                cache = {}
+                first = watch.snapshot(root, cache)
+                helper = uts / 'status.uts'
+                helper.write_text('first status')
+                added = watch.snapshot(root, cache)
+                self.assertNotEqual(first, added)
+                helper.write_text('updated status')
+                self.assertNotEqual(added, watch.snapshot(root, cache))
+                helper.unlink()
+                self.assertEqual(first, watch.snapshot(root, cache))
 
     def test_native_stamp_ignores_page_edits_and_generated_stamp(self):
         with tempfile.TemporaryDirectory() as directory:

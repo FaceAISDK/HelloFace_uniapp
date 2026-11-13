@@ -274,11 +274,6 @@ struct FaceCameraDialog {
       Text(this.saving ? UI.savingTitle : this.guidance).fontSize(UI.fontTitle).fontWeight(FontWeight.Medium).fontColor(CAMERA_INK)
         .textAlign(TextAlign.Center).maxLines(2).width(this.contentWidth()).height(UI.titleHeight)
         .position({ x: this.contentLeft(), y: this.titleY() })
-      Text(this.saving ? UI.savingDetail : (this.captured ?
-        (this.photo === undefined ? UI.missingDetail : UI.confirmDetail) :
-        UI.liveDetail)).fontSize(UI.fontDetail).fontColor(CAMERA_MUTED)
-        .textAlign(TextAlign.Center).maxLines(2).width(this.contentWidth()).height(UI.detailHeight)
-        .position({ x: this.contentLeft(), y: this.titleY() + UI.detailOffset })
       Text(this.phase).fontSize(UI.fontPhase).fontColor(CAMERA_BLUE).textAlign(TextAlign.Center)
         .backgroundColor(UI.colorPhaseFill).borderRadius(UI.pillRadius).width(Math.min(this.contentWidth(), UI.phaseWidth)).height(UI.phaseHeight)
         .position({ x: this.centerX() - Math.min(this.contentWidth(), UI.phaseWidth) / 2, y: this.phaseY() })

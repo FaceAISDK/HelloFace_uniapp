@@ -3,7 +3,7 @@ import ImageIO
 import HiFace
 
 enum FaceImageImporter {
-    // Nonisolated async work keeps image decoding away from the UI actor.
+    // 非隔离 async 入口在 UI actor 之外解码与提取；这里只返回特征，不写入基准。
     static func extract(_ encoded: String) async throws -> String {
         let image = try decode(encoded)
         let sdk = HiFaceSDK()
@@ -11,9 +11,7 @@ enum FaceImageImporter {
         switch await sdk.extractFeature(from: image) {
         case .success(let feature): return feature
         case .failure(let error):
-            let code = String(describing: error.code)
-                .replacingOccurrences(of: "([a-z])([A-Z])", with: "$1_$2", options: .regularExpression).uppercased()
-            throw HelloFaceVerifyBridgeError.failure(code, error.message)
+            throw HelloFaceVerifyBridgeError.failure(HelloFaceVerifySDKError.code(error.code), error.message)
         }
     }
 

@@ -42,6 +42,7 @@ internal class HelloFaceVerifyCameraView(context: Context, private val enrollmen
         setBackgroundColor(BACKGROUND)
     }
     private val mask = CameraMask(context)
+    // 确认内容只挂载在 Dialog 内，可见性由弹窗控制。
     private val photo = ImageView(context).apply {
         scaleType = ImageView.ScaleType.FIT_CENTER
         setBackgroundColor(BACKGROUND)
@@ -52,7 +53,6 @@ internal class HelloFaceVerifyCameraView(context: Context, private val enrollmen
                 outline.setRoundRect(0, 0, view.width, view.height, dp(UI.dialogPhotoRadius).toFloat())
             }
         }
-        visibility = GONE
     }
     private val back = BackButton(context).apply {
         contentDescription = UI.backLabel; setOnClickListener { onCancel() }
@@ -64,7 +64,6 @@ internal class HelloFaceVerifyCameraView(context: Context, private val enrollmen
     private val title = label(UI.preparingTitle, UI.fontTitle, INK, true).apply {
         accessibilityLiveRegion = ACCESSIBILITY_LIVE_REGION_POLITE
     }
-    private val detail = label(UI.liveDetail, UI.fontDetail, MUTED)
     private val phase = label(UI.phase(enrollment), UI.fontPhase, BLUE).apply {
         background = rounded(UI.colorPhaseFill, UI.pillRadius.toFloat())
     }
@@ -115,7 +114,7 @@ internal class HelloFaceVerifyCameraView(context: Context, private val enrollmen
     init {
         setBackgroundColor(BACKGROUND)
         addView(preview); addView(mask)
-        listOf(back, heading, title, detail, phase, tips)
+        listOf(back, heading, title, phase, tips)
             .forEach { addView(it) }
         showLive()
     }
@@ -147,11 +146,10 @@ internal class HelloFaceVerifyCameraView(context: Context, private val enrollmen
         mask.resetProgress()
         resetActionCountdown()
         saving = false
-        captured = false; photo.setImageDrawable(null); photo.visibility = GONE
-        title.text = UI.liveTitle; detail.text = UI.liveDetail
+        captured = false; photo.setImageDrawable(null)
+        title.text = UI.liveTitle
         phase.text = if (liveness) UI.livenessPhase else UI.phase(enrollment)
         tips.visibility = VISIBLE
-        listOf(confirmation, retake, confirm).forEach { it.visibility = GONE }
         back.isEnabled = true; retake.isEnabled = true; confirm.isEnabled = true
         back.alpha = 1f; retake.alpha = 1f; confirm.alpha = 1f
         confirm.text = UI.confirm; mask.tint = if (enrollment) UI.colorOuterRing else BLUE; requestLayout()
@@ -175,15 +173,13 @@ internal class HelloFaceVerifyCameraView(context: Context, private val enrollmen
         saving = false
         captured = true; photo.setImageBitmap(bitmap); photo.scaleX = if (mirrored) -1f else 1f
         mask.tint = GREEN
-        photo.visibility = if (bitmap == null) GONE else VISIBLE
         dialogTitle.text = if (bitmap == null) UI.missingTitle else UI.confirmTitle
         dialogDetail.text = if (bitmap == null) UI.missingDetail else UI.confirmDetail
-        title.text = dialogTitle.text; detail.text = dialogDetail.text; phase.text = UI.confirmPhase
+        title.text = dialogTitle.text; phase.text = UI.confirmPhase
         tips.visibility = GONE
         confirm.text = UI.confirm; retake.isEnabled = true; retake.alpha = 1f
         confirm.isEnabled = bitmap != null
         confirm.alpha = if (bitmap != null) 1f else UI.disabledAlpha
-        listOf(confirmation, retake, confirm).forEach { it.visibility = VISIBLE }
         val column = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(UI.dialogPadding), dp(UI.dialogPadding), dp(UI.dialogPadding), dp(UI.dialogPadding))
@@ -236,7 +232,7 @@ internal class HelloFaceVerifyCameraView(context: Context, private val enrollmen
     fun showSaving() {
         saving = true; confirmationDialog?.setCancelable(false)
         dialogTitle.text = UI.savingTitle; dialogDetail.text = UI.savingDetail
-        title.text = UI.savingTitle; detail.text = UI.savingDetail
+        title.text = UI.savingTitle
         confirm.text = UI.savingButton; confirm.isEnabled = false; retake.isEnabled = false; back.isEnabled = false
         closeConfirmation.isEnabled = false
         listOf(back, retake, confirm, closeConfirmation).forEach { it.alpha = UI.disabledAlpha }
@@ -264,7 +260,6 @@ internal class HelloFaceVerifyCameraView(context: Context, private val enrollmen
         val compact = h - safeTop - safeBottom < dp(UI.compactHeight)
         val titleY = headerY + dp(if (compact) UI.compactTitleOffset else UI.titleOffset)
         place(title, contentLeft, titleY, width, dp(UI.titleHeight))
-        place(detail, contentLeft, titleY + dp(UI.detailOffset), width, dp(UI.detailHeight))
         val circleTop = titleY + dp(UI.circleOffset)
         val footerReserve = dp(UI.liveReserve)
         val diameter = min(min(width.toFloat(), (w - safeLeft - safeRight) * UI.circleRatio),

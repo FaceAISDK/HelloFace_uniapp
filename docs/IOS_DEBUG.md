@@ -6,18 +6,19 @@
 
 | 功能 | iOS 当前实现 | 验证边界 |
 | --- | --- | --- |
-| 录入、静默验证、四种动作及组合 | 已有，默认参数与 SDK 判定保持一致 | 真实识别与活体待真机 |
-| 图片/特征同步、特征读写/删除 | 已有，与三端共享参数校验和返回码 | UTS 合同检查通过；iOS Keychain 与图片提取待真机 |
-| 显式临时基准 `referenceFeature` | 已有，验证不读写本机基准 | API 合同检查通过，待真机 |
-| 录入确认、预览缺失、重拍、确认前取消 | 已有，预览缺失时禁止确认 | UIKit 类型与状态检查通过，待真机 |
-| 录入稳定圆环 | 本次补齐：HOLD_STILL 时 0.7 秒蓝色圆环；异常阶段/重拍/退出重置，不触发识别成功 | 真实 UI 类型及状态检查通过，动画观感待真机；与鸿蒙对应，Android 目前仍为静态圆框 |
-| 前后置、方向与镜像 | 本次显式配置预览方向和镜像；送入 SDK 的帧保持无镜像并附前置镜像标记 | AVFoundation 类型检查通过，实际画面待真机 |
-| 分辨率协商 | 仍优先 VGA 640×480，设备不支持时尝试系统 medium 预设，无法配置则报错 | 能力检查已补；具体设备尺寸待真机 |
-| 重复调用、迟到回调、取消、后台退出 | 已有互斥和代次隔离；本次补齐弹出动画未完成时取消/拒绝权限的收尾等待 | 状态检查覆盖两种完成顺序及重复终态，实际弹出/关闭待真机 |
-| 首次权限拒绝/提前取消 | 本次调整为授权后创建 SDK 管线；未创建管线时直接收尾，不为关闭页面额外初始化 SDK | 平台代码类型检查通过，系统授权弹窗待真机 |
-| 相机被占用、会话中断或运行异常 | 本次补齐通知监听并返回错误/取消，统一释放资源 | AVFoundation 类型检查通过，实际系统中断待真机 |
-| 页面满亮、退出恢复、保持常亮 | 已有；确认/重拍保留原始亮度快照，后台及离页恢复 | iOS 待真机，不能沿用 Android/鸿蒙的真机结果 |
+| 录入、1:1 验证及四种静默/动作组合 | 与共享 UTS 参数、四种动作及 SDK 判定一致 | iOS 真人识别与活体待验 |
+| `detectLiveness` / `extractFaceFeature` / `getFaceStatue` | 独立活体始终静默，可叠加动作；纯图片提取不保存；状态查询只读返回 exists | 共享 API 合同通过；SDK、Keychain 真机待验 |
+| 图片/特征同步、特征读写/删除、临时基准 | 已有；临时基准不读写本机，图片支持 PNG/JPEG、EXIF 矫正与相同限制 | iOS 图片提取与 Keychain 真机待验 |
+| 录入确认、缺图保护、重拍及取消 | 居中小图确认；缺图不能确认，确认前不改写基准；重拍等待旧帧及相机会话停止 | UIKit 类型、生命周期状态检查；实机待验 |
+| 录入稳定圆环与动作倒计时 | 三端均支持；稳定提示约 0.7 秒，动作按整个序列倒计时并显示秒数，换动作不重置 | iOS 状态及 UIKit 检查，真实动画待验 |
+| 前后置、方向与镜像 | 竖屏预览，前置显示镜像；SDK 收到无镜像像素与前置标记 | AVFoundation 类型检查，实际画面待验 |
+| 分辨率与实际帧约束 | 优先 VGA 640×480，不支持时用 medium；实际帧须为正偶数尺寸且符合 SDK 长短边上限，否则报相机错误 | 帧尺寸状态检查通过；实际设备协商待验 |
+| 重复调用、旧事件、取消及后台退出 | 共用操作槽；SDK 与暂停回调使用同一代次门闩；关闭后不再重启 | 状态检查，真实权限/前后台时序待验 |
+| 首次权限拒绝/提前取消 | 授权后才初始化 SDK；等页面弹出和资源关闭完成后回调 | 类型及状态检查，系统授权弹窗待验 |
+| 会话中断、相机或 SDK 报错 | 监听系统通知；首个错误即停止送帧并阻止 resume，随后释放资源 | AVFoundation 类型检查，真实中断待验 |
+| 满亮、退出恢复、保持常亮 | 确认/重拍保留原快照；后台、取消、报错及离页恢复 | iOS 真机待验 |
 
+平台实现方式有必要差异：iOS 使用 AVFoundation、Keychain 和 UIScreen，Android 使用 CameraX、Keystore 和窗口亮度，鸿蒙使用 CameraKit、HUKS 和窗口亮度。统一的是业务接口和收尾行为，不将三端的系统组件或加密文件强行改成同一种格式。
 三端确认照片仍由 SDK 0.8.11 提供固定 333×333 对齐预览。高清预览、确认后再提取特征属于共同的流程扩展，不是本次 iOS 功能缺项；SDK 已升级至 0.8.11；模型、阈值、用户 License 和存储格式保持不变。
 
 ## 本机能执行的检查
@@ -31,7 +32,7 @@ npm run demo:prepare
 `ios:check` 要求 macOS 和 Xcode，分四层输出结果：
 
 1. 解析插件所有 Swift 文件。
-2. 编译并实际执行 `HelloFaceVerifyCameraState.swift` 的 20 项纯状态检查；不模拟人脸采集或识别成功。
+2. 编译并实际执行 `HelloFaceVerifyCameraState.swift` 的纯状态检查，覆盖圆环、代次隔离、关闭顺序和帧尺寸；不模拟人脸采集或识别成功。
 3. 用真实 iOS SDK 类型检查 UIKit 视图、圆环和状态代码，不替换识别 SDK。
 4. 用仅供编译的 HiFace 边界声明检查全部 UIKit/AVFoundation/Keychain 接入代码。边界方法全部为 `fatalError`，位于 `tests/ios`，不会复制到插件或链接进 App；这一步不代表真实 HiFace SDK 已编译或运行。
 
@@ -43,7 +44,7 @@ xcrun swiftc --version
 npm run ios:check -- --full
 ```
 
-`--full` 使用已安装的真实 HiFace/HiFaceNative framework 类型检查全部源码，失败会返回非零状态。2026-11-11 本机仍为 Xcode 15.2，不支持 SDK 所需的 Swift 6，完整 SDK 类型检查受阻。局部类型检查、UTS 转换、完整 App 链接/签名和真机验收分别记录，不能互相替代。
+`--full` 使用已安装的真实 HiFace/HiFaceNative framework 类型检查全部源码，失败会返回非零状态。2026-11-13 本机仍为 Xcode 15.2，不支持 SDK 所需的 Swift 6，完整 SDK 类型检查受阻。局部类型检查、UTS 转换、完整 App 链接/签名和真机验收分别记录，不能互相替代。
 
 平台类型检查同时开启严格并发诊断，通知处理和 UTS 回调显式路由到主 actor，并保留 iOS 15 的最低版本。旧 iOS 17.2 SDK 的 `UIAccessibilityTraits.updatesFrequently` 与 `UIAccessibility.Notification.screenChanged` 声明仍触发共享全局状态警告；该读取在 UIKit 视图的主 actor 内，保留可访问性提示，待兼容新版 Xcode 的完整检查复核。
 
@@ -60,10 +61,12 @@ npm run ios:check -- --full
 | `HelloFaceVerifyCameraController` 的权限回调 / `presentationDidFinish` / `finish` | 权限晚到、快速取消、资源关闭与弹出动画的先后顺序 |
 | 同文件 `progress` / `result` / `confirm` | SDK 的真实阶段/结果、确认前不保存、重拍隔离 |
 | 同文件 `maximizeBrightness` / `restoreBrightness` | 原屏幕亮度快照及前后台恢复 |
-| `HelloFaceVerifyCameraView.updateCaptureProgress` | 圆环重复阶段不重启，异常阶段及离页重置 |
-| `HelloFaceVerifyCameraPipeline.configure` / `reportSessionError` / `close` | 实际相机规格、前后置方向、会话中断、关闭后拒绝帧和重启 |
+| `HelloFaceVerifyCameraView.updateCaptureProgress / updateActionCountdown` | 录入稳定与动作倒计时独立，重复阶段不重启，离页重置 |
+| `HelloFaceVerifyCameraPipeline.configure` / `pause` / `emitError` / `close` | 实际帧尺寸、停止后重拍、会话中断及首次错误后拒绝帧/重启 |
 | `ReferenceStore` / `FaceImageImporter` | Keychain 状态码、图片方向及真实 SDK 提取错误 |
 
 Xcode 控制台和设备日志只记录阶段、状态码、时序；不要输出 HF1、原照片、Base64 或签名信息。分别检查相机拒绝、快速取消、重拍、连续调用、前后置、后台、锁屏/来电中断、亮度恢复、真人录入、本人/他人比对及动作活体。没有 iPhone 时这些项目保留待验收，不输出模拟识别成功。
 
 平台接口依据：[相机会话中断](https://developer.apple.com/documentation/avfoundation/avcapturesession/wasInterruptedNotification)、[预览方向](https://developer.apple.com/documentation/avfoundation/setting-up-a-capture-session)、[相机连接镜像](https://developer.apple.com/documentation/avfoundation/avcaptureconnection/isvideomirrored)。
+
+重拍的暂停屏障依据 [AVCaptureSession.stopRunning](https://developer.apple.com/documentation/avfoundation/avcapturesession/stoprunning()) 的同步停止语义：在送帧串行队列停止会话，回主 actor 核对当前代次后才创建新请求。帧限制读取锁定 SDK 的 `HiFaceCameraFrame.maximumLongSidePixels / maximumShortSidePixels`，不改变采集预设、SDK 版本或业务阈值。

@@ -18,7 +18,6 @@ final class HelloFaceVerifyCameraController: UIViewController {
     private var ended: Bool { lifecycle.ended }
     private var saving = false
     var committing: Bool { saving }
-    private var generation = 0
     private var previousIdleTimer: Bool?
     private var backgroundObserver: NSObjectProtocol?
     private var brightnessObservers: [NSObjectProtocol] = []
@@ -133,15 +132,14 @@ final class HelloFaceVerifyCameraController: UIViewController {
 
     private func startRequest() throws {
         guard let pipeline = pipeline else { throw HelloFaceVerifyBridgeError.failure("CAMERA_ERROR", "Camera is not initialized") }
-        generation += 1
-        let attempt = generation
+        guard let attempt = lifecycle.beginAttempt() else { return }
         let callbacks = FaceFlowCallbacks(onProgress: { [weak self] progress in
-            guard let self = self, self.generation == attempt else { return }; self.progress(progress)
+            guard let self = self, self.lifecycle.accepts(attempt) else { return }; self.progress(progress)
         }, onResult: { [weak self] result in
-            guard let self = self, self.generation == attempt else { return }; self.result(result)
+            guard let self = self, self.lifecycle.accepts(attempt) else { return }; self.result(result)
         }, onError: { [weak self] error in
-            guard let self = self, self.generation == attempt else { return }
-            self.fail(Self.errorName(error.code), error.message)
+            guard let self = self, self.lifecycle.accepts(attempt) else { return }
+            self.fail(HelloFaceVerifySDKError.code(error.code), error.message)
         })
         if method == "enrollFace" {
             request = pipeline.sdk.startCameraCapture(callbacks: callbacks)
@@ -198,14 +196,18 @@ final class HelloFaceVerifyCameraController: UIViewController {
     }
     private func retake() {
         guard !ended, !saving, captured != nil else { return }
-        generation += 1
+        guard let pipeline = pipeline, let attempt = lifecycle.beginAttempt() else { return }
         request?.cancel(); request = nil; captured = nil
         screen.showLive()
-        do { try startRequest(); pipeline?.resume() }
-        catch { fail("INVALID_ARGUMENT", error.localizedDescription) }
+        pipeline.pause { [weak self] in
+            guard let self = self, self.lifecycle.accepts(attempt) else { return }
+            do { try self.startRequest(); self.pipeline?.resume() }
+            catch { self.fail("INVALID_ARGUMENT", error.localizedDescription) }
+        }
     }
     @objc private func confirm() {
         guard !ended, !saving, let value = captured, let feature = value.feature, let faceID = params["faceID"] as? String else { return }
+        // 开始写入后不再接受取消，避免已保存基准却向业务返回“已取消”。
         saving = true; screen.showSaving()
         do { try ReferenceStore.save(faceID, feature); finish(HelloFaceVerifyOperation.envelope("result", "OK", "", Self.data(value))) }
         catch { fail("STORAGE_ERROR", error.localizedDescription) }
@@ -214,7 +216,7 @@ final class HelloFaceVerifyCameraController: UIViewController {
     private func fail(_ code: String, _ message: String) { finish(HelloFaceVerifyOperation.envelope("error", code, message)) }
     private func finish(_ response: String) {
         guard lifecycle.finish(response) else { return }
-        generation += 1; restoreBrightness(); restoreIdleTimer(); screen.clearPhoto()
+        restoreBrightness(); restoreIdleTimer(); screen.clearPhoto()
         captured = nil; request?.cancel(); request = nil
         if let observer = backgroundObserver { NotificationCenter.default.removeObserver(observer) }
         brightnessObservers.forEach { NotificationCenter.default.removeObserver($0) }
@@ -280,10 +282,5 @@ final class HelloFaceVerifyCameraController: UIViewController {
         case .faceUnstable: return "FACE_UNSTABLE"
         @unknown default: return "UNKNOWN"
         }
-    }
-    private static func errorName(_ code: HiFaceErrorCode) -> String {
-        // Preserve every documented SDK code; convert Swift camelCase to the shared uppercase form.
-        let name = String(describing: code)
-        return name.replacingOccurrences(of: "([a-z])([A-Z])", with: "$1_$2", options: .regularExpression).uppercased()
     }
 }

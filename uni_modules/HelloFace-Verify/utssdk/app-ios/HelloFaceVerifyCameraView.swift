@@ -2,7 +2,7 @@ import UIKit
 
 private typealias UI = HelloFaceVerifyPresentation
 
-/// Native presentation only. The mask does not change camera pixels or SDK coordinates.
+/// 仅负责原生 UI；圆框遮罩不裁剪送入 SDK 的像素，也不改变识别坐标。
 final class HelloFaceVerifyCameraView: UIView {
     static let background = UI.colorBackground
     private let ink = UI.colorInk
@@ -15,6 +15,7 @@ final class HelloFaceVerifyCameraView: UIView {
     private let ring = CAShapeLayer()
     private let progressRing = CAShapeLayer()
     private let photo = UIImageView()
+    // 确认按钮等子控件由整个遮罩层统一控制显隐。
     private let confirmationOverlay = UIView()
     private let confirmationCard = UIView()
     private let confirmationBody = UIScrollView()
@@ -26,7 +27,6 @@ final class HelloFaceVerifyCameraView: UIView {
     private let backArrow = CAShapeLayer()
     private let heading = UILabel()
     private let title = UILabel()
-    private let detail = UILabel()
     private let phase = UILabel()
     private let tips = UIStackView()
     private let confirmation = UILabel()
@@ -63,7 +63,6 @@ final class HelloFaceVerifyCameraView: UIView {
         heading.numberOfLines = 1; heading.lineBreakMode = .byTruncatingTail
         style(title, text: UI.preparingTitle, size: UI.fontTitle, color: ink, weight: .medium)
         title.accessibilityTraits.insert(.updatesFrequently)
-        style(detail, text: UI.liveDetail, size: UI.fontDetail, color: muted)
         style(phase, text: "", size: UI.fontPhase, color: blue)
         phase.backgroundColor = UI.colorPhaseFill
         phase.layer.cornerRadius = UI.pillRadius; phase.clipsToBounds = true
@@ -93,7 +92,7 @@ final class HelloFaceVerifyCameraView: UIView {
         retake.addTarget(self, action: #selector(retakeTapped), for: .touchUpInside)
         style(confirm, text: UI.confirm, fill: blue, color: .white)
         confirm.addTarget(self, action: #selector(confirmTapped), for: .touchUpInside)
-        [back, heading, title, detail, phase, tips]
+        [back, heading, title, phase, tips]
             .forEach { addSubview($0) }
         confirmationOverlay.backgroundColor = UIColor.black.withAlphaComponent(UI.dialogScrimAlpha)
         confirmationOverlay.accessibilityViewIsModal = true
@@ -119,10 +118,9 @@ final class HelloFaceVerifyCameraView: UIView {
         resetCaptureProgress(); resetActionCountdown()
         captured = false; photo.image = nil; photo.isHidden = true
         confirmationOverlay.isHidden = true
-        title.text = UI.liveTitle; detail.text = UI.liveDetail
+        title.text = UI.liveTitle
         phase.text = liveness ? UI.livenessPhase : UI.phase(enrollment: enrollment)
         tips.isHidden = false
-        [confirmation, retake, confirm].forEach { $0.isHidden = true }
         [back, retake, confirm, closeConfirmation].forEach { $0.isEnabled = true; $0.alpha = 1 }
         confirm.setTitle(UI.confirm, for: .normal)
         ring.strokeColor = (enrollment ? UI.colorOuterRing : blue).cgColor; setNeedsLayout()
@@ -149,7 +147,7 @@ final class HelloFaceVerifyCameraView: UIView {
         photo.transform = CGAffineTransform(scaleX: mirrored ? -1 : 1, y: 1)
         dialogTitle.text = image == nil ? UI.missingTitle : UI.confirmTitle
         dialogDetail.text = image == nil ? UI.missingDetail : UI.confirmDetail
-        title.text = dialogTitle.text; detail.text = dialogDetail.text; phase.text = UI.confirmPhase
+        title.text = dialogTitle.text; phase.text = UI.confirmPhase
         tips.isHidden = true
         [back, retake, closeConfirmation].forEach { $0.isEnabled = true; $0.alpha = 1 }
         confirm.setTitle(UI.confirm, for: .normal)
@@ -157,14 +155,13 @@ final class HelloFaceVerifyCameraView: UIView {
         confirm.alpha = image != nil ? 1 : UI.disabledAlpha
         confirmationOverlay.isHidden = false
         confirmationBody.setContentOffset(.zero, animated: false)
-        [confirmation, retake, confirm].forEach { $0.isHidden = false }
         setNeedsLayout()
         UIAccessibility.post(notification: .screenChanged, argument: dialogTitle)
     }
 
     func showSaving() {
         dialogTitle.text = UI.savingTitle; dialogDetail.text = UI.savingDetail
-        title.text = UI.savingTitle; detail.text = UI.savingDetail
+        title.text = UI.savingTitle
         confirm.setTitle(UI.savingButton, for: .normal)
         [back, retake, confirm, closeConfirmation].forEach { $0.isEnabled = false; $0.alpha = UI.disabledAlpha }
         setNeedsLayout()
@@ -254,7 +251,6 @@ final class HelloFaceVerifyCameraView: UIView {
         heading.frame = CGRect(x: headingLeft, y: headerY, width: max(0, right - headingLeft), height: UI.backSize)
         let titleY = headerY + (h - safe.top - safe.bottom < UI.compactHeight ? UI.compactTitleOffset : UI.titleOffset)
         title.frame = CGRect(x: left, y: titleY, width: width, height: UI.titleHeight)
-        detail.frame = CGRect(x: left, y: titleY + UI.detailOffset, width: width, height: UI.detailHeight)
         let circleTop = titleY + UI.circleOffset
         let diameter = max(UI.minCircle, min(width, (w - safe.left - safe.right) * UI.circleRatio,
                                     h - safe.bottom - UI.liveReserve - circleTop))

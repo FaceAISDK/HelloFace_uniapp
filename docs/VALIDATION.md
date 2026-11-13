@@ -2,6 +2,39 @@
 
 更新日期：2026-11-13。当前原生 SDK 0.8.11 Beta，上游提交 `dc60c7b15ebf8038fb73a752bcea3590bbd86eaf`；下方旧版本记录按当时版本保留。
 
+## 2026-11-13 代码整理与提交检查
+
+- 删除 Android/iOS 旧全屏确认页遗留的按钮逐项显隐切换，确认内容由 Dialog/遮罩统一管理；Android 图片仅在有预览时挂载到 Dialog，删除未挂载图片的多余 visibility 状态。保留保存期间不可取消、缺图禁用确认、重拍、资源释放和旧回调隔离。
+- 删除无任何调用的 `colorWhite` 共享配色及三端生成常量，连同本轮此前移除的 liveDetail、detailOffset 和旧说明控件一起归档；同步 uvue 副本。更新过期的“设备端处理标识/底部隐私说明”及未使用 XML 控件示例，补充当前动态提示和弹窗的职责说明。
+- Android 开发监听删除过时的共享文件枚举，统一跟踪全部共享 UTS 文件；新增回归验证 status.uts 的新增、修改和删除均能被检测。兼容字段、旧版 Android 安全区、@PublishedApi、SDK 依赖与许可仍有明确用途，未作为无用代码删除。
+- 当前源码通过 154 项仓库检查（114 JS、40 Python）、37 个 SDK 文件及三端 UTS 转换；Android uni-app / uni-app x 官方 UTS/Kotlin/DEX、ABI 和存储/协调器边界检查通过。iOS 8 个 Swift 语法、58 项纯状态、真实 UIKit 和 AVFoundation/Keychain 编译边界检查通过；鸿蒙真实 HAR 清理生成模块后编译通过。Vue3 App 资源编译及 uvue SFC/两种模板生成通过。
+- 本轮整理后未重新安装或操作设备 App，不把上一轮指纹 a7ca006 的设备结果当成本轮 c0ff4de 的验收。完整 iOS SDK/IPA 与 iPhone 仍受本机 Swift 5.9 / SDK 要求 Swift 6 及无可用设备限制；本轮不重复执行已确认会被相同工具链拦截的检查。SDK 0.8.11、公共 API、License、签名身份、阈值和存储语义不变。
+
+证据位于忽略目录 `unpackage/validation/code-cleanup-20261113/`。
+
+## 2026-11-13 引导文案位置、2 秒 Toast 及设备运行
+
+- 三端提示行在上一轮 51 的基础上再下移 22，`tipsOffset` 为 73。删除固定“请将面部置于圆框内，保持光线均匀”及其原生控件，将动态提示移动到原说明行：普通/紧凑标题偏移分别为 126/111，高度 34；同步补偿圆框偏移，普通/紧凑的实际圆框位置保持原值。确认弹窗的照片说明仍保留。
+- Vue/uvue 成功与失败均 Toast 显示 `msg，code: 数值`，按用户追加要求由 3000 改为 2000 毫秒。三星旧页面资源只有 code 105 的专用 Toast，没有通用结果 Toast，这是此前没看到新提示的直接证据；更新后已截图实测“请先录入，code: 105”。使用临时未录入 ID 只读调用验证，随后恢复界面的 demo-user，没有创建或删除该临时基准。
+- 布局改动通过 153 项仓库检查、37 个 SDK 文件及三端 UTS 转换；Android Vue 官方 UTS/Kotlin/DEX、ABI、现有存储/协调器检查通过，iOS 8 个 Swift 语法、58 项状态、UIKit 与 AVFoundation 编译边界检查通过。最终 2 秒版的 28 项 Demo 检查、uvue SFC 脚本及 Kotlin/Swift 模板生成、三端 UI 生成一致性检查通过。完整 iOS App 和 iPhone 仍受工具链/设备条件限制，未验。
+- 三星 SM-S9210 / API 36：保留原 APK 和签名，核对宿主内真实 0.8.11 AAR 的所有 ABI 库及模型后，使用官方 UTS 编译产物与仓库已有 debug 资源传输，按请求/SHA 回执原子更新开发资源并冷启动。HBuilderX 首次运行复用了旧原生 DEX，清理电脑生成缓存后 CLI 再运行未触发编译，因此最终采用上述开发资源路径，并未伪装成新 APK。运行时已核对指纹 `hfv1:a7ca006ebfd1b631ccdd81e04fe55529f54c9a8321a57f369ad7b5a4c56eebd8` 与当前源码一致。
+- 华为 GRA-UL00 / API 23：同样核对宿主真实 SDK，原 APK、UID 10118、首次安装时间和最后更新时间均不变。该旧系统 run-as 仍报 capabilities 错误，因此备份并原子替换可访问的外部开发资源，冷启动后核对相同最新指纹。没有访问私有基准目录；无法据此声称基准密文已逐字节复核。
+- 鸿蒙 Mate 60 Pro / API 26：部署前本工程 Bundle 不在已安装列表中，保留其他原生 Demo。使用本工程原有 default 调试签名与真实 0.8.11 HAR 构建完整签名 HAP，安装并启动 `dev.helloface.uniapp.demo` 成功；HAP 内最终页面代码已核对 Toast 的 msg/code 和 duration:2e3。未以未签名发行 APP 当作已安装产物。未保存人脸基准或把旧真人识别记录计入本轮。
+- 本轮未卸载或清除设备 App 数据。三星 UID 保持不变，基准密文摘要期间变化；用户已明确确认刚才重新录入，本轮自动操作仅作读取，没有覆盖/回滚这份新基准。三台设备最后均已启动本工程 Demo，未把启动、布局源码或截图等同于新版真人识别验收。
+
+证据与非相机截图位于忽略目录 `unpackage/validation/guidance-toast-20261113/`；规范插件及 uvue 副本已同步。
+
+## 2026-11-13 iOS 对齐与演示收尾整理
+
+- 对照三端 11 个公开接口、默认参数、四动作/四种验证组合、临时基准与存储、确认/重拍/取消、满亮恢复及圆环，业务能力未发现整项缺失。补齐 iOS 重拍的串行暂停屏障：旧送帧与会话停止后，回主 actor 核对代次再启动新请求；请求和暂停回调共用生命周期门闩，取消/关闭后不会由迟到回调重启。
+- iOS 在 SDK 送帧前检查正偶数及 SDK 提供的真实长短边上限，采集预设仍为优先 VGA、回退 medium。帧处理/会话的首个错误立即停止接受帧并阻止恢复；相机、流程与图片提取共用 SDK 错误码转换。保留 SDK 0.8.11、License、公共 API、阈值、图片限制及 Keychain 键和格式，补充必要中文边界注释。
+- Vue/uvue 保持直接调用、同一个 demo-user、独立活体与四种验证组合；复用原有 busy 状态屏蔽离页后的结果 Toast，不新增页面封装或状态变量。删除弹窗晚到时不再调用 deleteFace，正常完成仍由 complete 解锁。保留此前 msg/code Toast 与三端提示行下移 12 的未提交调整。更新 iOS 功能对照，删除“Android 仍无圆环”等过期描述。
+- `npm run check` 通过 153 项检查（114 JS、39 Python）、37 个 SDK 文件和三端 UTS 转换；其中 Demo 回归新增离页后取消回调不显示、删除弹窗不能继续删除的断言。iOS 8 个 Swift 语法、58 项真实纯状态检查、真实 UIKit 与全部 AVFoundation/Keychain 接入类型检查通过；编译边界跟随锁定 SDK 补充帧上限及正确的 processFrame 结果类型，不执行识别替身。
+- Android uni-app / uni-app x 官方 UTS/Kotlin/DEX、ABI 与现有存储/协调器边界检查通过；鸿蒙真实 0.8.11 HAR 在清理电脑生成模块后编译通过。Vue3 App 资源编译、uvue SFC 脚本与 Kotlin/Swift 模板生成通过，uvue 模板生成不等同于完整 App 构建。
+- 本轮真实 SDK 全量检查 `ios:check -- --full` 失败：Xcode 15.2 / Swift 5.9.2 不识别 SDK 所需的 Swift 6（`invalid value '6' in '-swift-version 6'`）。当前配对 iPhone 均 unavailable；未进行完整 IPA 链接/签名、iPhone 真机及三端新版真人回归，未安装/卸载或清除任何设备 App。不能将上述编译边界、HAR 或此前三星真人结果当作本轮 iOS 验收。
+
+证据位于忽略目录 `unpackage/validation/ios-parity-20261113/`，规范插件和 uvue 副本已同步。
+
 ## 2026-11-13 三端动作倒计时
 
 - Android、iOS、鸿蒙的 `verifyFace`（含动作）和 `detectLiveness` 原生页面新增剩余秒数及逐渐缩短的圆环。对照上游 Android `FaceFlowUi` / iOS `FaceActionCountdown`，总时限为 `actionTimeoutMs × stepCount`；默认两动作显示约 6 秒。重复进度、换动作和携带 action 的短暂丢脸不重启；无动作/正脸稳定阶段、确认、重拍、取消和离页清理。仅为视觉提示，SDK 超时、判定、参数、存储及回调不变。

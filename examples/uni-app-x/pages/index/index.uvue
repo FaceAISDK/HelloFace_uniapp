@@ -102,7 +102,10 @@ export default {
   },
   onUnload() {
     // #ifdef APP
-    if (this.busy) cancel()
+    // 先停止结果展示，再取消相机，避免迟到回调在离页后弹出 Toast。
+    if (!this.busy) return
+    this.busy = false
+    cancel()
     // #endif
   },
   methods: {
@@ -205,6 +208,7 @@ export default {
       uni.showModal({
         title: '删除人脸信息', content: '确认删除「' + this.faceID + '」的本机人脸基准？',
         success: (modal) => {
+          if (!this.busy) return
           if (!modal.confirm) { this.busy = false; this.resultText = '已取消'; return }
           deleteFace({
             faceID: this.faceID,
@@ -213,7 +217,11 @@ export default {
             complete: this.finish
           })
         },
-        fail: (_) => { this.busy = false; this.resultText = '操作未完成' }
+        fail: (_) => {
+          if (!this.busy) return
+          this.busy = false
+          this.resultText = '操作未完成'
+        }
       })
       // #endif
     },
@@ -235,16 +243,20 @@ export default {
       // #endif
     },
     // #ifdef APP
+    // success 也包含识别未通过（2xx）；只展示真实返回值，不按分数自行判定。
     showResult(result: FaceResult) {
+      if (!this.busy) return
       const lines = ['code: ' + result.code, 'msg: ' + result.msg]
       if (result.faceID.length > 0) lines.push('faceID: ' + result.faceID)
       if (result.passed != null) lines.push('passed: ' + result.passed)
       if (result.similarity != null) lines.push('similarity: ' + result.similarity.toFixed(3))
       if (result.livenessScore != null) lines.push('livenessScore: ' + result.livenessScore.toFixed(3))
       this.resultText = lines.join('\n')
+      uni.showToast({ title: result.msg + '，code: ' + result.code, icon: 'none', duration: 2000 })
     },
     showError(error: HelloFaceVerifyFail) {
-      if (error.code == 105) uni.showToast({ title: '请先录入或同步人脸', icon: 'none' })
+      if (!this.busy) return
+      uni.showToast({ title: error.msg + '，code: ' + error.code, icon: 'none', duration: 2000 })
       this.resultText = 'code: ' + error.code + '\nmsg: ' + error.msg +
         (error.faceID.length > 0 ? '\nfaceID: ' + error.faceID : '')
     }

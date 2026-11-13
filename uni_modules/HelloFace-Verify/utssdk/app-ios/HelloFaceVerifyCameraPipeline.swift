@@ -1,7 +1,7 @@
 import AVFoundation
 import HiFace
 
-/** Camera configuration and borrowed pixel buffers stay on one serial queue. */
+/** 相机配置与借用帧处理使用同一串行队列，关闭时等待在途帧处理结束。 */
 final class HelloFaceVerifyCameraPipeline: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, @unchecked Sendable {
     let sdk = HiFaceSDK()
     let session = AVCaptureSession()
@@ -12,6 +12,7 @@ final class HelloFaceVerifyCameraPipeline: NSObject, AVCaptureVideoDataOutputSam
     private var closed = false
     private var configured = false
     private var accepting = false
+    private var failed = false
     private var output: AVCaptureVideoDataOutput?
     private var observers: [NSObjectProtocol] = []
 
@@ -21,20 +22,21 @@ final class HelloFaceVerifyCameraPipeline: NSObject, AVCaptureVideoDataOutputSam
     }
     func start(_ ready: @escaping @MainActor @Sendable () -> Void) {
         queue.async { [self] in
-            guard !closed, !configured else { return }
+            guard !closed, !failed, !configured else { return }
             observeSession()
             configure(ready)
         }
     }
-    func pause() {
+    func pause(_ completion: (@MainActor @Sendable () -> Void)? = nil) {
         queue.async { [self] in
-            guard !closed else { return }
-            accepting = false; session.stopRunning()
+            if !closed { accepting = false; session.stopRunning() }
+            // 与送帧共用串行队列：当前帧结束、会话停止后才允许重拍启动新请求。
+            if let completion = completion { DispatchQueue.main.async { completion() } }
         }
     }
     func resume() {
         queue.async { [self] in
-            guard !closed, configured else { return }
+            guard !closed, !failed, configured else { return }
             session.startRunning(); accepting = session.isRunning
         }
     }
@@ -82,7 +84,7 @@ final class HelloFaceVerifyCameraPipeline: NSObject, AVCaptureVideoDataOutputSam
             var ready = false
             defer {
                 session.commitConfiguration()
-                // Never enqueue startup behind a teardown that was requested during configuration.
+                // 在当前配置任务内启动，避免排队到已请求的关闭操作之后。
                 if ready {
                     configured = true
                     session.startRunning(); accepting = session.isRunning
@@ -115,18 +117,24 @@ final class HelloFaceVerifyCameraPipeline: NSObject, AVCaptureVideoDataOutputSam
         } catch { emitError("CAMERA_ERROR", error.localizedDescription) }
     }
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
-        guard accepting, !closed else { return }
+        guard accepting, !closed, !failed else { return }
         guard let buffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+        guard HelloFaceVerifyCameraFrameSize.isSupported(width: CVPixelBufferGetWidth(buffer), height: CVPixelBufferGetHeight(buffer),
+            maximumLongSide: HiFaceCameraFrame.maximumLongSidePixels, maximumShortSide: HiFaceCameraFrame.maximumShortSidePixels) else {
+            emitError("CAMERA_ERROR", "Camera frame dimensions are unsupported")
+            return
+        }
         do {
             let frame = try HiFaceCameraFrame(pixelBuffer: buffer, rotation: .degrees0, isMirrored: front)
             if case .failure(let error) = sdk.processFrame(frame), error.code != .notReady && error.code != .busy {
-                let code = String(describing: error.code)
-                    .replacingOccurrences(of: "([a-z])([A-Z])", with: "$1_$2", options: .regularExpression).uppercased()
-                emitError(code, error.message)
+                emitError(HelloFaceVerifySDKError.code(error.code), error.message)
             }
         } catch { emitError("CAMERA_ERROR", error.localizedDescription) }
     }
     private func emitError(_ code: String, _ message: String) {
+        // 所有调用均在相机队列：首个错误立即停帧，避免主线程收尾前重复报错或恢复送帧。
+        guard !closed, !failed else { return }
+        accepting = false; failed = true
         DispatchQueue.main.async { [onError] in onError(code, message) }
     }
 }

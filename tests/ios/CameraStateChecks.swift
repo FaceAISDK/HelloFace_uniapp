@@ -45,6 +45,28 @@ struct CameraStateChecks {
         action.update(enrollment: false, stage: "PERFORM_ACTION", action: "blink", count: 0, timeoutMs: 3000, now: 0)
         check(action.deadline == nil, "Empty actions do not start countdown")
 
+        func supported(_ width: Int, _ height: Int) -> Bool {
+            HelloFaceVerifyCameraFrameSize.isSupported(width: width, height: height, maximumLongSide: 1920, maximumShortSide: 1080)
+        }
+        for (width, height) in [(640, 480), (480, 640), (1920, 1080), (1080, 1920)] {
+            check(supported(width, height), "Support valid landscape and portrait SDK dimensions")
+        }
+        for (width, height) in [(0, 480), (-2, 480), (641, 480), (640, 481), (1922, 1080), (1920, 1082), (1082, 1920)] {
+            check(!supported(width, height), "Reject nonpositive, odd or oversized frames before SDK")
+        }
+        var attempts = HelloFaceVerifyCameraLifecycle()
+        check(!attempts.accepts(0), "No callback is accepted before the first attempt")
+        let first = attempts.beginAttempt()!
+        check(attempts.accepts(first), "Accept current SDK progress")
+        let pausedRetake = attempts.beginAttempt()!
+        check(!attempts.accepts(first), "Retake rejects queued events from the previous SDK request")
+        check(attempts.accepts(pausedRetake), "Restart only after pause completes for the current attempt")
+        let next = attempts.beginAttempt()!
+        check(!attempts.accepts(pausedRetake) && attempts.accepts(next), "Restart invalidates the old pause callback")
+        check(attempts.finish("cancelled"), "Cancel while pause or request callbacks are pending")
+        check(!attempts.accepts(next), "Closing rejects queued callbacks before resource release")
+        check(attempts.beginAttempt() == nil, "A late pause callback cannot reopen a closed camera")
+
         var earlyCancel = HelloFaceVerifyCameraLifecycle()
         check(earlyCancel.finish("cancelled"), "Accept early cancel once")
         earlyCancel.didClose()

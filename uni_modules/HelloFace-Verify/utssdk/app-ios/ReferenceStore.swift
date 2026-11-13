@@ -5,7 +5,7 @@ enum HelloFaceVerifyBridgeError: Error {
     case failure(String, String)
 }
 
-/** Each reference is a device-local Keychain item, available only while unlocked. */
+/** 基准只存本机 Keychain，解锁后可读，不参与 iCloud 同步或设备迁移。 */
 enum ReferenceStore {
     private static let service = (Bundle.main.bundleIdentifier ?? "HelloFace") + ".helloface.references.v1"
     private static func query(_ faceID: String) -> [String: Any] {

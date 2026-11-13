@@ -1,5 +1,14 @@
 import Foundation
 import UIKit
+import HiFace
+
+/// 三种 SDK 入口共用错误码转换，保留原码，避免相机、图片与进度回调出现不同映射。
+enum HelloFaceVerifySDKError {
+    static func code(_ code: HiFaceErrorCode) -> String {
+        String(describing: code)
+            .replacingOccurrences(of: "([a-z])([A-Z])", with: "$1_$2", options: .regularExpression).uppercased()
+    }
+}
 
 public final class HelloFaceVerifyNative {
     public static func invoke(_ method: String, _ raw: String, _ callback: @escaping (String) -> Void) {

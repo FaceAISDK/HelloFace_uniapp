@@ -44,7 +44,7 @@ Demo 宿主的鸿蒙发行配置位于根目录 `harmony-configs/entry` 和 `har
 
 返回箭头不使用字体字符 ‹：Android 由 Button 绘制路径，iOS 使用 CAShapeLayer，鸿蒙使用 Path，避免字体基线使字形看起来偏移。鸿蒙 Path commands 的像素坐标须通过当前 UIContext.vp2px 换算，并对汉字墨迹中心作 1vp 的图形补偿；不能仅凭按钮/标题控件边界相同便认定视觉对齐。
 
-Demo 的 verifyFace 直接处理失败回调：code 105 在结果区之外立即 Toast“请先录入或同步人脸”。不额外预读 getFaceStatue，也不让取消/离页弹出无基准提示；complete 仍负责解除 busy。
+Demo 的所有业务接口在 `showResult / showError` 中统一 Toast 接口返回的 `msg，code: 数值`，持续 2 秒；成功、未通过和调用错误均保留底部完整结果。code 105 同样直接展示返回文案，不额外预读 getFaceStatue；离页先解除当前展示状态再取消，迟到回调和删除弹窗不能继续操作；正常调用仍由 complete 解除 busy。
 
 原生任务标识（Android job ID、iOS activeID、鸿蒙 generation）隔离取消、重拍和下一轮操作。鸿蒙授权弹窗尚未返回时也可能取消，必须在 await 之后重新检查代次。不要只隐藏相机页面而保留旧任务。
 
@@ -60,7 +60,7 @@ Android 的 clearAnalyzer 不等待当前帧结束。停止送帧后在同一个
 
 动作倒计时对齐上游 [Android FaceFlowUi](https://github.com/FaceSDKPro/HelloFace/blob/main/platforms/Android/demo/src/main/java/com/hiface/sdk/demo/ui/FaceFlowUi.java) 和 [iOS FaceActionCountdown](https://github.com/FaceSDKPro/HelloFace/blob/main/platforms/iOS/HiFaceDemo/UI/FaceActionCountdown.swift)：首次 `PERFORM_ACTION` 启动整个序列的总时限（`actionTimeoutMs × stepCount`），圆环从满圈递减，同时显示向上取整的剩余秒数。切换步骤及携带 action 的短暂丢脸/多人/距离提示不重置截止时刻；回到正脸/稳定阶段、无动作阶段、确认、重拍、取消和离页时清理。使用单调时钟，不受系统时间修改影响。三端只呈现 SDK 进度，不新增前端计时参数或进度回调，也不根据归零伪造 SDK 结果；录入原有稳定进度保持独立。
 
-iOS 的 `HelloFaceVerifyCameraState.swift` 分离圆环阶段和退出门闩：权限拒绝/取消可能早于页面弹出动画，必须同时等弹出及资源释放完成后才能关闭页面并归还调用槽。纯状态检查不依赖 UIKit 或识别 SDK。相机会话的配置、帧处理、暂停和关闭均在同一串行队列；关闭后不能再启动或处理旧帧。功能对照和验证边界见 [iOS 功能与调试](IOS_DEBUG.md)。
+iOS 的 `HelloFaceVerifyCameraState.swift` 分离圆环阶段和退出门闩：权限拒绝/取消可能早于页面弹出动画，必须同时等弹出及资源释放完成后才能关闭页面并归还调用槽。纯状态检查不依赖 UIKit 或识别 SDK。同一生命周期状态还管理请求代次，重拍先等送帧队列中的暂停屏障，回主 actor 校验代次后才重启。相机会话的配置、帧处理、暂停和关闭均在同一串行队列；首次运行错误立即拒绝后续帧和恢复请求，实际帧按 SDK 的正偶数及长短边上限校验。SDK 错误码转换统一由 HelloFaceVerifySDKError 处理，关闭后不能再启动或处理旧帧。功能对照和验证边界见 [iOS 功能与调试](IOS_DEBUG.md)。
 
 Android 云基座与本地联编模块的名称不同，跨文件桥接访问器上的 `@PublishedApi` 用于保持 JVM 名称稳定，不能作为无用注解删除。
 

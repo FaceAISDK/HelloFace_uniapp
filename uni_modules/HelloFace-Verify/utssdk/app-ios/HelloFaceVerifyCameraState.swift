@@ -32,12 +32,29 @@ struct HelloFaceVerifyActionCountdown {
     mutating func reset() { deadline = nil; duration = 0 }
 }
 
+/// VGA/medium 是协商预设，送帧前仍按锁定 SDK 的真实尺寸上限校验。
+enum HelloFaceVerifyCameraFrameSize {
+    static func isSupported(width: Int, height: Int, maximumLongSide: Int, maximumShortSide: Int) -> Bool {
+        width > 0 && height > 0 && width % 2 == 0 && height % 2 == 0 &&
+            max(width, height) <= maximumLongSide && min(width, height) <= maximumShortSide
+    }
+}
+
 /// 权限拒绝或快速取消可能先于弹出动画完成；必须等页面弹出和资源释放后再结束调用。
 struct HelloFaceVerifyCameraLifecycle {
     private(set) var ended = false
     private var presented = false
     private var closed = false
     private var response: String?
+    private var attempt = 0
+
+    /// 同时隔离 SDK 旧回调与重拍时迟到的相机暂停回调。
+    mutating func beginAttempt() -> Int? {
+        guard !ended else { return nil }
+        attempt += 1
+        return attempt
+    }
+    func accepts(_ candidate: Int) -> Bool { !ended && attempt > 0 && candidate == attempt }
 
     mutating func finish(_ response: String) -> Bool {
         guard !ended else { return false }
