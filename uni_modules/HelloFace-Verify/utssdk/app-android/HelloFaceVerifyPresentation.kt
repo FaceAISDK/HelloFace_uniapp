@@ -77,6 +77,7 @@ internal object HelloFaceVerifyPresentation {
     const val dialogPhotoSide: Int = 188
     const val dialogPhotoRadius: Int = 16
     const val dialogGap: Int = 16
+    const val dialogTextGap: Int = 8
     const val dialogHeadingHeight: Int = 32
     const val dialogCloseSize: Int = 32
     const val circleExpansion: Int = 7

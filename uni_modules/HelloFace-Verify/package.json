@@ -1,7 +1,7 @@
 {
   "id": "HelloFace-Verify",
   "displayName": "仅测试-HelloFace离线人脸识别与活体检测",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "license": "SEE LICENSE IN license.md",
   "description": "离线人脸识别 UTS 插件，支持1对1人脸比对、静默活体、动作活体、人脸录入与特征同步；适配 uni-app、uni-app x，支持 Android、iOS、鸿蒙。",
   "keywords": [
@@ -10,7 +10,7 @@
     "人脸比对",
     "离线人脸识别",
     "鸿蒙人脸识别"
-  ],
+],
   "repository": "https://github.com/FaceAISDK/HelloFace_uniapp",
   "engines": {
     "HBuilderX": "^5.34",

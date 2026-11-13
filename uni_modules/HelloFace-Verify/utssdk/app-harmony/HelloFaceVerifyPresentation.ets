@@ -75,6 +75,7 @@ export class HelloFaceVerifyPresentation {
     static readonly dialogPhotoSide: number = 188;
     static readonly dialogPhotoRadius: number = 16;
     static readonly dialogGap: number = 16;
+    static readonly dialogTextGap: number = 8;
     static readonly dialogHeadingHeight: number = 32;
     static readonly dialogCloseSize: number = 32;
     static readonly circleExpansion: number = 7;

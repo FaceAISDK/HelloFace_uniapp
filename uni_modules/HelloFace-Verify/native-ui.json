@@ -78,6 +78,7 @@
     "dialogPhotoSide": 188,
     "dialogPhotoRadius": 16,
     "dialogGap": 16,
+    "dialogTextGap": 8,
     "dialogHeadingHeight": 32,
     "dialogCloseSize": 32,
     "circleExpansion": 7,

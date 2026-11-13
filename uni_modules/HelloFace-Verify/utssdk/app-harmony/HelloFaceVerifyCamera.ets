@@ -161,7 +161,7 @@ struct FaceCameraDialog {
   }
   private confirmationBodyHeight(): number {
     const photoHeight = this.photo === undefined ? 0 : this.confirmationPhotoSide() + UI.dialogGap;
-    const content = photoHeight + UI.detailHeight + UI.dialogGap + UI.confirmationHeight;
+    const content = photoHeight + UI.detailHeight + UI.dialogTextGap + UI.confirmationHeight;
     const available = this.viewportHeight - this.safeTop - this.safeBottom - UI.dialogInset * 2 - UI.dialogPadding * 2 -
       UI.dialogHeadingHeight - UI.dialogGap * 2 - UI.buttonHeight;
     return Math.min(content, Math.max(1, available));
@@ -184,10 +184,12 @@ struct FaceCameraDialog {
         Scroll() {
           Column({ space: UI.dialogGap }) {
             if (this.photo !== undefined) { this.CapturePhoto(this.photo) }
-            Text(this.saving ? UI.savingDetail : (this.photo === undefined ? UI.missingDetail : UI.confirmDetail))
-              .fontSize(UI.fontDetail).fontColor(CAMERA_MUTED).textAlign(TextAlign.Center).width('100%').height(UI.detailHeight).maxLines(2)
-            Text(UI.confirmation).fontSize(UI.fontConfirmation).fontColor(CAMERA_MUTED)
-              .textAlign(TextAlign.Center).width('100%').height(UI.confirmationHeight).maxLines(2)
+            Column({ space: UI.dialogTextGap }) {
+              Text(this.saving ? UI.savingDetail : (this.photo === undefined ? UI.missingDetail : UI.confirmDetail))
+                .fontSize(UI.fontDetail).fontColor(CAMERA_MUTED).textAlign(TextAlign.Center).width('100%').height(UI.detailHeight).maxLines(2)
+              Text(UI.confirmation).fontSize(UI.fontConfirmation).fontColor(CAMERA_MUTED)
+                .textAlign(TextAlign.Center).width('100%').height(UI.confirmationHeight).maxLines(2)
+            }.width('100%')
           }.width('100%')
         }.width('100%').height(this.confirmationBodyHeight()).scrollBar(BarState.Auto)
         Row({ space: UI.buttonGap }) {

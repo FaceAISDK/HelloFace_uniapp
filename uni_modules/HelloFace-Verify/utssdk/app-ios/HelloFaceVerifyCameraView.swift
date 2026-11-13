@@ -247,12 +247,13 @@ final class HelloFaceVerifyCameraView: UIView {
             y += side + UI.dialogGap
         }
         for label in [dialogDetail, confirmation] {
+            if label === confirmation { y += UI.dialogTextGap }
             let height = max(label === dialogDetail ? UI.detailHeight : UI.confirmationHeight,
                 ceil(label.sizeThatFits(CGSize(width: contentWidth, height: .greatestFiniteMagnitude)).height))
             label.frame = CGRect(x: 0, y: y, width: contentWidth, height: height)
-            y += height + UI.dialogGap
+            y += height
         }
-        let contentHeight = y - UI.dialogGap
+        let contentHeight = y
         let availableHeight = max(1, bounds.height - safe.top - safe.bottom - UI.dialogInset * 2)
         let fixedHeight = padding * 2 + UI.dialogHeadingHeight + UI.dialogGap * 2 + UI.buttonHeight
         let bodyHeight = min(contentHeight, max(1, availableHeight - fixedHeight))

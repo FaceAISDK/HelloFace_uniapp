@@ -166,9 +166,9 @@ internal class HelloFaceVerifyCameraView(context: Context, private val enrollmen
         body.addView(dialogDetail, LinearLayout.LayoutParams(-1, dp(UI.detailHeight)).apply {
             if (bitmap != null) topMargin = dp(UI.dialogGap)
         })
-        body.addView(confirmation, LinearLayout.LayoutParams(-1, dp(UI.confirmationHeight)).apply { topMargin = dp(UI.dialogGap) })
+        body.addView(confirmation, LinearLayout.LayoutParams(-1, dp(UI.confirmationHeight)).apply { topMargin = dp(UI.dialogTextGap) })
         val bodyHeight = (if (bitmap == null) 0 else photoSide + dp(UI.dialogGap)) +
-            dp(UI.detailHeight + UI.dialogGap + UI.confirmationHeight)
+            dp(UI.detailHeight + UI.dialogTextGap + UI.confirmationHeight)
         val available = (height.takeIf { it > 0 } ?: resources.displayMetrics.heightPixels) - safeTop - safeBottom -
             dp(UI.dialogInset * 2 + UI.dialogPadding * 2 + UI.dialogHeadingHeight + UI.dialogGap * 2 + UI.buttonHeight)
         // 只滚动图片和说明，窄屏上关闭、重拍、确认始终可见。

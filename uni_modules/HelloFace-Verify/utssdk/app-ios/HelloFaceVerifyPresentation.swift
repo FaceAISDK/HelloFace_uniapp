@@ -77,6 +77,7 @@ enum HelloFaceVerifyPresentation {
     static let dialogPhotoSide: CGFloat = 188
     static let dialogPhotoRadius: CGFloat = 16
     static let dialogGap: CGFloat = 16
+    static let dialogTextGap: CGFloat = 8
     static let dialogHeadingHeight: CGFloat = 32
     static let dialogCloseSize: CGFloat = 32
     static let circleExpansion: CGFloat = 7
