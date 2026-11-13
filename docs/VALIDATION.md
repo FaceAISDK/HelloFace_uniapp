@@ -7,7 +7,7 @@
 - Android、iOS、鸿蒙的 `verifyFace`（含动作）和 `detectLiveness` 原生页面新增剩余秒数及逐渐缩短的圆环。对照上游 Android `FaceFlowUi` / iOS `FaceActionCountdown`，总时限为 `actionTimeoutMs × stepCount`；默认两动作显示约 6 秒。重复进度、换动作和携带 action 的短暂丢脸不重启；无动作/正脸稳定阶段、确认、重拍、取消和离页清理。仅为视觉提示，SDK 超时、判定、参数、存储及回调不变。
 - `npm run check` 通过 153 项检查（114 JS、39 Python）、37 个 SDK 文件及三端 UTS 转换。新增鸿蒙真实方法计时回归覆盖重复事件、换动作、短暂丢脸、自定义时长、归零不重启和迟到定时回调；iOS 39 项纯状态检查通过。Android uni-app / uni-app x 官方 UTS、Kotlin、DEX、ABI 和现有编译后边界检查通过。
 - 鸿蒙使用真实 0.8.11 HAR，清理本机生成模块后重新 `assembleHar` 通过；这不是完整 HAP 或真机验收。iOS 8 个 Swift 语法、真实 UIKit 和 AVFoundation/编译用 SDK 边界类型检查通过；本机 Xcode 15.2 无法全量编译上游 Swift 6 SDK，完整 IPA 和 iOS 真机仍未验。
-- 三星 SM-S9210 / API 36 已用 HBuilderX 5.34 官方“已安装自定义基座”通道同步、启动根 Vue 示例，加载真实 SDK 0.8.11 及本轮本地编译原生 DEX。运行时只读 DEBUG_INFO 指纹为 `hfv1:4ba263d2060abcf53f0f9948c9fe494fd70bea22fd6572fab78a34d3b8900aed`，与本轮源码一致，busy=false。没有安装临时同包名宿主、卸载或清数据；UID、基准加密文件 SHA-256 前后完全一致，采样 App 日志未见原生崩溃。手机处于用户操作中，本轮尚未实际进入动作阶段观察动画或进行真人活体通过验收，不以部署成功替代验收。
+- 三星 SM-S9210 / API 36 已用 HBuilderX 5.34 官方“已安装自定义基座”通道同步、启动根 Vue 示例，加载真实 SDK 0.8.11 及本轮本地编译原生 DEX。运行时只读 DEBUG_INFO 指纹为 `hfv1:4ba263d2060abcf53f0f9948c9fe494fd70bea22fd6572fab78a34d3b8900aed`，与本轮源码一致，busy=false。没有安装临时同包名宿主、卸载或清数据；UID、基准加密文件 SHA-256 前后完全一致，采样 App 日志未见原生崩溃。随后在三星独立活体（静默 + 眨眼、点头）实际运行，页面采样显示 `code=0 / passed=true / livenessScore=0.973`；用户明确确认“圆环和秒数正常，动作切换后继续计时”。真人检查后再次核对 UID 与基准加密文件摘要一致，任务结束 busy=false，日志未见原生崩溃。本轮未重新验证 1:1 身份匹配、其余动作组合或鸿蒙/iOS 真人效果；共用原生页面不等于这些用例均已实测。
 - 规范插件、说明及 uvue 副本已同步。证据日志位于忽略目录 `unpackage/validation/action-countdown-20261113/`；不包含原始基准、特征或人脸照片。
 
 ## 2026-11-13 录入确认弹窗说明间距
