@@ -41,6 +41,7 @@ export class HelloFaceVerifyPresentation {
     static readonly cancelCapture: string = "取消录入";
     static readonly livenessHeading: string = "活体检测";
     static readonly livenessPhase: string = "实时活体检测";
+    static readonly countdownSuffix: string = "秒";
     static readonly sideInset: number = 24;
     static readonly headerInset: number = 8;
     static readonly backInset: number = 12;

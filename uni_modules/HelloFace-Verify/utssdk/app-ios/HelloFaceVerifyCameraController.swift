@@ -11,7 +11,8 @@ final class HelloFaceVerifyCameraController: UIViewController {
     private var pipeline: HelloFaceVerifyCameraPipeline?
     private var preview: AVCaptureVideoPreviewLayer?
     private var request: FaceRequest?
-    private lazy var screen = HelloFaceVerifyCameraView(enrollment: method == "enrollFace", liveness: method == "detectLiveness")
+    private lazy var screen = HelloFaceVerifyCameraView(enrollment: method == "enrollFace", liveness: method == "detectLiveness",
+        actionTimeoutMs: (params["actionTimeoutMs"] as? NSNumber)?.int64Value ?? 3000)
     private var captured: FaceFlowResult?
     private var lifecycle = HelloFaceVerifyCameraLifecycle()
     private var ended: Bool { lifecycle.ended }

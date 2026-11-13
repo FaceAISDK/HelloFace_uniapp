@@ -14,6 +14,24 @@ struct HelloFaceVerifyCaptureProgress {
     mutating func reset() { holding = false }
 }
 
+/// 原生 Demo 的动作总倒计时：换步骤及短暂丢脸保持原截止时刻；不产生业务结果。
+struct HelloFaceVerifyActionCountdown {
+    private(set) var deadline: TimeInterval?
+    private(set) var duration: TimeInterval = 0
+    mutating func update(enrollment: Bool, stage: String, action: String?, count: Int,
+                         timeoutMs: Int64, now: TimeInterval) {
+        guard !enrollment, count > 0, timeoutMs > 0,
+              stage == "PERFORM_ACTION" || action != nil,
+              !["FACE_FORWARD", "FACE_NOT_FRONTAL", "HOLD_STILL", "FACE_UNSTABLE"].contains(stage) else { reset(); return }
+        guard deadline == nil, stage == "PERFORM_ACTION" else { return }
+        duration = Double(timeoutMs) / 1000 * Double(count)
+        deadline = now + duration
+    }
+    func remaining(at now: TimeInterval) -> TimeInterval { max(0, (deadline ?? now) - now) }
+    func progress(at now: TimeInterval) -> Double { duration > 0 ? min(1, remaining(at: now) / duration) : 0 }
+    mutating func reset() { deadline = nil; duration = 0 }
+}
+
 /// 权限拒绝或快速取消可能先于弹出动画完成；必须等页面弹出和资源释放后再结束调用。
 struct HelloFaceVerifyCameraLifecycle {
     private(set) var ended = false

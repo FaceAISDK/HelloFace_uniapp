@@ -90,7 +90,8 @@ class HelloFaceVerifyCameraActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.light(Color.TRANSPARENT, HelloFaceVerifyPresentation.colorInk)
         )
         screen = HelloFaceVerifyCameraView(this, current.method == "enrollFace",
-            { fail("CANCELLED", "Face operation cancelled") }, { retake() }, { confirm() }, liveness = current.method == "detectLiveness")
+            { fail("CANCELLED", "Face operation cancelled") }, { retake() }, { confirm() }, liveness = current.method == "detectLiveness",
+            actionTimeoutMs = current.params.optLong("actionTimeoutMs", 3000))
         preview = screen.preview
         setContentView(screen)
         screen.setOnApplyWindowInsetsListener { _, insets ->

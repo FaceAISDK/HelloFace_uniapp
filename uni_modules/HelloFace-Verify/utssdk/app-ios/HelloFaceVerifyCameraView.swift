@@ -34,12 +34,16 @@ final class HelloFaceVerifyCameraView: UIView {
     private let confirm = UIButton(type: .system)
     private var captured = false
     private var captureProgress = HelloFaceVerifyCaptureProgress()
+    private let actionTimeoutMs: Int64
+    private var actionCountdown = HelloFaceVerifyActionCountdown()
+    private var actionTimer: Timer?
+    private var actionPhase = ""
     var onCancel: (() -> Void)?
     var onRetake: (() -> Void)?
     var onConfirm: (() -> Void)?
 
-    init(enrollment: Bool, liveness: Bool = false) {
-        self.enrollment = enrollment; self.liveness = liveness
+    init(enrollment: Bool, liveness: Bool = false, actionTimeoutMs: Int64 = 3000) {
+        self.enrollment = enrollment; self.liveness = liveness; self.actionTimeoutMs = actionTimeoutMs
         super.init(frame: .zero)
         backgroundColor = Self.background
         photo.contentMode = .scaleAspectFit; photo.clipsToBounds = true
@@ -112,7 +116,7 @@ final class HelloFaceVerifyCameraView: UIView {
     required init?(coder: NSCoder) { fatalError("Use init(enrollment:)") }
 
     func showLive() {
-        resetCaptureProgress()
+        resetCaptureProgress(); resetActionCountdown()
         captured = false; photo.image = nil; photo.isHidden = true
         confirmationOverlay.isHidden = true
         title.text = UI.liveTitle; detail.text = UI.liveDetail
@@ -131,14 +135,15 @@ final class HelloFaceVerifyCameraView: UIView {
         let phaseText = liveness && stage != "PERFORM_ACTION" ? UI.livenessPhase : UI.phase(enrollment: enrollment, stage: stage, step: step, count: count)
         if phase.text != phaseText { phase.text = phaseText }
         updateCaptureProgress(stage: stage)
-        let color = (UI.isWarning(stage: stage) ? UI.colorAmber : (enrollment ? UI.colorOuterRing : blue)).cgColor
+        updateActionCountdown(stage: stage, action: action, count: count, phaseText: phaseText)
+        let color = (actionCountdown.deadline != nil ? UI.colorOuterRing : UI.isWarning(stage: stage) ? UI.colorAmber : (enrollment ? UI.colorOuterRing : blue)).cgColor
         if ring.strokeColor != color {
             CATransaction.begin(); CATransaction.setDisableActions(true); ring.strokeColor = color; CATransaction.commit()
         }
     }
 
     func showConfirmation(image: UIImage?, mirrored: Bool) {
-        resetCaptureProgress()
+        resetCaptureProgress(); resetActionCountdown()
         captured = true; photo.image = image; photo.isHidden = image == nil
         ring.strokeColor = green.cgColor
         photo.transform = CGAffineTransform(scaleX: mirrored ? -1 : 1, y: 1)
@@ -164,11 +169,11 @@ final class HelloFaceVerifyCameraView: UIView {
         [back, retake, confirm, closeConfirmation].forEach { $0.isEnabled = false; $0.alpha = UI.disabledAlpha }
         setNeedsLayout()
     }
-    func clearPhoto() { resetCaptureProgress(); photo.image = nil; confirmationOverlay.isHidden = true }
+    func clearPhoto() { resetActionCountdown(); resetCaptureProgress(); photo.image = nil; confirmationOverlay.isHidden = true }
 
     override func didMoveToWindow() {
         super.didMoveToWindow()
-        if window == nil { resetCaptureProgress() }
+        if window == nil { resetActionCountdown(); resetCaptureProgress() }
     }
     private func updateCaptureProgress(stage: String) {
         let start = captureProgress.update(enrollment: enrollment, stage: stage)
@@ -191,6 +196,45 @@ final class HelloFaceVerifyCameraView: UIView {
         progressRing.strokeEnd = 0
         CATransaction.commit()
     }
+
+    private func updateActionCountdown(stage: String, action: String?, count: Int, phaseText: String) {
+        let now = ProcessInfo.processInfo.systemUptime
+        actionCountdown.update(enrollment: enrollment, stage: stage, action: action, count: count,
+                               timeoutMs: actionTimeoutMs, now: now)
+        guard actionCountdown.deadline != nil else { resetActionCountdown(); return }
+        actionPhase = phaseText
+        drawActionCountdown()
+        if actionTimer == nil && actionCountdown.remaining(at: now) > 0 {
+            let timer = Timer(timeInterval: 0.033, repeats: true) { [weak self] _ in
+                DispatchQueue.main.async { [weak self] in self?.drawActionCountdown() }
+            }
+            actionTimer = timer
+            RunLoop.main.add(timer, forMode: .common)
+        }
+    }
+    private func drawActionCountdown() {
+        guard actionCountdown.deadline != nil else { return }
+        let now = ProcessInfo.processInfo.systemUptime
+        let remaining = actionCountdown.remaining(at: now)
+        phase.text = "\(actionPhase) · \(Int(ceil(remaining)))\(UI.countdownSuffix)"
+        CATransaction.begin(); CATransaction.setDisableActions(true)
+        ring.strokeColor = UI.colorOuterRing.cgColor
+        progressRing.strokeEnd = CGFloat(actionCountdown.progress(at: now))
+        CATransaction.commit()
+        // 动画归零不触发超时或成功；等待 SDK 回调。
+        if remaining <= 0 { actionTimer?.invalidate(); actionTimer = nil }
+    }
+    private func resetActionCountdown() {
+        actionTimer?.invalidate(); actionTimer = nil
+        let wasActive = actionCountdown.deadline != nil
+        actionCountdown.reset()
+        if wasActive {
+            CATransaction.begin(); CATransaction.setDisableActions(true)
+            progressRing.strokeEnd = 0
+            CATransaction.commit()
+        }
+    }
+    deinit { actionTimer?.invalidate() }
 
     override func layoutSubviews() {
         super.layoutSubviews()

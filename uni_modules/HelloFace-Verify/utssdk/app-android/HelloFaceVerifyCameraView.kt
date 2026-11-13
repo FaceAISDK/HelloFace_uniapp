@@ -4,6 +4,8 @@ import uts.sdk.modules.HelloFaceVerify.HelloFaceVerifyPresentation as UI
 import android.app.Dialog
 import android.animation.ValueAnimator
 import android.content.Context
+import android.os.SystemClock
+import kotlin.math.ceil
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
@@ -33,7 +35,7 @@ import kotlin.math.min
 /** Presentation only: the circular opening never crops frames submitted to the SDK. */
 internal class HelloFaceVerifyCameraView(context: Context, private val enrollment: Boolean,
     private val onCancel: () -> Unit, private val onRetake: () -> Unit, private val onConfirm: () -> Unit,
-    private val liveness: Boolean = false) : FrameLayout(context) {
+    private val liveness: Boolean = false, private val actionTimeoutMs: Long = 3000) : FrameLayout(context) {
     val preview = PreviewView(context).apply {
         implementationMode = PreviewView.ImplementationMode.COMPATIBLE
         scaleType = PreviewView.ScaleType.FIT_CENTER
@@ -96,6 +98,20 @@ internal class HelloFaceVerifyCameraView(context: Context, private val enrollmen
         contentDescription = UI.cancelCapture; setOnClickListener { onCancel() }
     }
 
+    private var actionDeadline = -1L
+    private var actionDuration = 0L
+    private var actionPhase = ""
+    private val actionTick = object : Runnable {
+        override fun run() {
+            if (actionDeadline < 0) return
+            val remaining = (actionDeadline - SystemClock.elapsedRealtime()).coerceAtLeast(0)
+            mask.countdown = remaining.toFloat() / actionDuration
+            phase.text = "$actionPhase · ${ceil(remaining / 1000.0).toInt()}${UI.countdownSuffix}"
+            if (remaining > 0) postOnAnimation(this)
+            // 倒计时结束只停止绘制，结果、超时和资源释放仍由 SDK 决定。
+        }
+    }
+
     init {
         setBackgroundColor(BACKGROUND)
         addView(preview); addView(mask)
@@ -109,9 +125,27 @@ internal class HelloFaceVerifyCameraView(context: Context, private val enrollmen
         safeLeft = left; safeTop = top; safeRight = right; safeBottom = bottom; requestLayout()
     }
 
+    private fun updateActionCountdown(stage: String, action: String?, count: Int, phaseText: String) {
+        val active = !enrollment && count > 0 && (stage == "PERFORM_ACTION" || action != null) &&
+            stage !in listOf("FACE_FORWARD", "FACE_NOT_FRONTAL", "HOLD_STILL", "FACE_UNSTABLE")
+        if (!active) { resetActionCountdown(); return }
+        actionPhase = phaseText
+        // 与原生 Demo 一致：整个动作序列共享总时限，换动作及短暂丢脸不重置。
+        if (actionDeadline < 0 && stage == "PERFORM_ACTION") {
+            actionDuration = actionTimeoutMs * count
+            actionDeadline = SystemClock.elapsedRealtime() + actionDuration
+        }
+        if (actionDeadline >= 0) { removeCallbacks(actionTick); actionTick.run() }
+    }
+    private fun resetActionCountdown() {
+        removeCallbacks(actionTick); actionDeadline = -1L; actionDuration = 0; mask.countdown = null
+    }
+    override fun onDetachedFromWindow() { resetActionCountdown(); super.onDetachedFromWindow() }
+
     fun showLive() {
         dismissConfirmation()
         mask.resetProgress()
+        resetActionCountdown()
         saving = false
         captured = false; photo.setImageDrawable(null); photo.visibility = GONE
         title.text = UI.liveTitle; detail.text = UI.liveDetail
@@ -130,12 +164,14 @@ internal class HelloFaceVerifyCameraView(context: Context, private val enrollmen
         val phaseText = if (liveness && stage != "PERFORM_ACTION") UI.livenessPhase else UI.phase(enrollment, stage, step, count)
         if (phase.text != phaseText) phase.text = phaseText
         mask.updateProgress(enrollment && stage == "HOLD_STILL")
+        updateActionCountdown(stage, action, count, phaseText)
         mask.tint = if (UI.isWarning(stage)) AMBER else if (enrollment) UI.colorOuterRing else BLUE
     }
 
     fun showConfirmation(bitmap: Bitmap?, mirrored: Boolean) {
         dismissConfirmation()
         mask.resetProgress()
+        resetActionCountdown()
         saving = false
         captured = true; photo.setImageBitmap(bitmap); photo.scaleX = if (mirrored) -1f else 1f
         mask.tint = GREEN
@@ -206,7 +242,7 @@ internal class HelloFaceVerifyCameraView(context: Context, private val enrollmen
         listOf(back, retake, confirm, closeConfirmation).forEach { it.alpha = UI.disabledAlpha }
     }
 
-    fun clearPhoto() { mask.resetProgress(); dismissConfirmation(); photo.setImageDrawable(null) }
+    fun clearPhoto() { resetActionCountdown(); mask.resetProgress(); dismissConfirmation(); photo.setImageDrawable(null) }
     private fun dismissConfirmation() {
         confirmationDialog?.setOnCancelListener(null)
         confirmationDialog?.dismiss(); confirmationDialog = null
@@ -308,6 +344,8 @@ internal class HelloFaceVerifyCameraView(context: Context, private val enrollmen
         }
         fun resetProgress() { animator?.cancel(); animator = null; holding = false; progress = 0f; invalidate() }
         override fun onDetachedFromWindow() { resetProgress(); super.onDetachedFromWindow() }
+        var countdown: Float? = null
+            set(value) { field = value; invalidate() }
         var tint = BLUE
             set(value) { if (field != value) { field = value; invalidate() } }
         fun setCircle(value: RectF) { if (hole != value) { hole.set(value); invalidate() } }
@@ -318,11 +356,12 @@ internal class HelloFaceVerifyCameraView(context: Context, private val enrollmen
             path.addOval(hole, Path.Direction.CW)
             paint.style = Paint.Style.FILL; paint.color = BACKGROUND; canvas.drawPath(path, paint)
             paint.style = Paint.Style.STROKE; paint.strokeWidth = resources.displayMetrics.density * UI.ringWidth
-            paint.color = tint; canvas.drawOval(hole, paint)
-            if (progress > 0) {
+            paint.color = if (countdown != null) UI.colorOuterRing else tint; canvas.drawOval(hole, paint)
+            val arc = countdown ?: progress
+            if (arc > 0) {
                 paint.color = BLUE; paint.strokeWidth = resources.displayMetrics.density * (UI.ringWidth + 1)
                 paint.strokeCap = Paint.Cap.ROUND
-                canvas.drawArc(hole, -90f, 360f * progress, false, paint)
+                canvas.drawArc(hole, -90f, 360f * arc, false, paint)
                 paint.strokeCap = Paint.Cap.BUTT
             }
         }

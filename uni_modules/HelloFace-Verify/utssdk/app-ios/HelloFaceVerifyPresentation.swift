@@ -43,6 +43,7 @@ enum HelloFaceVerifyPresentation {
     static let cancelCapture = "取消录入"
     static let livenessHeading = "活体检测"
     static let livenessPhase = "实时活体检测"
+    static let countdownSuffix = "秒"
     static let sideInset: CGFloat = 24
     static let headerInset: CGFloat = 8
     static let backInset: CGFloat = 12

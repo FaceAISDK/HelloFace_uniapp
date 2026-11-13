@@ -5,7 +5,7 @@ const vm = require('node:vm')
 const { test } = require('node:test')
 const ts = require('typescript')
 
-function loadProgress(enrollment = true) {
+function loadProgress(enrollment = true, timeoutMs = 3000) {
   const filename = path.resolve(__dirname, '../uni_modules/HelloFace-Verify/utssdk/app-harmony/HelloFaceVerifyCamera.ets')
   const source = fs.readFileSync(filename, 'utf8')
   const methods = source.slice(source.indexOf('  private updateCaptureProgress('), source.indexOf('  private drawMask('))
@@ -17,6 +17,7 @@ function loadProgress(enrollment = true) {
   let now = 0, nextID = 0, cancelled = 0
   const timers = new Map(), exports = {}
   vm.runInNewContext(compiled, { exports,
+    UI: { countdownSuffix: "秒" },
     systemDateTime: { TimeType: { STARTUP: 0 }, getUptime: () => now },
     setInterval(tick, interval) { assert.equal(interval, 33); timers.set(++nextID, tick); return nextID },
     clearInterval(id) { timers.delete(id) }
@@ -24,7 +25,8 @@ function loadProgress(enrollment = true) {
   const overlay = new exports.Overlay()
   Object.assign(overlay, { visible: true, canvasReady: true, captured: false,
     captureStartedAt: -1, captureTimer: -1, captureProgress: 0, draws: 0,
-    drawMask() { this.draws++ }, flow: { isEnrollment: () => enrollment, cancel() { cancelled++ } } })
+    actionTimer: -1, actionDeadline: -1, actionDuration: 0, actionProgress: 0, phase: "动作验证 · 1/2",
+    drawMask() { this.draws++ }, flow: { isEnrollment: () => enrollment, actionTimeout: () => timeoutMs, cancel() { cancelled++ } } })
   return { overlay, timers, cancelled: () => cancelled,
     tick(at) { now = at; for (const tick of [...timers.values()]) tick() } }
 }
@@ -113,4 +115,54 @@ test('Harmony confirmation: missing preview releases space and short screens kee
   const fixed = 24 * 2 + 32 + 16 * 2 + 50
   assert.ok(body > 0 && body < full)
   assert.ok(body + fixed + 24 * 2 + 47 + 34 <= 360)
+})
+
+
+test('Harmony action countdown: total duration, repeated progress and next action retain one deadline', () => {
+  const { overlay, timers, tick } = loadProgress(false)
+  overlay.updateActionCountdown('HOLD_STILL', undefined, 2)
+  assert.equal(timers.size, 0)
+  overlay.updateActionCountdown('PERFORM_ACTION', 'blink', 2)
+  assert.equal(overlay.actionDuration, 6000)
+  assert.equal(overlay.phase, '动作验证 · 1/2 · 6秒')
+  tick(1500)
+  assert.equal(overlay.actionProgress, 0.75)
+  overlay.phase = '动作验证 · 2/2'
+  overlay.updateActionCountdown('PERFORM_ACTION', 'nodHead', 2)
+  assert.equal(overlay.actionDeadline, 6000)
+  assert.equal(overlay.phase, '动作验证 · 2/2 · 5秒')
+  assert.equal(timers.size, 1)
+  overlay.updateActionCountdown('WAITING_FOR_FACE', 'nodHead', 2)
+  tick(4500)
+  assert.equal(overlay.actionProgress, 0.25)
+  tick(7000)
+  assert.equal(overlay.actionProgress, 0)
+  assert.equal(timers.size, 0)
+  overlay.updateActionCountdown('PERFORM_ACTION', 'nodHead', 2)
+  assert.equal(overlay.actionDeadline, 6000)
+  assert.equal(timers.size, 0)
+  assert.equal(overlay.captured, false)
+})
+
+test('Harmony action countdown: explicit timeout, exit, absent action and frontal hold reset safely', () => {
+  const { overlay, timers, tick } = loadProgress(false, 5000)
+  for (const stage of ['HOLD_STILL', 'FACE_FORWARD', 'FACE_UNSTABLE', 'FACE_NOT_FRONTAL', 'WAITING_FOR_FACE']) {
+    overlay.updateActionCountdown('PERFORM_ACTION', 'blink', 4)
+    assert.equal(overlay.actionDuration, 20000)
+    overlay.updateActionCountdown(stage, undefined, 4)
+    assert.equal(overlay.actionDeadline, -1)
+    assert.equal(timers.size, 0)
+  }
+  overlay.updateActionCountdown('PERFORM_ACTION', 'blink', 4)
+  const pending = [...timers.values()][0]
+  overlay.aboutToDisappear()
+  const draws = overlay.draws
+  pending()
+  tick(5000)
+  assert.equal(timers.size, 0)
+  assert.equal(overlay.actionDeadline, -1)
+  assert.equal(overlay.draws, draws)
+  const enrollment = loadProgress(true)
+  enrollment.overlay.updateActionCountdown('PERFORM_ACTION', 'blink', 2)
+  assert.equal(enrollment.timers.size, 0)
 })

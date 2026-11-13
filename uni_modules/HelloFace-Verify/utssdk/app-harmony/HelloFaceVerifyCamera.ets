@@ -46,6 +46,11 @@ struct FaceCameraDialog {
   private captureProgress: number = 0;
   private captureStartedAt: number = -1;
   private captureTimer: number = -1;
+  private actionTimer: number = -1;
+  private actionDeadline: number = -1;
+  private actionDuration: number = 0;
+  private actionProgress: number = 0;
+  private actionPhase: string = '';
 
   aboutToAppear(): void {
     this.visible = true;
@@ -62,11 +67,12 @@ struct FaceCameraDialog {
       this.phase = flow.isLiveness() && stage !== 'PERFORM_ACTION' ? UI.livenessPhase : UI.phase(flow.isEnrollment(), stage, step, count);
       this.warning = UI.isWarning(stage);
       this.updateCaptureProgress(stage);
+      this.updateActionCountdown(stage, action, count);
       this.drawMask();
     };
     flow.onCapture = (value: image.PixelMap | undefined, ready: boolean): void => {
       if (!this.visible) return;
-      this.resetCaptureProgress();
+      this.resetCaptureProgress(); this.resetActionCountdown();
       this.photo = value; this.captured = ready; this.saving = false; this.warning = false;
       this.guidance = ready ? (value === undefined ? UI.missingTitle : UI.confirmTitle) : UI.liveTitle;
       this.phase = ready ? UI.confirmPhase : UI.phase(flow.isEnrollment());
@@ -75,7 +81,7 @@ struct FaceCameraDialog {
   }
   aboutToDisappear(): void {
     this.visible = false; this.canvasReady = false;
-    this.resetCaptureProgress(); this.flow?.cancel();
+    this.resetCaptureProgress(); this.resetActionCountdown(); this.flow?.cancel();
   }
   private contentLeft(): number { return this.safeLeft + UI.sideInset; }
   private contentWidth(): number { return Math.max(UI.minCircle, this.viewportWidth - this.safeLeft - this.safeRight - UI.sideInset * 2); }
@@ -121,6 +127,36 @@ struct FaceCameraDialog {
     if (this.captureTimer >= 0) clearInterval(this.captureTimer);
     this.captureTimer = -1; this.captureStartedAt = -1; this.captureProgress = 0;
   }
+  private updateActionCountdown(stage: string, action: string | undefined, count: number): void {
+    const active = this.flow?.isEnrollment() === false && count > 0 &&
+      (stage === 'PERFORM_ACTION' || action !== undefined) &&
+      !['FACE_FORWARD', 'FACE_NOT_FRONTAL', 'HOLD_STILL', 'FACE_UNSTABLE'].includes(stage);
+    if (!active) { this.resetActionCountdown(); return; }
+    this.actionPhase = this.phase;
+    // 同一动作序列共用截止时刻；重复进度、换动作、短暂丢脸均不重启。
+    if (this.actionDeadline < 0 && stage === 'PERFORM_ACTION') {
+      this.actionDuration = (this.flow?.actionTimeout() ?? 3000) * count;
+      this.actionDeadline = systemDateTime.getUptime(systemDateTime.TimeType.STARTUP) + this.actionDuration;
+    }
+    if (this.actionDeadline < 0) return;
+    this.drawActionCountdown();
+    if (this.actionTimer < 0 && this.actionProgress > 0) {
+      this.actionTimer = setInterval((): void => { this.drawActionCountdown(); }, CAPTURE_PROGRESS_INTERVAL_MILLIS);
+    }
+  }
+  private drawActionCountdown(): void {
+    if (!this.visible || this.captured || this.actionDeadline < 0) { this.resetActionCountdown(); return; }
+    const remaining = Math.max(0, this.actionDeadline - systemDateTime.getUptime(systemDateTime.TimeType.STARTUP));
+    this.actionProgress = Math.min(1, remaining / this.actionDuration);
+    this.phase = `${this.actionPhase} · ${Math.ceil(remaining / 1000)}${UI.countdownSuffix}`;
+    this.drawMask();
+    // 归零后不伪造超时或通过，继续等待 SDK 的真实结果。
+    if (remaining <= 0 && this.actionTimer >= 0) { clearInterval(this.actionTimer); this.actionTimer = -1; }
+  }
+  private resetActionCountdown(): void {
+    if (this.actionTimer >= 0) clearInterval(this.actionTimer);
+    this.actionTimer = -1; this.actionDeadline = -1; this.actionDuration = 0; this.actionProgress = 0;
+  }
   private drawMask(): void {
     if (!this.canvasReady) return;
     const context = this.canvas; const radius = this.diameter() / 2;
@@ -134,13 +170,14 @@ struct FaceCameraDialog {
     // 灰色底圈、状态颜色和稳定进度共用同一圆周，不再绘制分离的外圈。
     context.lineWidth = UI.ringWidth;
     const enrollment = this.flow?.isEnrollment() === true;
-    context.strokeStyle = this.captured ? CAMERA_GREEN : (this.warning ? UI.colorAmber :
-      (enrollment ? UI.colorOuterRing : CAMERA_BLUE));
+    context.strokeStyle = this.captured ? CAMERA_GREEN : (this.actionDeadline >= 0 ? UI.colorOuterRing :
+      (this.warning ? UI.colorAmber : (enrollment ? UI.colorOuterRing : CAMERA_BLUE)));
     context.beginPath(); context.arc(x, y, radius, 0, Math.PI * 2); context.stroke();
-    if (enrollment && !this.captured && !this.warning && this.captureProgress > 0) {
+    const arc = this.actionDeadline >= 0 ? this.actionProgress : this.captureProgress;
+    if (!this.captured && arc > 0 && (this.actionDeadline >= 0 || enrollment && !this.warning)) {
       context.lineWidth = UI.ringWidth + 1; context.lineCap = 'round'; context.strokeStyle = CAMERA_BLUE;
       context.beginPath(); context.arc(x, y, radius, -Math.PI / 2,
-        -Math.PI / 2 + Math.PI * 2 * this.captureProgress); context.stroke();
+        -Math.PI / 2 + Math.PI * 2 * arc); context.stroke();
     }
     context.restore();
   }
@@ -306,6 +343,7 @@ export class CameraFlow {
   safeLeft: number = 0;
   safeRight: number = 0;
   committing: boolean = false;
+  actionTimeout(): number { return this.params.actionTimeoutMs ?? 3000; }
   onStatus: (stage: string, action: string | undefined, step: number, count: number) => void = (): void => {};
   onCapture: (photo: image.PixelMap | undefined, ready: boolean) => void = (): void => {};
   onPreviewSize: (width: number, height: number) => void = (): void => {};

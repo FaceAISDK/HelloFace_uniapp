@@ -58,6 +58,8 @@ Android 的 clearAnalyzer 不等待当前帧结束。停止送帧后在同一个
 
 三端录入圆环仅呈现 SDK `HOLD_STILL` 阶段的约 700 毫秒稳定等待，不承担识别判定。Android 使用 ValueAnimator，鸿蒙使用单调时钟，iOS 使用 Core Animation；同一阶段的重复事件不重启动画，姿态/稳定性变化、确认、重拍和离页时清理。圆环走满后由 SDK 结果决定是否展示确认照片，不得从动画回调直接保存或报告成功。
 
+动作倒计时对齐上游 [Android FaceFlowUi](https://github.com/FaceSDKPro/HelloFace/blob/main/platforms/Android/demo/src/main/java/com/hiface/sdk/demo/ui/FaceFlowUi.java) 和 [iOS FaceActionCountdown](https://github.com/FaceSDKPro/HelloFace/blob/main/platforms/iOS/HiFaceDemo/UI/FaceActionCountdown.swift)：首次 `PERFORM_ACTION` 启动整个序列的总时限（`actionTimeoutMs × stepCount`），圆环从满圈递减，同时显示向上取整的剩余秒数。切换步骤及携带 action 的短暂丢脸/多人/距离提示不重置截止时刻；回到正脸/稳定阶段、无动作阶段、确认、重拍、取消和离页时清理。使用单调时钟，不受系统时间修改影响。三端只呈现 SDK 进度，不新增前端计时参数或进度回调，也不根据归零伪造 SDK 结果；录入原有稳定进度保持独立。
+
 iOS 的 `HelloFaceVerifyCameraState.swift` 分离圆环阶段和退出门闩：权限拒绝/取消可能早于页面弹出动画，必须同时等弹出及资源释放完成后才能关闭页面并归还调用槽。纯状态检查不依赖 UIKit 或识别 SDK。相机会话的配置、帧处理、暂停和关闭均在同一串行队列；关闭后不能再启动或处理旧帧。功能对照和验证边界见 [iOS 功能与调试](IOS_DEBUG.md)。
 
 Android 云基座与本地联编模块的名称不同，跨文件桥接访问器上的 `@PublishedApi` 用于保持 JVM 名称稳定，不能作为无用注解删除。
