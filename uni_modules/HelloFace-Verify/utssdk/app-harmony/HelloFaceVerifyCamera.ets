@@ -15,7 +15,7 @@ const CAMERA_INK: string = UI.colorInk;
 const CAMERA_MUTED: string = UI.colorMuted;
 const CAMERA_BLUE: string = UI.colorBlue;
 const CAMERA_GREEN: string = UI.colorGreen;
-// 与 SDK 0.8.11 的引导录入稳定窗口及原生 Demo 一致，仅用于视觉提示。
+// 与 SDK 的引导录入稳定窗口及原生 Demo 一致，仅用于视觉提示。
 const CAPTURE_HOLD_MILLIS: number = 700;
 const CAPTURE_PROGRESS_INTERVAL_MILLIS: number = 33;
 interface DialogParams { flow: CameraFlow; }

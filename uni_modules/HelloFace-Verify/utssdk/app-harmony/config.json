@@ -1,5 +1,5 @@
 {
   "dependencies": {
-    "hiface": "./libs/hiface-0.8.11.har"
+    "hiface": "./libs/hiface-0.8.14.har"
   }
 }

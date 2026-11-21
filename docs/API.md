@@ -129,7 +129,7 @@ getFaceStatue({
 
 三者沿用 `success / fail / complete`，返回 `void`。独立活体与图片提取不绑定用户，回调 `faceID` 为空串；状态查询返回归一化后的输入标识。独立活体支持进度与 `cancel()`，参数限制及后台释放/亮度恢复与验证共用。取消只作用于相机，不取消图片提取或存储操作；操作槽未释放前其他调用仍返回 104。
 
-当前 SDK 0.8.11 的独立活体流程**始终包含静默活体**，非空 `actions` 叠加动作挑战，因此该接口不提供 `silentLiveness` 开关；需要对身份比对配置四种组合时继续使用 `verifyFace`。依据 [锁定 SDK 的公开说明](https://github.com/FaceSDKPro/HelloFace/blob/dc60c7b15ebf8038fb73a752bcea3590bbd86eaf/platforms/Harmony/SDK.zh-CN.md#相机流程生命周期)。
+当前 SDK 0.8.14 的独立活体流程**始终包含静默活体**，非空 `actions` 叠加动作挑战，因此该接口不提供 `silentLiveness` 开关；需要对身份比对配置四种组合时继续使用 `verifyFace`。依据 [锁定 SDK 的公开说明](https://github.com/FaceSDKPro/HelloFace/blob/8f417ffac98c003880b6164a8c459426eef23848/platforms/Harmony/SDK.zh-CN.md#相机流程生命周期)。
 
 Vue/uvue 首页在“1:1 人脸验证”下方提供“独立活体检测”卡片，点击“开始活体检测”即可演示；无需先录入或填写 faceID。该卡片单独保存动作开关和勾选结果，关闭动作时只做静默活体，打开时追加所选动作，默认眨眼、点头，至少保留一项。`detectLiveness({ actions: [] })` 是有效的静默活体调用，现有接口没有“两种活体都关闭”的状态；“两个都关闭应报参数错误”不适用于当前契约。身份验证的两个开关都关闭时，`verifyFace` 仍按既有约定只比对身份。
 

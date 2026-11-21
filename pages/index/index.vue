@@ -102,6 +102,7 @@ export default {
     // #ifdef APP
     // 先停止结果展示，再取消相机，避免迟到回调在离页后弹出 Toast。
     if (!this.busy) return
+    uni.hideLoading()
     this.busy = false
     cancel()
     // #endif
@@ -179,8 +180,9 @@ export default {
       // #endif
     },
     syncImage() {
-      if (!this.begin('正在同步示例基准…')) return
+      if (!this.begin('正在同步图片…')) return
       // #ifdef APP
+      uni.showLoading({ title: '正在同步图片', mask: true })
       syncFaceImage({
         faceID: this.faceID, imageBase64: demoImageBase64, overwrite: true,
         success: this.showResult,
@@ -190,8 +192,9 @@ export default {
       // #endif
     },
     syncFeature() {
-      if (!this.begin('正在同步示例基准…')) return
+      if (!this.begin('正在同步特征…')) return
       // #ifdef APP
+      uni.showLoading({ title: '正在同步特征', mask: true })
       syncFaceFeature({
         faceID: this.faceID, feature: demoFeature, featureSpaceID: demoFeatureSpaceID, overwrite: true,
         success: this.showResult,
@@ -223,6 +226,7 @@ export default {
       })
       // #endif
     },
+    // complete 仅解锁；加载层在结果回调中先关闭，再显示 Toast，避免互相覆盖。
     // Vue/uvue 的 methods 保持页面 this 绑定，可直接作为 API 回调。
     finish() { this.busy = false },
     // 以下仅处理按钮状态与结果展示；不参与 SDK 判定，不保存原始特征。
@@ -244,6 +248,7 @@ export default {
     // success 也包含识别未通过（2xx）；只展示真实返回值，不按分数自行判定。
     showResult(result) {
       if (!this.busy) return
+      uni.hideLoading()
       const lines = ['code: ' + result.code, 'msg: ' + result.msg]
       if (result.faceID.length > 0) lines.push('faceID: ' + result.faceID)
       if (result.passed != null) lines.push('passed: ' + result.passed)
@@ -254,6 +259,7 @@ export default {
     },
     showError(error) {
       if (!this.busy) return
+      uni.hideLoading()
       uni.showToast({ title: error.msg + '，code: ' + error.code, icon: 'none', duration: 2000 })
       this.resultText = 'code: ' + error.code + '\nmsg: ' + error.msg +
         (error.faceID.length > 0 ? '\nfaceID: ' + error.faceID : '')

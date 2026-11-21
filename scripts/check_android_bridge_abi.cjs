@@ -8,11 +8,20 @@ const required = {
     ['getJobID', 'setJobID', 'shutdownCamera']
 }
 
-function assertBridgeAbi(filename) {
+const jsOptions = {
+  enrollFaceByJs: 'EnrollFaceOptionsJSONObject', verifyFaceByJs: 'VerifyFaceOptionsJSONObject',
+  detectLivenessByJs: 'DetectLivenessOptionsJSONObject', extractFaceFeatureByJs: 'ExtractFaceFeatureOptionsJSONObject',
+  getFaceStatueByJs: 'FaceIDOptionsJSONObject', getFaceFeatureByJs: 'FaceIDOptionsJSONObject',
+  setFaceFeatureByJs: 'SetFaceFeatureOptionsJSONObject', syncFaceFeatureByJs: 'SetFaceFeatureOptionsJSONObject',
+  syncFaceImageByJs: 'SyncFaceImageOptionsJSONObject', deleteFaceByJs: 'FaceIDOptionsJSONObject', cancelByJs: 'CancelOptionsJSONObject'
+}
+
+function assertBridgeAbi(filename, options = {}) {
   const dex = fs.readFileSync(filename)
   if (dex.length < 112 || dex.toString('ascii', 0, 4) !== 'dex\n') throw new Error('Expected a compiled DEX file: ' + filename)
   const stringCount = dex.readUInt32LE(56), stringOffset = dex.readUInt32LE(60)
   const typeOffset = dex.readUInt32LE(68)
+  const protoOffset = dex.readUInt32LE(76)
   const methodCount = dex.readUInt32LE(88), methodOffset = dex.readUInt32LE(92)
   const strings = new Map()
   function string(index) {
@@ -27,10 +36,25 @@ function assertBridgeAbi(filename) {
     return strings.get(index)
   }
   const methods = new Map(Object.keys(required).map(name => [name, new Set()]))
+  const bridges = new Map()
   for (let index = 0; index < methodCount; index++) {
     const offset = methodOffset + index * 8
     const owner = string(dex.readUInt32LE(typeOffset + dex.readUInt16LE(offset) * 4))
-    if (methods.has(owner)) methods.get(owner).add(string(dex.readUInt32LE(offset + 4)))
+    const name = string(dex.readUInt32LE(offset + 4))
+    if (methods.has(owner)) methods.get(owner).add(name)
+    if (owner === 'Luts/sdk/modules/HelloFaceVerify/IndexKt;' && jsOptions[name]) {
+      const parameters = dex.readUInt32LE(protoOffset + dex.readUInt16LE(offset + 2) * 12 + 8)
+      const count = parameters ? dex.readUInt32LE(parameters) : 0
+      const type = count === 1 ? string(dex.readUInt32LE(typeOffset + dex.readUInt16LE(parameters + 4) * 4)) : ''
+      bridges.set(name, type)
+    }
+  }
+  // Vue 的 ByJs 必须接收 JSONObject 适配器；二级 type 别名可能只生成普通 Kotlin 类型，编译通过但回调不返回。
+  if (options.requireJsBridge) {
+    for (const [method, type] of Object.entries(jsOptions)) {
+      const expected = 'Luts/sdk/modules/HelloFaceVerify/' + type + ';'
+      if (bridges.get(method) !== expected) throw new Error('Invalid JS option adapter for ' + method + ': expected ' + expected + ', got ' + bridges.get(method))
+    }
   }
   for (const [owner, names] of Object.entries(required)) {
     const missing = names.filter(name => !methods.get(owner).has(name))

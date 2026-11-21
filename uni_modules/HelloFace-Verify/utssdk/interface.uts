@@ -191,7 +191,8 @@ export type Cancel = (options?: CancelOptions) => void
 /** 外部图片 → SDK extractFeature → 本机基准；成功仅代表同步，不代表验证通过。 */
 export type SyncFaceImage = (options: SyncFaceImageOptions) => void
 /** 将同模型的外部 HF1 基准保存到本机，无需重新录入。 */
-export type SyncFaceFeature = (options: SyncFaceFeatureOptions) => void
+// 导出函数直接引用对象类型，避免 Vue 的 ByJs 桥接把二级别名当成原生类名。
+export type SyncFaceFeature = (options: SetFaceFeatureOptions) => void
 
 /** 独立相机活体；可用 cancel() 取消，passed 为 SDK 真实活体结论，faceID 返回空串。 */
 export type DetectLiveness = (options: DetectLivenessOptions) => void

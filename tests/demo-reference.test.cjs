@@ -19,5 +19,11 @@ test('demo image, Base64 and SDK-extracted external feature refer to one 200x200
   assert.match(reference.feature, /^HF1:[A-Za-z0-9_-]{600}$/)
   assert.equal(constants.demoFeatureSpaceID, 'jdx-feature-v1')
   assert.equal(reference.sdkVersion, '0.8.11')
-  assert.equal(reference.sdkVersion, JSON.parse(fs.readFileSync(path.join(root, 'sdk-artifacts.json'))).version)
+  const sdk = JSON.parse(fs.readFileSync(path.join(root, 'sdk-artifacts.json')))
+  if (reference.sdkVersion !== sdk.version) {
+    const models = Object.fromEntries(sdk.artifacts.filter(a => a.destination.includes('/HiFaceModels/'))
+      .map(a => [a.destination, a.sha256]))
+    assert.ok(Object.keys(models).length > 0)
+    assert.deepEqual(reference.modelArtifacts, models)
+  }
 })

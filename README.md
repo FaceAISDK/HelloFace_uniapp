@@ -4,7 +4,7 @@
 
 自带原生采集、录入确认和动作引导界面；静默与动作活体按需组合，也可只验真人而不比对身份。支持导入已有的同模型人脸基准，减少重复录入，适合账号本人确认、签到核验与人员验证流程的技术评估。
 
-功能介绍、接入示例和接口列表见 [插件使用说明](uni_modules/HelloFace-Verify/readme.md)。插件 ID：`HelloFace-Verify`；底层 SDK：HelloFace 0.8.11 Beta。
+功能介绍、接入示例和接口列表见 [插件使用说明](uni_modules/HelloFace-Verify/readme.md)。插件 ID：`HelloFace-Verify`；底层 SDK：HelloFace 0.8.14。
 
 ## 运行示例
 

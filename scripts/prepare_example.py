@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Copy the shared plugin and app icon assets into the uvue example."""
 from pathlib import Path
+import json
 import shutil
 from generate_demo_reference import generate
+from install_sdk import retire_obsolete
 
 root = Path(__file__).resolve().parents[1]
 generate(root)
@@ -13,6 +15,8 @@ legacy = destination.parent / 'HelloFaceVerify'
 if legacy.is_dir():
     shutil.rmtree(legacy)
 shutil.copytree(root / 'uni_modules' / plugin_id, destination, dirs_exist_ok=True)
+# 增量复制不会删除旧 AAR/HAR；按锁定清单移出，避免升级后同时联编两个 SDK。
+retire_obsolete(json.loads((root / 'sdk-artifacts.json').read_text())['artifacts'], destination.parent.parent)
 shutil.copytree(root / 'app-icons', destination.parent.parent / 'app-icons', dirs_exist_ok=True)
 shutil.copytree(root / 'demo', destination.parent.parent / 'demo', dirs_exist_ok=True)
 shutil.copytree(root / 'static', destination.parent.parent / 'static', dirs_exist_ok=True)

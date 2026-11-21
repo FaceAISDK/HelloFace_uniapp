@@ -30,8 +30,8 @@ function loadPage(filename, app = true) {
     compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS }
   })
   assert.equal(diagnostics.length, 0)
-  const calls = [], modals = [], toasts = [], exports = {}
-  const sandbox = { exports, demoImageBase64: 'demo-photo', demoFeature: 'demo-feature', demoFeatureSpaceID: 'jdx-feature-v1', uni: { hideKeyboard() {}, showModal: options => modals.push(options), showToast: options => toasts.push(options) } }
+  const calls = [], modals = [], toasts = [], loading = [], uiEvents = [], exports = {}
+  const sandbox = { exports, demoImageBase64: 'demo-photo', demoFeature: 'demo-feature', demoFeatureSpaceID: 'jdx-feature-v1', uni: { hideKeyboard() {}, showModal: options => modals.push(options), showToast: options => { toasts.push(options); uiEvents.push('toast') }, showLoading: options => { loading.push(options); uiEvents.push('loading') }, hideLoading: () => uiEvents.push('hideLoading') } }
   for (const name of ['syncFaceImage', 'syncFaceFeature', 'enrollFace', 'verifyFace', 'detectLiveness', 'getFaceFeature', 'deleteFace', 'cancel']) {
     sandbox[name] = options => calls.push({ name, options })
   }
@@ -42,7 +42,7 @@ function loadPage(filename, app = true) {
     Object.defineProperty(state, name, { get: getter.bind(state) })
   }
   for (const [name, method] of Object.entries(page.methods)) state[name] = method.bind(state)
-  return { state, calls, modals, toasts, unload: () => page.onUnload.call(state) }
+  return { state, calls, modals, toasts, loading, uiEvents, unload: () => page.onUnload.call(state) }
 }
 
 for (const file of ['pages/index/index.vue', 'examples/uni-app-x/pages/index/index.uvue']) {
@@ -64,9 +64,12 @@ for (const file of ['pages/index/index.vue', 'examples/uni-app-x/pages/index/ind
     assert.equal(toasts[1].title, '已取消，code: 103')
   })
   test(`${file}: demo sync keeps the current faceID without enrollment or reading device features`, () => {
-    const { state, calls } = loadPage(file)
+    const { state, calls, loading, uiEvents } = loadPage(file)
     state.syncImage()
     assert.equal(calls[0].name, 'syncFaceImage')
+    assert.equal(loading[0].title, '正在同步图片')
+    assert.equal(loading[0].mask, true)
+    assert.equal(state.busy, true)
     assert.equal(calls[0].options.imageBase64, 'demo-photo')
     assert.equal(calls[0].options.faceID, 'demo-user')
     assert.equal(state.faceID, 'demo-user')
@@ -74,6 +77,8 @@ for (const file of ['pages/index/index.vue', 'examples/uni-app-x/pages/index/ind
     calls[0].options.success({ code: 0, msg: '同步成功', faceID: 'demo-user', passed: null })
     calls[0].options.complete({})
     assert.ok(!state.resultText.includes('passed:'))
+    assert.deepEqual(uiEvents.slice(-2), ['hideLoading', 'toast'])
+    assert.equal(state.busy, false)
     state.faceID = 'chosen-user'
     state.syncFeature()
     assert.equal(calls[1].name, 'syncFaceFeature')
@@ -82,6 +87,11 @@ for (const file of ['pages/index/index.vue', 'examples/uni-app-x/pages/index/ind
     assert.equal(calls[1].options.faceID, 'chosen-user')
     assert.equal(state.faceID, 'chosen-user')
     assert.equal(calls[1].options.overwrite, true)
+    assert.equal(loading[1].title, '正在同步特征')
+    calls[1].options.fail({ code: 302, msg: '存储异常', faceID: 'chosen-user' })
+    calls[1].options.complete({})
+    assert.deepEqual(uiEvents.slice(-2), ['hideLoading', 'toast'])
+    assert.equal(state.busy, false)
     assert.equal(calls.length, 2)
   })
   test(`${file}: verification displays the SDK verdict and retains the submitted liveness mode`, () => {

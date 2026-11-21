@@ -8,6 +8,8 @@
 
 根 Vue 和独立 uvue 示例保持相同的按钮与调用顺序：每个动作直接调用 API，`begin` 拦截重复点击，`showResult / showError` 只展示结果，`finish` 在 complete 中解除忙碌。Vue/uvue Options API 的页面方法用作回调时保持页面实例绑定；uvue 的结果、错误和 complete 参数按接口声明提供类型。删除先确认，离页取消相机任务，页面不保留返回的原始生物特征。同步按钮使用内置 AI 演示基准，与录入、验证、删除共用当前 `faceID`（默认 `demo-user`），说明见 [外部基准](../demo/README.md)。
 
+同步图片/特征在调用前显示加载提示；success/fail 先关闭加载层，再显示 2 秒 msg/code Toast，complete 只解除 busy，离页也关闭加载层。避免 complete 在 Toast 之后再次 hideLoading，将结果提示一起关闭。
+
 `success` 表示接口正常完成，验证必须检查 `passed === true`；2xx 未通过结果仍走 success。`complete` 只做收尾；不要在这里读取业务字段，也不要因相似度高而改写 passed。
 
 独立活体卡片直接调用 `detectLiveness`，不传 faceID/身份基准。SDK 始终静默，因此该卡片只提供一个独立的动作开关；不复用身份验证开关，以免将“仅比对身份”误解为活体选项。两类调用共用 busy、结果回调、complete 和离页取消，结果保留提交时的模式快照；空 faceID 不显示无意义的标识行。
@@ -28,7 +30,7 @@
 | `app-*/ReferenceStore.*` | 指定模型空间和 faceID 的本机基准 | 不改存储键、加密格式或覆盖语义 |
 | `native-ui.json` / `HelloFaceVerifyPresentation.*` | 三端共用界面参数及其生成产物 | 修改 JSON 后执行 `npm run ui:build` |
 
-这些路径均相对 `uni_modules/HelloFace-Verify`。插件副本 `examples/uni-app-x/uni_modules/HelloFace-Verify` 由 `npm run demo:prepare` 同步，不在副本中单独修复。
+这些路径均相对 `uni_modules/HelloFace-Verify`。插件副本 `examples/uni-app-x/uni_modules/HelloFace-Verify` 由 `npm run demo:prepare` 同步，不在副本中单独修复。同步后按 SDK 锁定清单将旧版 AAR/HAR 备份移出副本，避免增量复制残留两个 SDK。
 
 Demo 宿主的鸿蒙发行配置位于根目录 `harmony-configs/entry` 和 `harmony-configs/AppScope`，同步脚本只复制这两个公开目录，不复制包含证书材料的根级 build-profile。安装包的压缩、混淆和实测边界见 [安装包体积](APP_SIZE.md)。
 
@@ -61,6 +63,8 @@ Android 的 clearAnalyzer 不等待当前帧结束。停止送帧后在同一个
 动作倒计时对齐上游 [Android FaceFlowUi](https://github.com/FaceSDKPro/HelloFace/blob/main/platforms/Android/demo/src/main/java/com/hiface/sdk/demo/ui/FaceFlowUi.java) 和 [iOS FaceActionCountdown](https://github.com/FaceSDKPro/HelloFace/blob/main/platforms/iOS/HiFaceDemo/UI/FaceActionCountdown.swift)：首次 `PERFORM_ACTION` 启动整个序列的总时限（`actionTimeoutMs × stepCount`），圆环从满圈递减，同时显示向上取整的剩余秒数。切换步骤及携带 action 的短暂丢脸/多人/距离提示不重置截止时刻；回到正脸/稳定阶段、无动作阶段、确认、重拍、取消和离页时清理。使用单调时钟，不受系统时间修改影响。三端只呈现 SDK 进度，不新增前端计时参数或进度回调，也不根据归零伪造 SDK 结果；录入原有稳定进度保持独立。
 
 iOS 的 `HelloFaceVerifyCameraState.swift` 分离圆环阶段和退出门闩：权限拒绝/取消可能早于页面弹出动画，必须同时等弹出及资源释放完成后才能关闭页面并归还调用槽。纯状态检查不依赖 UIKit 或识别 SDK。同一生命周期状态还管理请求代次，重拍先等送帧队列中的暂停屏障，回主 actor 校验代次后才重启。相机会话的配置、帧处理、暂停和关闭均在同一串行队列；首次运行错误立即拒绝后续帧和恢复请求，实际帧按 SDK 的正偶数及长短边上限校验。SDK 错误码转换统一由 HelloFaceVerifySDKError 处理，关闭后不能再启动或处理旧帧。功能对照和验证边界见 [iOS 功能与调试](IOS_DEBUG.md)。
+
+导出函数的 options 使用实际对象类型。`SyncFaceFeatureOptions` 继续作为 `SetFaceFeatureOptions` 的公开兼容别名，但 `SyncFaceFeature` 函数签名直接引用后者；HBuilderX 5.34 对二级别名可能生成普通参数类型，漏掉 Vue 所需的 JSONObject 转换器。Android 编译检查同时核对全部 11 个 ByJs 参数适配器，避免“原生编译通过，但 JS 调用无回调”。
 
 Android 云基座与本地联编模块的名称不同，跨文件桥接访问器上的 `@PublishedApi` 用于保持 JVM 名称稳定，不能作为无用注解删除。
 

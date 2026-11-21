@@ -6,5 +6,14 @@
   "extractionAPI": "Android SDK capture().extractFeatureBlocking",
   "source": "AI-generated fictional adult; 200x200 PNG compressed with TinyPNG",
   "sdkCommit": "dc60c7b15ebf8038fb73a752bcea3590bbd86eaf",
-  "extractionPlatform": "HarmonyOS API 26"
+  "extractionPlatform": "HarmonyOS API 26",
+  "modelArtifacts": {
+    "app-ios/Frameworks/HiFace.xcframework/ios-arm64/HiFace.framework/HiFaceModels/derarfni.bphfm": "284a6f180e31e6fd0fe30d515d15c6977c80c40634ecdccd415b605ce3947c90",
+    "app-ios/Frameworks/HiFace.xcframework/ios-arm64/HiFace.framework/HiFaceModels/erutaef.bphfm": "f4b945e1420a4ee3740ea8b231dad23a91ce70379e5bbf181bafe4cd0c765528",
+    "app-ios/Frameworks/HiFace.xcframework/ios-arm64/HiFace.framework/HiFaceModels/kcehc.bphfm": "f06a7a9755321257fc654940f33e6eaf66eeff89e20cf8e5d1112e6a21d8f793",
+    "app-ios/Frameworks/HiFace.xcframework/ios-arm64/HiFace.framework/HiFaceModels/m_tnelis.bphfm": "19feb19d4dcd241b4f45b3b25721a1e244e6e88ee7da56ff0d91e814dec2ef83",
+    "app-ios/Frameworks/HiFace.xcframework/ios-arm64/HiFace.framework/HiFaceModels/manifest.json": "9061d341b68f89ff5b43309879e9b6d2d53fa9a204099724ea9ee5016d3b4182",
+    "app-ios/Frameworks/HiFace.xcframework/ios-arm64/HiFace.framework/HiFaceModels/s_tnelis.bphfm": "5eebba44a5c7df5ed4bf13d807bf0eed5ea54e9c7a438353f7aa22e32ded0ce0",
+    "app-ios/Frameworks/HiFace.xcframework/ios-arm64/HiFace.framework/HiFaceModels/skramdnal.bphfm": "6d0b5ff73d3fb9100d0bb89723523f9aed4c0c874f638238b8a748247d16d4a8"
+  }
 }

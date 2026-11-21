@@ -1,4 +1,4 @@
-import { EnrollFace, VerifyFace, GetFaceFeature, SetFaceFeature, DeleteFace, EnrollFaceOptions, VerifyFaceOptions, FaceIDOptions, SetFaceFeatureOptions, SyncFaceImage, SyncFaceFeature, SyncFaceImageOptions, SyncFaceFeatureOptions, CancelOptions, DetectLiveness, DetectLivenessOptions, ExtractFaceFeature, ExtractFaceFeatureOptions, GetFaceStatue } from '../interface.uts'
+import { EnrollFace, VerifyFace, GetFaceFeature, SetFaceFeature, DeleteFace, EnrollFaceOptions, VerifyFaceOptions, FaceIDOptions, SetFaceFeatureOptions, SyncFaceImage, SyncFaceFeature, SyncFaceImageOptions, CancelOptions, DetectLiveness, DetectLivenessOptions, ExtractFaceFeature, ExtractFaceFeatureOptions, GetFaceStatue } from '../interface.uts'
 import { invokeFaceMethod, createFaceParams, createEnrollParams, createVerifyParams, createFeatureParams, createImageParams, createLivenessParams, createExtractParams } from '../shared.uts'
 import { HelloFaceVerifyNative } from 'uts.sdk.modules.HelloFaceVerify'
 
@@ -33,7 +33,8 @@ export const setFaceFeature: SetFaceFeature = function (options: SetFaceFeatureO
     null, invokeNative)
 }
 
-export const syncFaceFeature: SyncFaceFeature = function (options: SyncFaceFeatureOptions) {
+// 使用实际对象类型生成 JS/原生参数桥接；公开的 SyncFaceFeatureOptions 别名仍保持兼容。
+export const syncFaceFeature: SyncFaceFeature = function (options: SetFaceFeatureOptions) {
   invokeFaceMethod('syncFaceFeature', createFeatureParams(options),
     options.success ?? null, options.fail ?? null, options.complete ?? null,
     null, invokeNative)

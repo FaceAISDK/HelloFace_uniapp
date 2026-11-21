@@ -1,6 +1,31 @@
 # 验证记录
 
-更新日期：2026-11-13。当前原生 SDK 0.8.11 Beta，上游提交 `dc60c7b15ebf8038fb73a752bcea3590bbd86eaf`；下方旧版本记录按当时版本保留。
+更新日期：2026-11-21。当前原生 SDK 0.8.14，上游提交 `8f417ffac98c003880b6164a8c459426eef23848`；下方旧版本记录按当时版本保留。
+
+## 2026-11-21 更新 SDK 0.8.14 与编译复核
+
+- 核对上游最新标签 `0.8.14` 与 main 均为 `8f417ffac98c003880b6164a8c459426eef23848`。通过上游 Git 普通文件内容或 LFS 指针的 SHA-256/长度核对本机完整文件，更新 37 项锁定清单，安装三端真实 AAR、HAR、xcframework；鸿蒙依赖改为 `hiface-0.8.14.har`。旧版 AAR/HAR 备份移至忽略目录，不与新版同时联编。没有修改 SDK 二进制、License、AppID、签名身份、阈值、存储键或公共接口。
+- 保留并纳入上一轮未提交的同步特征修复：导出函数直接使用实际 options 类型，公开兼容别名仍保留；Vue 的 11 个 ByJs 适配器接受检查。图片/特征同步有加载提示，success/fail 在结果 Toast 前关闭，complete 解锁，离页清理；原始真机证据属于 2026-11-13 的 SDK 0.8.11，不计作本轮新版结果。
+- 修复 `demo:prepare` 增量复制留下旧 SDK 的问题。两套插件目录均只保留 0.8.14 AAR/HAR，副本旧版文件按原有规则备份移出，避免重复类/同名模块冲突。Android Vue 与 uni-app x 官方 UTS、Kotlin、DEX、稳定桥接 ABI、编译后存储/取消协调器边界检查均通过；Vue3 Android 页面资源由 HBuilderX 5.34 导出成功。这些不是完整 Android APK 构建或设备运行。
+- HBuilderX 5.34 / DevEco Studio 26 构建完整鸿蒙 Release APP 成功，产物为 `unpackage/dist/build/app-harmony/build/outputs/release/app-harmony-release-unsigned.app`。核对生成工程 HAR 与锁定哈希一致，APP 内 HAP 的两个 SDK 原生库字节哈希与真实 HAR 一致；产物未签名，没有安装或启动，不能记作真机验收。
+- `npm run check` 通过 156 项检查（114 JS、42 Python）、37 个 SDK 文件校验及三端 UTS 转换。新增示例特征跨版本保护：保留 0.8.11 实际提取版本/提交和原 HF1，记录当时锁定的全部可比对模型资源与清单哈希，0.8.14 的这些文件完全一致才允许生成示例；新增、删除或修改模型会阻止生成并要求真实重提取。原始提取来源没有改标为新版，不声称本轮已重新提取或验证特征兼容。
+- 新 AAR 两个 64 位库的 ELF/16KB 静态对齐检查通过；没有把该结果当作完整 APK 所有库与 ZIP 对齐或真实 16KB 运行验收。
+- iOS 8 个 Swift 文件语法、58 项真实纯状态、UIKit 及全量平台接入编译边界检查通过。`ios:check -- --full` 实际失败：本机 Xcode 15.2 / Swift 5.9.2 无法处理上游 Swift 6.1.2 发布的接口（`invalid value '6' in '-swift-version 6'`）。需使用兼容的 Xcode 16.3+ 再执行完整 SDK/IPA 构建；未降级 SDK、修改 swiftinterface 或用边界替身冒充真实链接。
+- ADB 与 HDC 当前均没有连接设备，本轮没有安装、卸载、清数据或人脸/活体真机回归；Android 完整新 APK、iOS 完整 IPA、鸿蒙签名安装及三端新版运行仍待完成。
+
+官方依据：[0.8.14 发布说明](https://github.com/FaceSDKPro/HelloFace/blob/8f417ffac98c003880b6164a8c459426eef23848/platforms/iOS/SDK/RELEASE_NOTES.md)、[Android 接入](https://github.com/FaceSDKPro/HelloFace/blob/8f417ffac98c003880b6164a8c459426eef23848/platforms/Android/docs/SDK.zh-CN.md)、[iOS 工具链要求](https://github.com/FaceSDKPro/HelloFace/blob/8f417ffac98c003880b6164a8c459426eef23848/platforms/iOS/SDK/README.zh-CN.md)、[鸿蒙接入](https://github.com/FaceSDKPro/HelloFace/blob/8f417ffac98c003880b6164a8c459426eef23848/platforms/Harmony/SDK.zh-CN.md)。本轮日志、产物回执及开始时未提交改动备份位于忽略目录 `unpackage/validation/sdk-update-20261121/`。
+
+## 2026-11-13 修复同步特征回调停滞与处理反馈
+
+- 在华为 GRA-UL00 的真实 Vue Demo 使用独立临时数字 faceID 复现：点击同步特征后，页面保留“正在同步示例基准…”且所有按钮禁用。原生 INFO 采样不忙；没有据此断言原生从未执行或存储未完成。检查真实 DEX 发现 syncFaceFeatureByJs 接收普通 SetFaceFeatureOptions，而非其他 options 方法使用的 JSONObject 适配器，无法正确完成 JS 侧转参/回调。
+- 保留公开 SyncFaceFeatureOptions = SetFaceFeatureOptions 别名及其所有参数，导出函数类型与三端适配器直接引用实际对象类型。HBuilderX 5.34 重编译后，syncFaceFeatureByJs 生成 SetFaceFeatureOptionsJSONObject，配套 JS 代理使用对应对象适配。修复为本工具链实际观察所得，不将所有类型别名概括为官方禁止。
+- Android ABI 检查新增 Vue 的 11 个 ByJs options 参数适配断言。用本机保留的旧真实编译产物验证旧签名被拒绝；修复后的真实 DEX 检查通过。原生编译通过和 TS 替身合同检查不能替代此桥接检查。uni-app x 使用直接原生调用，不强加 Vue 的 ByJs 约束。
+- Vue/uvue 同步图片、特征时显示明确加载提示；success/fail 在结果 Toast 之前关闭加载层，complete 保持只解锁 busy，离页关闭加载层。未添加伪超时、提前解锁或虚假进度；没有修改 SDK 版本、模型、License、阈值或存储格式。
+- GRA 实测修复版两项均返回 code 0/同步成功，按钮恢复可用；图片处理中已截图看到“正在同步图片”加载提示。特征与图片的后续界面采样分别约在 3.44、4.47 秒时完成（含 ADB、截图开销，不作为原生精确耗时或性能提升倍数）。仅使用临时测试 ID，确认删除目标后清理该测试基准，冷启动恢复 demo-user；原有基准没有被演示数据覆盖。设备保留原 APK/签名，通过已校验的官方 UTS DEX 与配套发行页面资源运行，原生指纹为 c62c03006b58ed1b832f45102766d999ef904b9eb098f4d4810d4c5f08f5ed3f。
+- 154 项仓库检查、37 个 SDK 文件、三端 UTS 转换、Android uni-app/uni-app x 官方 Kotlin/DEX 与存储/协调器边界检查通过；uvue 脚本和模板生成通过。iOS 8 个 Swift 语法、58 项纯状态和平台类型/编译边界检查通过，完整 iOS SDK/IPA 与真机仍受原工具链/设备限制。
+- 鸿蒙真实 SDK 完整签名 App 重建、同身份覆盖安装和启动成功；核对 appId、appIdentifier、UID 和首次安装时间的已提供字段一致。本轮未在鸿蒙执行同步写入，未将构建/启动当作两项同步实测。三星当前未连接，修复版尚未部署到三星；需要更新原生模块与配套页面，不能只刷新 Vue。
+
+证据及非相机截图位于忽略目录 `unpackage/validation/sync-performance-20261113/`；原版 GRA logcat 不支持 --pid，后续取完整日志仅作本地排查，不将不支持命令的输出或缺少日志当作无异常证据。
 
 ## 2026-11-13 代码整理与提交检查
 

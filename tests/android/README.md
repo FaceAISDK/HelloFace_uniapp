@@ -37,3 +37,5 @@ npm run android:native-check -- \
 该检查不连接手机，不读写真实 Keystore 或用户基准，不替代前述 Android 真机集成检查。边界代码仅用于检查，不会复制进插件或 App。
 
 同一命令还加载实际编译的 Native 协调器，执行 `coordinator/CoordinatorChecks.java`：相机释放前保持互斥、重复取消、首个终态优先、取消确认顺序、回调重入与旧结果隔离，以及提交中不可取消。主循环、Activity 释放与日志使用可控边界，不模拟相机帧或识别通过；依赖 Gradle 缓存中的 org.json JAR。它验证协调器的时序，不替代真实 CameraX 取消/重拍回归。
+
+同一检查还核对 uni-app Vue 的 11 个 `ByJs` options 参数必须使用生成的 JSONObject 适配器。普通 Kotlin 类型或未展开的别名即使可以编译，也不能据此认定 JS/原生转参可用；错误的 syncFaceFeature 别名产物会被此检查拒绝。uni-app x 走直接原生调用，不强加 Vue 的 ByJs 条件。

@@ -64,7 +64,7 @@ async function main() {
   })
   if (!result || result.errMsg) throw new Error(result?.errMsg || 'The compiler returned no result.')
   require('./check_android_bridge_abi.cjs').assertBridgeAbi(path.join(process.env.UNI_OUTPUT_DIR,
-    'uni_modules/HelloFace-Verify/utssdk/app-android/classes.dex'))
+    'uni_modules/HelloFace-Verify/utssdk/app-android/classes.dex'), { requireJsBridge: !isX })
   console.log('PASS stable Android bridge JVM names')
   // 以下只检查编译后的真实类和可控 JVM 边界，不读取手机密钥，也不代替真机验收。
   const runtime = path.join(plugins, 'uniapp-runextension/lib')
