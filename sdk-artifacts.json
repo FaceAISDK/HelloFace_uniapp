@@ -1,29 +1,29 @@
 {
-  "version": "0.8.14",
+  "version": "0.8.15",
   "repository": "FaceSDKPro/HelloFace",
-  "commit": "8f417ffac98c003880b6164a8c459426eef23848",
+  "commit": "53da79b320f872d75209c35ba6351a792023b920",
   "artifacts": [
     {
       "platform": "android",
-      "source": "platforms/Android/maven-repository/io/github/facesdkpro/hiface-android/0.8.14/hiface-android-0.8.14.aar",
-      "destination": "app-android/libs/hiface-0.8.14.aar",
-      "sha256": "91a36d454b46ea0302c229c367f2015c18033bbfa6d71cdd94f2de1013112946",
-      "size": 10479167,
+      "source": "platforms/Android/maven-repository/io/github/facesdkpro/hiface-android/0.8.15/hiface-android-0.8.15.aar",
+      "destination": "app-android/libs/hiface-0.8.15.aar",
+      "sha256": "c07447f4a8c445f7a13423277a7e20fc179acb331e8863624f33b1add50e49e6",
+      "size": 10676392,
       "lfs": true
     },
     {
       "platform": "harmony",
-      "source": "platforms/Harmony/libs/hiface-0.8.14.har",
-      "destination": "app-harmony/libs/hiface-0.8.14.har",
-      "sha256": "a29cef9150fae07f479b1fd5a02797b927c2ff906e006f373f6f2b7569924b0f",
-      "size": 9518254,
+      "source": "platforms/Harmony/libs/hiface-0.8.15.har",
+      "destination": "app-harmony/libs/hiface-0.8.15.har",
+      "sha256": "31de7ab9ce14a0167334afb5669ae35d088d62034bed032506a32d28e36d9201",
+      "size": 9565360,
       "lfs": true
     },
     {
       "platform": "ios",
       "source": "platforms/iOS/SDK/HiFace.xcframework/Info.plist",
       "destination": "app-ios/Frameworks/HiFace.xcframework/Info.plist",
-      "sha256": "009a65f2a890c637936cca27707e7c905f7a428bcb47920da30ccb895aeb68da",
+      "sha256": "b93533ebb9360298dd0041e61d67c6cfe7aab3e92bcea551e7d460525af0d06e",
       "size": 1143,
       "lfs": false
     },
@@ -31,15 +31,15 @@
       "platform": "ios",
       "source": "platforms/iOS/SDK/HiFace.xcframework/ios-arm64-simulator/HiFace.framework/HiFace",
       "destination": "app-ios/Frameworks/HiFace.xcframework/ios-arm64-simulator/HiFace.framework/HiFace",
-      "sha256": "10d9c697f15b50fcc03393a78a8738d70a019c4e5b5d0ba8267a4ed9c6c06d78",
-      "size": 433272,
+      "sha256": "9e6f85123b880cd331d5ced669c9e48307fb29d19e8f28ea826e0a008071f891",
+      "size": 450792,
       "lfs": true
     },
     {
       "platform": "ios",
       "source": "platforms/iOS/SDK/HiFace.xcframework/ios-arm64-simulator/HiFace.framework/Info.plist",
       "destination": "app-ios/Frameworks/HiFace.xcframework/ios-arm64-simulator/HiFace.framework/Info.plist",
-      "sha256": "fedd43d033b76d04afddc01aefb1ede8d3a18d2d2d875c39105ce9d5105cf8f8",
+      "sha256": "a5eccde13a4e0b41a3edd612e1fb79c02923313e071e2ab5631495e372af52d7",
       "size": 723,
       "lfs": false
     },
@@ -47,16 +47,16 @@
       "platform": "ios",
       "source": "platforms/iOS/SDK/HiFace.xcframework/ios-arm64-simulator/HiFace.framework/Modules/HiFace.swiftmodule/arm64-apple-ios-simulator.swiftdoc",
       "destination": "app-ios/Frameworks/HiFace.xcframework/ios-arm64-simulator/HiFace.framework/Modules/HiFace.swiftmodule/arm64-apple-ios-simulator.swiftdoc",
-      "sha256": "39ac8a5f636d3d961c09ad0d797e659a743253ccad92e7aaa7aa47d686487683",
-      "size": 76972,
+      "sha256": "10e1c9b24a4c373e0d47a9728a5933f873a811c99322770f4ac8d55f95e8eb5b",
+      "size": 78580,
       "lfs": false
     },
     {
       "platform": "ios",
       "source": "platforms/iOS/SDK/HiFace.xcframework/ios-arm64-simulator/HiFace.framework/Modules/HiFace.swiftmodule/arm64-apple-ios-simulator.swiftinterface",
       "destination": "app-ios/Frameworks/HiFace.xcframework/ios-arm64-simulator/HiFace.framework/Modules/HiFace.swiftmodule/arm64-apple-ios-simulator.swiftinterface",
-      "sha256": "468b0881e53aea3af1de0c3793feb0cdfb524e0fff4fb89fe51a04e4507db8db",
-      "size": 29477,
+      "sha256": "da9ee881fc915a83796dfaa6433925ddc5006120fb0c4a5ef6a6a02041391618",
+      "size": 30557,
       "lfs": false
     },
     {
@@ -71,8 +71,8 @@
       "platform": "ios",
       "source": "platforms/iOS/SDK/HiFace.xcframework/ios-arm64/HiFace.framework/HiFace",
       "destination": "app-ios/Frameworks/HiFace.xcframework/ios-arm64/HiFace.framework/HiFace",
-      "sha256": "453021f1b465f394ac0ce085e38d9fda98cdec6499ff86bd3ce12c0804c9eac5",
-      "size": 485568,
+      "sha256": "b5fbd97fda820433bc71f2a325ae1654bb5ca1735465242914b4dd4eff42f43c",
+      "size": 503064,
       "lfs": true
     },
     {
@@ -135,7 +135,7 @@
       "platform": "ios",
       "source": "platforms/iOS/SDK/HiFace.xcframework/ios-arm64/HiFace.framework/Info.plist",
       "destination": "app-ios/Frameworks/HiFace.xcframework/ios-arm64/HiFace.framework/Info.plist",
-      "sha256": "73b9675f886db3d90decc35d8eff2d52643d1f084262d425dd1b76f8b766b6ba",
+      "sha256": "0d87c234f90f3be2ef814be9c5852abccbbe58cff005e2aa39ef1efeea2d2ac8",
       "size": 743,
       "lfs": false
     },
@@ -143,16 +143,16 @@
       "platform": "ios",
       "source": "platforms/iOS/SDK/HiFace.xcframework/ios-arm64/HiFace.framework/Modules/HiFace.swiftmodule/arm64-apple-ios.swiftdoc",
       "destination": "app-ios/Frameworks/HiFace.xcframework/ios-arm64/HiFace.framework/Modules/HiFace.swiftmodule/arm64-apple-ios.swiftdoc",
-      "sha256": "1d3d09d4aa2cf55a6f9bf8a7e1b611bf6281e2c3c62d50c91b89832e6418cb35",
-      "size": 76960,
+      "sha256": "2fe6aac95009d589ca83d5db1b6ad24fad84e3730a9af0c39eb9c6062f15dcf2",
+      "size": 78568,
       "lfs": false
     },
     {
       "platform": "ios",
       "source": "platforms/iOS/SDK/HiFace.xcframework/ios-arm64/HiFace.framework/Modules/HiFace.swiftmodule/arm64-apple-ios.swiftinterface",
       "destination": "app-ios/Frameworks/HiFace.xcframework/ios-arm64/HiFace.framework/Modules/HiFace.swiftmodule/arm64-apple-ios.swiftinterface",
-      "sha256": "6acd915b2f3fe7348be469a9d96bc7db0891fe9b6895d2cdd8432086016f1e47",
-      "size": 29467,
+      "sha256": "60500c0cc5fef6c83344a6b7b6a557e99e9d9da05321aaacc7fc2a2efa68cf2a",
+      "size": 30547,
       "lfs": false
     },
     {
@@ -167,7 +167,7 @@
       "platform": "ios",
       "source": "platforms/iOS/SDK/HiFaceNative.xcframework/Info.plist",
       "destination": "app-ios/Frameworks/HiFaceNative.xcframework/Info.plist",
-      "sha256": "eadfdcfdd560cf5c72bdb07703d25e8c3f41037f5b0ffbc08921251609322b18",
+      "sha256": "a6c54aad4943cc0470adfecadad11875dcd89ee422ff269430178e4d67069476",
       "size": 1179,
       "lfs": false
     },
@@ -197,6 +197,14 @@
     },
     {
       "platform": "ios",
+      "source": "platforms/iOS/SDK/HiFaceNative.xcframework/ios-arm64-simulator/HiFaceNative.framework/Headers/hiface/hiface_result_envelope.h",
+      "destination": "app-ios/Frameworks/HiFaceNative.xcframework/ios-arm64-simulator/HiFaceNative.framework/Headers/hiface/hiface_result_envelope.h",
+      "sha256": "68a87260ff9e2efe817fafe079b945dcab98bc9628d3a6b4c86f650a68d1565c",
+      "size": 1782,
+      "lfs": false
+    },
+    {
+      "platform": "ios",
       "source": "platforms/iOS/SDK/HiFaceNative.xcframework/ios-arm64-simulator/HiFaceNative.framework/Headers/hiface/hiface_contract_v1.h",
       "destination": "app-ios/Frameworks/HiFaceNative.xcframework/ios-arm64-simulator/HiFaceNative.framework/Headers/hiface/hiface_contract_v1.h",
       "sha256": "6ecb6815d3e49d46083d5775471fba7b4d1edef3780adcdd625dc1268f6e7b68",
@@ -207,15 +215,15 @@
       "platform": "ios",
       "source": "platforms/iOS/SDK/HiFaceNative.xcframework/ios-arm64-simulator/HiFaceNative.framework/HiFaceNative",
       "destination": "app-ios/Frameworks/HiFaceNative.xcframework/ios-arm64-simulator/HiFaceNative.framework/HiFaceNative",
-      "sha256": "7580fd7edc9ff6cdf57e3d0966f922e9536d2588b1d593d1efbc09f6569d6a79",
-      "size": 20720,
+      "sha256": "8764562c09b8ca11d31679c4b4e6a9fdbaa18f8cac8591f9770fdc05bb109bea",
+      "size": 20944,
       "lfs": true
     },
     {
       "platform": "ios",
       "source": "platforms/iOS/SDK/HiFaceNative.xcframework/ios-arm64-simulator/HiFaceNative.framework/Info.plist",
       "destination": "app-ios/Frameworks/HiFaceNative.xcframework/ios-arm64-simulator/HiFaceNative.framework/Info.plist",
-      "sha256": "cedfe04909bf5362a5192ab8d8786cd2396281265e604349c4884aa271e2d53f",
+      "sha256": "140aa7fbd91344f7b283b556c2b53619ce554239a98073e35ebbfa9c9f97cdd9",
       "size": 887,
       "lfs": false
     },
@@ -261,6 +269,14 @@
     },
     {
       "platform": "ios",
+      "source": "platforms/iOS/SDK/HiFaceNative.xcframework/ios-arm64/HiFaceNative.framework/Headers/hiface/hiface_result_envelope.h",
+      "destination": "app-ios/Frameworks/HiFaceNative.xcframework/ios-arm64/HiFaceNative.framework/Headers/hiface/hiface_result_envelope.h",
+      "sha256": "68a87260ff9e2efe817fafe079b945dcab98bc9628d3a6b4c86f650a68d1565c",
+      "size": 1782,
+      "lfs": false
+    },
+    {
+      "platform": "ios",
       "source": "platforms/iOS/SDK/HiFaceNative.xcframework/ios-arm64/HiFaceNative.framework/Headers/hiface/hiface_contract_v1.h",
       "destination": "app-ios/Frameworks/HiFaceNative.xcframework/ios-arm64/HiFaceNative.framework/Headers/hiface/hiface_contract_v1.h",
       "sha256": "6ecb6815d3e49d46083d5775471fba7b4d1edef3780adcdd625dc1268f6e7b68",
@@ -271,15 +287,15 @@
       "platform": "ios",
       "source": "platforms/iOS/SDK/HiFaceNative.xcframework/ios-arm64/HiFaceNative.framework/HiFaceNative",
       "destination": "app-ios/Frameworks/HiFaceNative.xcframework/ios-arm64/HiFaceNative.framework/HiFaceNative",
-      "sha256": "b08b56c8b70f2ad95eb63a9226b1188a5e668ac8dbd9ac578be797a11bce54df",
-      "size": 2794680,
+      "sha256": "31ff25c46ee100cb76a13e1cf56ab51ee883730db0d82d4637317055c9eec6b2",
+      "size": 2864776,
       "lfs": true
     },
     {
       "platform": "ios",
       "source": "platforms/iOS/SDK/HiFaceNative.xcframework/ios-arm64/HiFaceNative.framework/Info.plist",
       "destination": "app-ios/Frameworks/HiFaceNative.xcframework/ios-arm64/HiFaceNative.framework/Info.plist",
-      "sha256": "6521de72166d3b93439032badf37e9f2e66dcd4881c3dad20afd4742479e5dbe",
+      "sha256": "71c7fbee394ee3dc84390f16d2afc0b5743a686baf87d332fae14c08268c257e",
       "size": 880,
       "lfs": false
     },
@@ -297,6 +313,14 @@
       "destination": "app-ios/Frameworks/HiFaceNative.xcframework/ios-arm64/HiFaceNative.framework/PrivacyInfo.xcprivacy",
       "sha256": "447522ba4e921e2d8984a134751409ce9c1736291d087982a78062c41251d8b5",
       "size": 1030,
+      "lfs": false
+    },
+    {
+      "platform": "ios",
+      "source": "platforms/iOS/SDK/HiFaceNative.xcframework/ios-arm64/HiFaceNative.framework/MbedTLS-3.6.7-LICENSE",
+      "destination": "app-ios/Frameworks/HiFaceNative.xcframework/ios-arm64/HiFaceNative.framework/MbedTLS-3.6.7-LICENSE",
+      "sha256": "9b405ef4c89342f5eae1dd828882f931747f71001cfba7d114801039b52ad09b",
+      "size": 29852,
       "lfs": false
     }
   ]

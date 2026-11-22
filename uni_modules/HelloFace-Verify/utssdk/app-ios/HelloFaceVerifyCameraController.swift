@@ -144,7 +144,7 @@ final class HelloFaceVerifyCameraController: UIViewController {
         if method == "enrollFace" {
             request = pipeline.sdk.startCameraCapture(callbacks: callbacks)
         } else {
-            let actions = try (params["actions"] as? [String] ?? []).map { action -> FaceAction in
+            let actions = try (params["actions"] as? [String] ?? []).map { action -> HiFace.FaceAction in
                 switch action {
                 case "blink": return .blink
                 case "openMouth": return .openMouth
@@ -189,7 +189,14 @@ final class HelloFaceVerifyCameraController: UIViewController {
             screen.showConfirmation(image: photo, mirrored: isFront)
         } else {
             var data = Self.data(value)
-            if method != "enrollFace" { data.removeValue(forKey: "feature") }
+            if method != "enrollFace" {
+                data.removeValue(forKey: "feature")
+                if let jpeg = value.frameJPEG {
+                    data["frameJpegBase64"] = jpeg.base64EncodedString()
+                    data["frameWidth"] = value.frameWidth
+                    data["frameHeight"] = value.frameHeight
+                }
+            }
             if method == "detectLiveness" { data.removeValue(forKey: "similarity") }
             finish(HelloFaceVerifyOperation.envelope("result", "OK", "", data))
         }
@@ -261,7 +268,7 @@ final class HelloFaceVerifyCameraController: UIViewController {
         @unknown default: return "UNKNOWN"
         }
     }
-    private static func actionName(_ action: FaceAction) -> String {
+    private static func actionName(_ action: HiFace.FaceAction) -> String {
         switch action {
         case .blink: return "blink"
         case .openMouth: return "openMouth"

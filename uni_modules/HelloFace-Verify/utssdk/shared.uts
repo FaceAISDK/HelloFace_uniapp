@@ -55,7 +55,7 @@ export function createImageParams(options: SyncFaceImageOptions): UTSJSONObject 
   return params
 }
 function invalidArgument(message: string): string {
-  return JSON.stringify({ event: 'error', code: 'INVALID_ARGUMENT', message: message })
+  return JSON.stringify({ event: 'error', code: 'INVALID_ARGUMENT', message: message }) ?? ''
 }
 function validateFeature(feature: string | null, space: string | null): string | null {
   if (feature == null || !/^HF1:[A-Za-z0-9_-]{600}$/.test(feature)) return 'feature must be a complete 604-character HF1 value'
@@ -114,7 +114,9 @@ export function invokeFaceMethod(method: string, params: UTSJSONObject,
   const handle = createDispatcher(method, params.getString('faceID') ?? '', success, fail, complete, onProgress)
   const error = validateParams(method, params)
   if (error != null) { handle(error); return }
-  invoke(method, JSON.stringify(params), handle)
+  const raw = JSON.stringify(params) ?? ''
+  if (raw.length == 0) { handle(''); return }
+  invoke(method, raw, handle)
 }
 
 function isProgress(event: UTSJSONObject | null): boolean {
@@ -125,34 +127,46 @@ function score(data: UTSJSONObject | null, key: string): number | null {
   return value != null && Number.isFinite(value) ? value : null
 }
 
+function validFrame(jpeg: string, width: number, height: number): boolean {
+  return Number.isInteger(width) && width >= 1 && width <= 720 &&
+    Number.isInteger(height) && height >= 1 && height <= 720 &&
+    jpeg.length > 4 && jpeg.length % 4 == 0 && jpeg.startsWith('/9j/') && !/[^A-Za-z0-9+/=]|=[^=]|={3}/.test(jpeg)
+}
+
 /** 过程事件可多次到达，终态只分发一次；损坏响应转为 BRIDGE_ERROR，不能当成成功。 */
 export function createDispatcher(method: string, faceID: string,
   success: FaceSuccess | null, fail: FaceFailure | null, complete: FaceComplete | null,
   onProgress: FaceProgressCallback | null): (raw: string) => void {
   let ended = false
-  return (raw: string): void => {
+  const dispatch = (raw: string): void => {
     if (ended) return
     let event: UTSJSONObject | null = null
     try { event = JSON.parseObject(raw) } catch (_) { /* Converted to BRIDGE_ERROR below. */ }
     const data = event?.getJSON('data')
-    const cameraMethod = method == 'enrollFace' || method == 'verifyFace' || method == 'detectLiveness'
+    const recognitionMethod = method == 'verifyFace' || method == 'detectLiveness'
+    const cameraMethod = method == 'enrollFace' || recognitionMethod
     if (cameraMethod && isProgress(event)) {
+      const stage = data?.getString('stage') ?? ''
+      const action = data?.getString('action') ?? null
+      const stepNumber = data?.getNumber('stepNumber') ?? 0
+      const stepCount = data?.getNumber('stepCount') ?? 0
       const progress: FaceProgress = {
-        faceID: faceID, stage: data?.getString('stage') ?? '', action: data?.getString('action') ?? null,
-        stepNumber: data?.getNumber('stepNumber') ?? 0, stepCount: data?.getNumber('stepCount') ?? 0
+        faceID: faceID, stage: stage, action: action, stepNumber: stepNumber, stepCount: stepCount
       }
       onProgress?.(progress)
       return
     }
     ended = true // 先标记再调用业务回调，防止回调重入或迟到事件再次结束任务。
     let code = event?.getString('code') ?? 'BRIDGE_ERROR'
-    const validResult = event?.getString('event') == 'result' &&
-      (!cameraMethod || (data?.getBoolean('passed') != null && data?.getString('outcome') != null)) &&
-      // 通过必须同时来自 SDK 的 PASSED 终态；矛盾的桥接响应不能产生伪通过。
-      (!cameraMethod || data?.getBoolean('passed') != true || data?.getString('outcome') == 'PASSED') &&
-      (method != 'enrollFace' || data?.getBoolean('passed') != true || data?.getString('feature') != null) &&
-      ((method != 'getFaceFeature' && method != 'setFaceFeature' && method != 'syncFaceFeature' && method != 'syncFaceImage' && method != 'extractFaceFeature') || data?.getString('feature') != null) &&
-      (method != 'getFaceStatue' || data?.getBoolean('exists') != null)
+    const nativePassed = data?.getBoolean('passed') ?? null
+    const nativeOutcome = data?.getString('outcome') ?? null
+    const feature = data?.getString('feature') ?? null
+    const exists = data?.getBoolean('exists') ?? null
+    // 通过必须同时来自 SDK 的 PASSED 终态；矛盾的桥接响应不能产生伪通过。
+    const validCameraResult = nativePassed != null && nativeOutcome != null && (nativePassed != true || nativeOutcome == 'PASSED')
+    const needsFeature = (method == 'enrollFace' && nativePassed == true) || method == 'getFaceFeature' || method == 'setFaceFeature' || method == 'syncFaceFeature' || method == 'syncFaceImage' || method == 'extractFaceFeature'
+    const validResult = event?.getString('event') == 'result' && (!cameraMethod || validCameraResult) &&
+      (!needsFeature || feature != null) && (method != 'getFaceStatue' || exists != null)
     if (code == 'OK' && !validResult) code = 'BRIDGE_ERROR'
     if (code != 'OK') {
       const status = failureCode(code)
@@ -166,19 +180,31 @@ export function createDispatcher(method: string, faceID: string,
       return
     }
     // ArkTS 的可选链还可能产生 undefined；公开字段统一遵循接口中的 null 约定。
-    const passed = cameraMethod ? (data?.getBoolean('passed') ?? null) : null
-    const outcome = cameraMethod ? (data?.getString('outcome') ?? null) : null
-    const status = resultCode(passed ?? null, outcome ?? null)
+    const passed = cameraMethod ? nativePassed : null
+    const outcome: string | null = cameraMethod ? nativeOutcome : null
+    const resultFeature: string | null = method == 'enrollFace' || needsFeature ? feature : null
+    const resultExists = method == 'getFaceStatue' ? (exists ?? false) : null
+    const similarity: number | null = method == 'verifyFace' ? score(data ?? null, 'similarity') : null
+    const livenessScore: number | null = recognitionMethod ? score(data ?? null, 'livenessScore') : null
+    const frameJpeg = recognitionMethod ? (data?.getString('frameJpegBase64') ?? '') : ''
+    const width = recognitionMethod ? (data?.getNumber('frameWidth') ?? 0) : 0
+    const height = recognitionMethod ? (data?.getNumber('frameHeight') ?? 0) : 0
+    const hasFrame = validFrame(frameJpeg, width, height)
+    const frameJpegBase64: string | null = hasFrame ? frameJpeg : null
+    const frameWidth: number | null = hasFrame ? width : null
+    const frameHeight: number | null = hasFrame ? height : null
+    const status = cameraMethod ? resultCode(nativePassed ?? false, outcome) : 0
     const result: FaceResult = {
       code: status, msg: statusMessage(status, method),
       errMsg: method + ':ok', faceID: faceID,
-      feature: method == 'enrollFace' || method == 'getFaceFeature' || method == 'setFaceFeature' || method == 'syncFaceFeature' || method == 'syncFaceImage' || method == 'extractFaceFeature' ? (data?.getString('feature') ?? null) : null,
+      feature: resultFeature,
       featureSpaceID: 'jdx-feature-v1',
-      exists: method == 'getFaceStatue' ? (data?.getBoolean('exists') ?? false) : null,
+      exists: resultExists,
       passed: passed, outcome: outcome,
-      similarity: method == 'verifyFace' ? score(data ?? null, 'similarity') : null,
-      livenessScore: method == 'verifyFace' || method == 'detectLiveness' ? score(data ?? null, 'livenessScore') : null
+      similarity: similarity, livenessScore: livenessScore,
+      frameJpegBase64: frameJpegBase64, frameWidth: frameWidth, frameHeight: frameHeight
     }
     try { success?.(result) } finally { complete?.(result) }
   }
+  return dispatch
 }

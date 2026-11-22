@@ -1,5 +1,5 @@
 <template>
-  <scroll-view class="page" scroll-y :show-scrollbar="false">
+  <scroll-view class="page" scroll-y :show-scrollbar="false" :scroll-into-view="resultScrollTarget" scroll-with-animation>
     <view class="content">
       <text class="brand">HelloFaceVerify · 离线 1:1 人脸识别</text>
       <view class="identity">
@@ -61,17 +61,22 @@
         </view>
         <button class="action verify-action" :disabled="busy" @click="detect">开始活体检测</button>
       </view>
+      <view id="demo-result" class="result-card">
+        <view class="result-body">
+          <view class="result-copy">
+            <text v-if="resultStatus.length > 0" class="result-status" :class="resultStatusTone">{{ resultStatus }}</text>
+            <text class="result-title">{{ resultTitle.length > 0 ? resultTitle : '调用结果' }}</text>
+            <text v-if="resultMode.length > 0" class="result-mode">{{ resultMode }}</text>
+            <text v-if="resultText.length > 0" :class="resultTitle.length > 0 ? 'recognition-detail' : 'result-text'">{{ resultText }}</text>
+          </view>
+          <image v-for="frame in resultFrames" :key="frame.generation" class="result-frame" :src="frame.src" mode="aspectFit"
+            :style="{ width: frame.width + 'px', height: frame.height + 'px' }" aria-label="检测结束时的相机画面"
+            @error="onResultFrameError(frame.generation)" />
+        </view>
+      </view>
       <button class="action" :disabled="busy" @click="syncImage">同步演示人脸图片</button>
       <button class="action" :disabled="busy" @click="syncFeature">同步演示人脸特征</button>
       <button class="action" :disabled="busy" @click="remove">删除人脸信息</button>
-      <view class="result-card">
-        <view class="result-heading">
-          <text class="result-title">调用结果</text>
-          <text class="result-label">RESULT</text>
-        </view>
-        <text v-if="resultMode.length > 0" class="result-mode">本次调用 · {{ resultMode }}</text>
-        <text class="result-text">{{ resultText }}</text>
-      </view>
     </view>
   </scroll-view>
 </template>
@@ -86,7 +91,8 @@ export default {
       actionOptions: [{ value: 'blink', label: '眨眼' }, { value: 'openMouth', label: '张嘴' },
         { value: 'shakeHead', label: '摇头' }, { value: 'nodHead', label: '点头' }],
       verifyActions: ['blink', 'nodHead'], detectActions: ['blink', 'nodHead'],
-      resultMode: '', resultText: '身份验证需先录入或同步基准；独立活体可直接开始。' }
+      resultMode: '', resultTitle: '', resultStatus: '', resultStatusTone: '', resultScrollTarget: '', resultGeneration: 0,
+      resultFrames: [], resultText: '身份验证需先录入或同步基准；独立活体可直接开始。' }
   },
   computed: {
     verificationMode() {
@@ -99,6 +105,8 @@ export default {
     }
   },
   onUnload() {
+    this.resultGeneration++
+    this.resultFrames = []
     // #ifdef APP
     // 先停止结果展示，再取消相机，避免迟到回调在离页后弹出 Toast。
     if (!this.busy) return
@@ -152,6 +160,7 @@ export default {
     verify() {
       if (this.busy || (this.actionLiveness && !this.requireAction(this.verifyActions))) return
       if (!this.begin('正在验证身份…')) return
+      this.resultTitle = '1:1 人脸验证'
       this.resultMode = this.verificationMode + (this.actionLiveness ? ' · ' + this.actionNames(this.verifyActions) : '')
       // #ifdef APP
       verifyFace({
@@ -168,6 +177,7 @@ export default {
     detect() {
       if (this.busy || (this.livenessActions && !this.requireAction(this.detectActions))) return
       if (!this.begin('正在检测活体…')) return
+      this.resultTitle = '独立活体检测'
       this.resultMode = '独立活体 · ' + (this.livenessActions ? '静默 + 动作活体 · ' + this.actionNames(this.detectActions) : '仅静默活体')
       // #ifdef APP
       // SDK 的独立活体始终静默；只传可选动作，不传 faceID 或身份基准。
@@ -240,29 +250,67 @@ export default {
       uni.hideKeyboard()
       this.busy = true
       this.resultMode = ''
+      this.resultTitle = ''
+      this.resultStatus = ''
+      this.resultScrollTarget = ''
+      this.resultGeneration++
+      this.resultFrames = []
       this.resultText = message
       return true
       // #endif
     },
+    onResultFrameError(generation) {
+      if (generation == this.resultGeneration) this.resultFrames = []
+    },
+    scrollToCameraResult() {
+      const generation = this.resultGeneration
+      this.$nextTick(() => {
+        if (generation == this.resultGeneration) this.resultScrollTarget = 'demo-result'
+      })
+    },
     // #ifdef APP
-    // success 也包含识别未通过（2xx）；只展示真实返回值，不按分数自行判定。
     showResult(result) {
       if (!this.busy) return
       uni.hideLoading()
-      const lines = ['code: ' + result.code, 'msg: ' + result.msg]
-      if (result.faceID.length > 0) lines.push('faceID: ' + result.faceID)
-      if (result.passed != null) lines.push('passed: ' + result.passed)
-      if (result.similarity != null) lines.push('similarity: ' + result.similarity.toFixed(3))
-      if (result.livenessScore != null) lines.push('livenessScore: ' + result.livenessScore.toFixed(3))
-      this.resultText = lines.join('\n')
+      if (this.resultTitle.length > 0) {
+        this.resultStatus = result.msg
+        this.resultStatusTone = result.passed === true ? 'result-passed' : 'result-rejected'
+        const scores = []
+        if (result.similarity != null) scores.push('相似度：' + result.similarity.toFixed(4))
+        if (result.livenessScore != null) scores.push('活体分数：' + result.livenessScore.toFixed(4))
+        this.resultText = scores.join('\n')
+        const jpeg = result.frameJpegBase64
+        const width = result.frameWidth ?? 0
+        const height = result.frameHeight ?? 0
+        if (typeof jpeg == 'string' && jpeg.length > 0 && width > 0 && height > 0) {
+          const contentWidth = Math.min(680, uni.getWindowInfo().windowWidth) - 62
+          const maxWidth = Math.max(1, Math.min(160, Math.floor(contentWidth * 0.42)))
+          const scale = Math.min(maxWidth / width, 120 / height)
+          this.resultFrames = [{ generation: this.resultGeneration, src: 'data:image/jpeg;base64,' + jpeg,
+            width: Math.max(1, Math.round(width * scale)), height: Math.max(1, Math.round(height * scale)) }]
+        }
+        this.scrollToCameraResult()
+      } else {
+        const lines = ['code: ' + result.code, 'msg: ' + result.msg]
+        if (result.faceID.length > 0) lines.push('faceID: ' + result.faceID)
+        if (result.passed != null) lines.push('passed: ' + result.passed)
+        this.resultText = lines.join('\n')
+      }
       uni.showToast({ title: result.msg + '，code: ' + result.code, icon: 'none', duration: 2000 })
     },
     showError(error) {
       if (!this.busy) return
       uni.hideLoading()
+      if (this.resultTitle.length > 0) {
+        this.resultStatus = error.msg
+        this.resultStatusTone = error.code == 103 ? 'result-cancelled' : 'result-rejected'
+        this.resultText = error.code == 103 ? '' : '返回码：' + error.code
+        this.scrollToCameraResult()
+      } else {
+        this.resultText = 'code: ' + error.code + '\nmsg: ' + error.msg +
+          (error.faceID.length > 0 ? '\nfaceID: ' + error.faceID : '')
+      }
       uni.showToast({ title: error.msg + '，code: ' + error.code, icon: 'none', duration: 2000 })
-      this.resultText = 'code: ' + error.code + '\nmsg: ' + error.msg +
-        (error.faceID.length > 0 ? '\nfaceID: ' + error.faceID : '')
     }
     // #endif
   }
@@ -294,9 +342,15 @@ export default {
 .mode-detail { color: #7C8190; font-size: 11px; line-height: 17px; margin-top: 5px; }
 .verify-action { margin-bottom: 0; }
 .result-mode { color: #6865C6; font-size: 11px; margin-bottom: 10px; }
-.result-card { display: flex; flex-direction: column; margin-top: 18px; padding: 14px; border: 1px solid #E2E5EA; border-radius: 11px; background-color: #FFFFFF; }
-.result-heading { display: flex; flex-direction: row; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-.result-title { color: #303540; font-size: 14px; font-weight: bold; }
-.result-label { color: #9A9DA6; font-size: 10px; }
+.result-card { display: flex; flex-direction: column; margin: 6px 0 14px; padding: 14px; border: 1px solid #E2E5EA; border-radius: 16px; background-color: #FFFFFF; }
+.result-body { display: flex; flex-direction: row; align-items: center; }
+.result-copy { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.result-status { font-size: 12px; font-weight: bold; margin-bottom: 6px; }
+.result-passed { color: #087D65; }
+.result-rejected { color: #A02D39; }
+.result-cancelled { color: #626775; }
+.result-title { color: #303540; font-size: 16px; font-weight: bold; margin-bottom: 8px; }
+.recognition-detail { color: #626775; font-size: 13px; line-height: 20px; }
+.result-frame { flex-shrink: 0; margin-left: 12px; }
 .result-text { min-height: 120px; padding: 12px; border: 1px solid #E9EBEF; border-radius: 8px; background-color: #F6F7F9; color: #6865C6; font-size: 13px; line-height: 21px; }
 </style>

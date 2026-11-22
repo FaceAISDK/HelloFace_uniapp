@@ -1,6 +1,3 @@
 <script lang="uts">
 export default {}
 </script>
-<style>
-page { background-color: #F4F5F9; }
-</style>

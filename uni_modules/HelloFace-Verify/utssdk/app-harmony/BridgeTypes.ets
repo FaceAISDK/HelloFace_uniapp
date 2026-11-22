@@ -21,6 +21,9 @@ export interface NativeData {
   outcome?: string;
   similarity?: number;
   livenessScore?: number;
+  frameJpegBase64?: string;
+  frameWidth?: number;
+  frameHeight?: number;
   stage?: string;
   action?: string;
   stepNumber?: number;

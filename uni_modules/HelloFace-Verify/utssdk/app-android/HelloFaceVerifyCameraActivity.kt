@@ -7,6 +7,7 @@ import android.graphics.Color
 import android.graphics.Matrix
 import android.os.Bundle
 import android.os.Build
+import android.util.Base64
 import android.util.Size
 import android.view.WindowInsets
 import android.view.WindowManager
@@ -158,9 +159,15 @@ class HelloFaceVerifyCameraActivity : ComponentActivity() {
                     override fun onError(error: HiFaceError) { if (active() && generation == attempt) fail(error.code.name, error.message) }
                     override fun onResult(result: FaceFlowResult) {
                         if (!active() || generation != attempt) return
-                        finishResult(JSONObject().put("passed", result.isPassed).put("outcome", result.outcome.name)
+                        val data = JSONObject().put("passed", result.isPassed).put("outcome", result.outcome.name)
                             .put("similarity", if (current.method == "verifyFace") result.similarity ?: JSONObject.NULL else JSONObject.NULL)
-                            .put("livenessScore", result.livenessScore ?: JSONObject.NULL))
+                            .put("livenessScore", result.livenessScore ?: JSONObject.NULL)
+                        result.frameJpeg?.let { jpeg ->
+                            data.put("frameJpegBase64", Base64.encodeToString(jpeg, Base64.NO_WRAP))
+                                .put("frameWidth", result.frameWidth)
+                                .put("frameHeight", result.frameHeight)
+                        }
+                        finishResult(data)
                     }
                 }
                 request = if (current.method == "detectLiveness") {

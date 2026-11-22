@@ -77,6 +77,8 @@ function verify() {
 
 接口通过回调返回结果，不能直接 `await`。**是否通过以 `passed === true` 为准**，识别未通过仍会进入 `success`。页面应防重复点击、在 `complete` 收尾，离页时取消相机任务；删除基准前由业务确认。
 
+`verifyFace` 和 `detectLiveness` 的 `success` 返回可用的 SDK 结束帧 `frameJpegBase64`、`frameWidth`、`frameHeight`。未提供帧时三项均为 `null`。展示时可给 Base64 拼接 `data:image/jpeg;base64,` 前缀，并用 `<image mode="aspectFit">` 保留整帧。插件不保存图片；请避免记录完整结果对象。
+
 ## 活体如何组合
 
 在 `verifyFace` 中配置两个独立选项：
@@ -138,7 +140,7 @@ detectLiveness({
 | iOS | iOS 15+；本地构建需兼容 Swift 6.1.2 的 Xcode（16.3+） |
 | HarmonyOS | API 20+，ARM64，DevEco Studio 26 |
 
-人脸采集需真机摄像头，Web、小程序不支持。iOS 尚未完成真实 SDK 完整编译和真机验证，各平台实际结果见 [验证记录](https://github.com/FaceAISDK/HelloFace_uniapp/blob/main/docs/VALIDATION.md)。当前插件 0.2.3，底层 SDK 0.8.14。
+人脸采集需真机摄像头，Web、小程序不支持。各平台实际结果见 [验证记录](https://github.com/FaceAISDK/HelloFace_uniapp/blob/main/docs/VALIDATION.md)。当前插件 0.2.3，底层 SDK 0.8.15。
 
 ## 常见问题
 

@@ -4,7 +4,7 @@
 
 自带原生采集、录入确认和动作引导界面；静默与动作活体按需组合，也可只验真人而不比对身份。支持导入已有的同模型人脸基准，减少重复录入，适合账号本人确认、签到核验与人员验证流程的技术评估。
 
-功能介绍、接入示例和接口列表见 [插件使用说明](uni_modules/HelloFace-Verify/readme.md)。插件 ID：`HelloFace-Verify`；底层 SDK：HelloFace 0.8.14。
+功能介绍、接入示例和接口列表见 [插件使用说明](uni_modules/HelloFace-Verify/readme.md)。插件 ID：`HelloFace-Verify`；底层 SDK：HelloFace 0.8.15。
 
 ## 运行示例
 
@@ -25,7 +25,7 @@ Android / iOS 可选云端制作基座或完整本地构建，鸿蒙使用本地
 | iOS | iOS 15+；本地构建需兼容 Swift 6.1.2 的 Xcode（16.3+） |
 | HarmonyOS | API 20+，ARM64，DevEco Studio 26 |
 
-Web、小程序不支持此插件。各平台实际编译与真机结果见 [验证记录](docs/VALIDATION.md)；iOS 尚未完成真实 SDK 完整编译和真机验证。
+Web、小程序不支持此插件。各平台实际编译与真机结果见 [验证记录](docs/VALIDATION.md)。
 
 ## Demo 与接入
 

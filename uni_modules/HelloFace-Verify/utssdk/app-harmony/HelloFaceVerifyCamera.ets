@@ -1,4 +1,5 @@
 import { common } from '@kit.AbilityKit';
+import { util } from '@kit.ArkTS';
 import { camera } from '@kit.CameraKit';
 import { image } from '@kit.ImageKit';
 import { systemDateTime } from '@kit.BasicServicesKit';
@@ -586,8 +587,19 @@ export class CameraFlow {
   }
   cancel(): void { if (!this.committing) this.finish(envelope('error', 'CANCELLED', 'Face operation cancelled')); }
   private resultData(value: FaceFlowResult): NativeData {
-    return { feature: this.method === 'enrollFace' ? value.feature : undefined, passed: value.isPassed(),
+    const data: NativeData = { feature: this.method === 'enrollFace' ? value.feature : undefined, passed: value.isPassed(),
       outcome: FaceFlowOutcome[value.outcome], similarity: this.method === 'verifyFace' ? value.similarity : undefined, livenessScore: value.livenessScore };
+    const jpeg = value.frameJpeg;
+    if (this.method !== 'enrollFace' && jpeg !== undefined) {
+      try {
+        data.frameJpegBase64 = new util.Base64Helper().encodeToStringSync(new Uint8Array(jpeg));
+        data.frameWidth = value.frameWidth;
+        data.frameHeight = value.frameHeight;
+      } catch (_) {
+        // JPEG 是可选字段，编码失败时仍返回本次 SDK 判定。
+      }
+    }
+    return data;
   }
   private fail(error: Error): void { this.finish(errorEnvelope(error)); }
   private finish(response: string): void {

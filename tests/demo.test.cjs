@@ -10,7 +10,7 @@ try { ts = require('typescript') } catch (_) {
 }
 
 // Exercise the actual page scripts; native calls and system dialogs stay mocked.
-function loadPage(filename, app = true) {
+function loadPage(filename, app = true, windowWidth = 480) {
   const source = fs.readFileSync(path.resolve(__dirname, '..', filename), 'utf8')
   const script = source.match(/<script[^>]*>([\s\S]*?)<\/script>/)[1]
   let enabled = true
@@ -31,13 +31,21 @@ function loadPage(filename, app = true) {
   })
   assert.equal(diagnostics.length, 0)
   const calls = [], modals = [], toasts = [], loading = [], uiEvents = [], exports = {}
-  const sandbox = { exports, demoImageBase64: 'demo-photo', demoFeature: 'demo-feature', demoFeatureSpaceID: 'jdx-feature-v1', uni: { hideKeyboard() {}, showModal: options => modals.push(options), showToast: options => { toasts.push(options); uiEvents.push('toast') }, showLoading: options => { loading.push(options); uiEvents.push('loading') }, hideLoading: () => uiEvents.push('hideLoading') } }
+  const sandbox = {
+    exports, demoImageBase64: 'demo-photo', demoFeature: 'demo-feature', demoFeatureSpaceID: 'jdx-feature-v1',
+    uni: {
+      getWindowInfo: () => ({ windowWidth }), hideKeyboard() {}, showModal: options => modals.push(options),
+      showToast: options => { toasts.push(options); uiEvents.push('toast') },
+      showLoading: options => { loading.push(options); uiEvents.push('loading') }, hideLoading: () => uiEvents.push('hideLoading')
+    }
+  }
   for (const name of ['syncFaceImage', 'syncFaceFeature', 'enrollFace', 'verifyFace', 'detectLiveness', 'getFaceFeature', 'deleteFace', 'cancel']) {
     sandbox[name] = options => calls.push({ name, options })
   }
   vm.runInNewContext(outputText, sandbox, { filename })
   const page = exports.default
   const state = page.data()
+  state.$nextTick = callback => callback()
   for (const [name, getter] of Object.entries(page.computed || {})) {
     Object.defineProperty(state, name, { get: getter.bind(state) })
   }
@@ -46,6 +54,57 @@ function loadPage(filename, app = true) {
 }
 
 for (const file of ['pages/index/index.vue', 'examples/uni-app-x/pages/index/index.uvue']) {
+  test(`${file}: camera results display the latest frame at its original aspect ratio`, () => {
+    const { state, calls, unload } = loadPage(file)
+    const frame = { code: 0, msg: '检测通过', faceID: '', passed: true, frameJpegBase64: '/9j/2Q==' }
+    state.detect()
+    calls[0].options.success({ ...frame, frameWidth: 540, frameHeight: 720 })
+    calls[0].options.complete({})
+    const first = state.resultFrames[0]
+    assert.equal(first.src, 'data:image/jpeg;base64,/9j/2Q==')
+    assert.deepEqual([first.width, first.height], [90, 120])
+    assert.equal(state.resultScrollTarget, 'demo-result')
+    assert.equal(state.resultTitle, '独立活体检测')
+    state.verify()
+    assert.equal(state.resultFrames.length, 0)
+    assert.equal(state.resultScrollTarget, '')
+    calls[1].options.success({ ...frame, code: 201, msg: '人脸不匹配', passed: false, frameWidth: 720, frameHeight: 405 })
+    const second = state.resultFrames[0]
+    assert.deepEqual([second.width, second.height], [160, 90])
+    assert.equal(state.resultStatus, '人脸不匹配')
+    state.onResultFrameError(first.generation)
+    assert.equal(state.resultFrames[0], second)
+    calls[1].options.complete({})
+    unload()
+    assert.equal(state.resultFrames.length, 0)
+  })
+
+  test(`${file}: narrow layouts and image decode failures keep the outcome readable`, () => {
+    const { state, calls, unload } = loadPage(file, true, 320)
+    const scrolls = []
+    state.$nextTick = callback => scrolls.push(callback)
+    state.detect()
+    calls[0].options.success({ code: 0, msg: '活体通过', passed: true, livenessScore: 0.99,
+      frameJpegBase64: '/9j/2Q==', frameWidth: 720, frameHeight: 405 })
+    calls[0].options.complete({})
+    const frame = state.resultFrames[0]
+    assert.deepEqual([frame.width, frame.height], [108, 61])
+    state.onResultFrameError(frame.generation)
+    assert.equal(state.resultFrames.length, 0)
+    assert.equal(state.resultStatus, '活体通过')
+    assert.equal(state.resultText, '活体分数：0.9900')
+    state.verify()
+    scrolls.shift()()
+    assert.equal(state.resultScrollTarget, '')
+    calls[1].options.fail({ code: 103, msg: '已取消', faceID: 'demo-user' })
+    calls[1].options.complete({})
+    assert.equal(state.resultStatusTone, 'result-cancelled')
+    assert.equal(state.resultFrames.length, 0)
+    unload()
+    scrolls.shift()()
+    assert.equal(state.resultScrollTarget, '')
+  })
+
   test(`${file}: missing reference shows an immediate toast and complete unlocks retry`, () => {
     const { state, calls, toasts } = loadPage(file)
     state.verify()
@@ -53,7 +112,7 @@ for (const file of ['pages/index/index.vue', 'examples/uni-app-x/pages/index/ind
     assert.equal(toasts.length, 1)
     assert.equal(toasts[0].title, '请先录入，code: 105')
     assert.equal(toasts[0].icon, 'none')
-    assert.match(state.resultText, /code: 105/)
+    assert.equal(state.resultText, '返回码：105')
     assert.equal(state.busy, true)
     calls[0].options.complete({})
     assert.equal(state.busy, false)
@@ -107,12 +166,9 @@ for (const file of ['pages/index/index.vue', 'examples/uni-app-x/pages/index/ind
     options.success({ code: 202, msg: '活体未通过', errMsg: 'verifyFace:ok', faceID: 'demo-user', passed: false,
       outcome: 'SPOOF_DETECTED', similarity: 0.999, livenessScore: null })
     options.complete({})
-    assert.match(state.resultText, /passed: false/)
-    assert.match(state.resultText, /code: 202/)
-    assert.match(state.resultText, /msg: 活体未通过/)
-    assert.ok(!state.resultText.includes('SPOOF_DETECTED'))
-    assert.match(state.resultText, /similarity: 0\.999/)
-    assert.ok(!state.resultText.includes('livenessScore:'))
+    assert.equal(state.resultStatus, '活体未通过')
+    assert.equal(state.resultStatusTone, 'result-rejected')
+    assert.equal(state.resultText, '相似度：0.9990')
     assert.equal(state.busy, false)
     assert.equal(state.resultMode, '静默 + 动作活体 · 眨眼、点头')
     state.changeActions({ detail: { value: false } })
@@ -172,10 +228,9 @@ for (const file of ['pages/index/index.vue', 'examples/uni-app-x/pages/index/ind
       similarity: null, livenessScore: 0.123, feature: null })
     options.complete({})
     assert.equal(state.busy, false)
-    assert.match(state.resultText, /passed: false/)
-    assert.match(state.resultText, /livenessScore: 0.123/)
-    assert.ok(!state.resultText.includes('faceID:'))
-    assert.ok(!state.resultText.includes('similarity:'))
+    assert.equal(state.resultStatus, '未检测到人脸')
+    assert.equal(state.resultStatusTone, 'result-rejected')
+    assert.equal(state.resultText, '活体分数：0.1230')
     assert.equal(state.resultMode, '独立活体 · 仅静默活体')
     state.changeLivenessActions({ detail: { value: true } })
     assert.equal(state.resultMode, '独立活体 · 仅静默活体')
@@ -192,7 +247,8 @@ for (const file of ['pages/index/index.vue', 'examples/uni-app-x/pages/index/ind
     calls[0].options.fail({ code: 102, msg: '相机未授权', faceID: '' })
     calls[0].options.complete({})
     assert.equal(state.busy, false)
-    assert.equal(state.resultText, 'code: 102\nmsg: 相机未授权')
+    assert.equal(state.resultStatus, '相机未授权')
+    assert.equal(state.resultText, '返回码：102')
     state.detect()
     unload()
     assert.deepEqual(calls.map(call => call.name), ['detectLiveness', 'detectLiveness', 'cancel'])
@@ -313,10 +369,8 @@ for (const file of ['pages/index/index.vue', 'examples/uni-app-x/pages/index/ind
     calls[0].options.fail({ code: 102, msg: '相机未授权', errCode: 9011002, sdkCode: 'PERMISSION_DENIED',
       faceID: 'demo-user', errMsg: 'verifyFace:fail 相机未授权', detail: 'Original camera diagnostics' })
     calls[0].options.complete({})
-    assert.match(state.resultText, /code: 102/)
-    assert.match(state.resultText, /msg: 相机未授权/)
-    assert.ok(!state.resultText.includes('Original camera diagnostics'))
-    assert.match(state.resultText, /faceID: demo-user/)
+    assert.equal(state.resultStatus, '相机未授权')
+    assert.equal(state.resultText, '返回码：102')
     assert.equal(state.busy, false)
     state.verify()
     unload()

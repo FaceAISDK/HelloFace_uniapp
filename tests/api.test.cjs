@@ -238,6 +238,40 @@ for (const platform of ['app-android', 'app-ios', 'app-harmony']) {
     assert.deepEqual([success, fail, complete, progress], [1, 0, 1, 0])
   })
 
+  test(`${platform}: recognition returns the terminal JPEG and treats missing frame data as optional`, () => {
+    const { api, calls } = load(platform)
+    const jpeg = { frameJpegBase64: '/9j/2Q==', frameWidth: 540, frameHeight: 720 }
+    for (const method of ['verifyFace', 'detectLiveness']) {
+      const run = data => {
+        let result
+        api[method]({ faceID: 'u', success: value => { result = value } })
+        calls.at(-1).reply(JSON.stringify({ event: 'result', code: 'OK', data }))
+        return result
+      }
+      for (const outcome of ['PASSED', 'SPOOF_DETECTED', 'NO_FACE_TIMEOUT']) {
+        const passed = outcome === 'PASSED'
+        const result = run({ passed, outcome, ...jpeg })
+        assert.equal(result.passed, passed)
+        assert.equal(result.frameJpegBase64, jpeg.frameJpegBase64)
+        assert.equal(result.frameWidth, 540)
+        assert.equal(result.frameHeight, 720)
+      }
+      for (const frame of [{}, { ...jpeg, frameWidth: 721 }, { ...jpeg, frameHeight: 0 },
+        { ...jpeg, frameWidth: 1.5 }, { ...jpeg, frameJpegBase64: 'unexpected-format' },
+        { ...jpeg, frameJpegBase64: '/9j/' }, { ...jpeg, frameJpegBase64: '/9j/2Q=' },
+        { ...jpeg, frameJpegBase64: '/9j/2Q?=' }, { ...jpeg, frameJpegBase64: '/9j/2Q=\n' },
+        { ...jpeg, frameJpegBase64: '/9j/2=Q=' }, { ...jpeg, frameJpegBase64: '/9j/2===' }]) {
+        const result = run({ passed: true, outcome: 'PASSED', ...frame })
+        assert.equal(result.passed, true)
+        assert.deepEqual([result.frameJpegBase64, result.frameWidth, result.frameHeight], [null, null, null])
+      }
+    }
+    api.getFaceStatue({ faceID: 'u', success: result => {
+      assert.deepEqual([result.frameJpegBase64, result.frameWidth, result.frameHeight], [null, null, null])
+    } })
+    calls.at(-1).reply(JSON.stringify({ event: 'result', code: 'OK', data: { exists: false, ...jpeg } }))
+  })
+
   test(`${platform}: malformed replies never report a completed capture or feature operation`, () => {
     for (const method of ['verifyFace', 'enrollFace', 'getFaceFeature', 'setFaceFeature']) {
       for (const raw of ['{', 'null', '42', JSON.stringify({ event: 'result', code: 'OK', data: {} }),
@@ -281,14 +315,15 @@ for (const platform of ['app-android', 'app-ios', 'app-harmony']) {
 
   test(`${platform}: contradictory passed outcomes fail closed and complete once`, () => {
     for (const method of ['enrollFace', 'verifyFace', 'detectLiveness']) {
-      for (const outcome of ['', 'NOT_MATCHED', 'SPOOF_DETECTED', 'NO_FACE_TIMEOUT', 'UNKNOWN']) {
+      for (const [passed, outcome] of [[true, ''], [true, 'NOT_MATCHED'], [true, 'SPOOF_DETECTED'],
+        [true, 'NO_FACE_TIMEOUT'], [true, 'UNKNOWN']]) {
         const { api, calls } = load(platform)
         let complete = 0, failed = 0
         api[method]({ faceID: 'u', success: () => assert.fail('Contradictory SDK result passed'),
           fail: error => { assert.equal(error.sdkCode, 'BRIDGE_ERROR'); assert.equal(error.code, 305); failed++ },
           complete: () => complete++ })
         const response = JSON.stringify({ event: 'result', code: 'OK', data: {
-          passed: true, outcome, feature: 'HF1:' + 'A'.repeat(600), similarity: 1, livenessScore: 1
+          passed, outcome, feature: 'HF1:' + 'A'.repeat(600), similarity: 1, livenessScore: 1
         } })
         calls[0].reply(response)
         calls[0].reply(response)

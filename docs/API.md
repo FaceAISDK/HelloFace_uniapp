@@ -123,13 +123,13 @@ getFaceStatue({
 
 | 接口 | 必要输入 | 可选配置 | 成功结果 |
 | --- | --- | --- | --- |
-| `detectLiveness` | options 对象，可为 `{}` | `actions: []`、`actionTimeoutMs: 3000`、`faceTimeoutMs: 15000`、`camera: 'front'`、`onProgress` | `passed / outcome / livenessScore`；`feature / similarity` 为 null |
+| `detectLiveness` | options 对象，可为 `{}` | `actions: []`、`actionTimeoutMs: 3000`、`faceTimeoutMs: 15000`、`camera: 'front'`、`onProgress` | `passed / outcome / livenessScore`，有结束帧时附 JPEG；`feature / similarity` 为 null |
 | `extractFaceFeature` | `imageBase64` | 通用回调 | `feature / featureSpaceID`；不作身份或活体判定 |
 | `getFaceStatue` | `faceID` | 通用回调 | `exists: true / false`；不返回原始特征，不初始化识别 SDK |
 
 三者沿用 `success / fail / complete`，返回 `void`。独立活体与图片提取不绑定用户，回调 `faceID` 为空串；状态查询返回归一化后的输入标识。独立活体支持进度与 `cancel()`，参数限制及后台释放/亮度恢复与验证共用。取消只作用于相机，不取消图片提取或存储操作；操作槽未释放前其他调用仍返回 104。
 
-当前 SDK 0.8.14 的独立活体流程**始终包含静默活体**，非空 `actions` 叠加动作挑战，因此该接口不提供 `silentLiveness` 开关；需要对身份比对配置四种组合时继续使用 `verifyFace`。依据 [锁定 SDK 的公开说明](https://github.com/FaceSDKPro/HelloFace/blob/8f417ffac98c003880b6164a8c459426eef23848/platforms/Harmony/SDK.zh-CN.md#相机流程生命周期)。
+当前 SDK 0.8.15 的独立活体流程**始终包含静默活体**，非空 `actions` 叠加动作挑战，因此该接口不提供 `silentLiveness` 开关；需要对身份比对配置四种组合时继续使用 `verifyFace`。依据 [锁定 SDK 的公开说明](https://github.com/FaceSDKPro/HelloFace/blob/53da79b320f872d75209c35ba6351a792023b920/platforms/Harmony/SDK.zh-CN.md#相机流程生命周期)。
 
 Vue/uvue 首页在“1:1 人脸验证”下方提供“独立活体检测”卡片，点击“开始活体检测”即可演示；无需先录入或填写 faceID。该卡片单独保存动作开关和勾选结果，关闭动作时只做静默活体，打开时追加所选动作，默认眨眼、点头，至少保留一项。`detectLiveness({ actions: [] })` 是有效的静默活体调用，现有接口没有“两种活体都关闭”的状态；“两个都关闭应报参数错误”不适用于当前契约。身份验证的两个开关都关闭时，`verifyFace` 仍按既有约定只比对身份。
 
@@ -226,6 +226,8 @@ setFaceFeature({ faceID: 'user-001', feature: savedFeature, featureSpaceID: save
 | `outcome` | string / null | SDK 业务结果，未产生为 null |
 | `similarity` | number / null | 仅验证返回实际相似度；其他接口、未产生或非有限值为 null |
 | `livenessScore` | number / null | 验证/独立活体返回实际活体分数；其他接口、未产生或非有限值为 null |
+| `frameJpegBase64` | string / null | 验证或独立活体产生的结束帧 JPEG |
+| `frameWidth` / `frameHeight` | number / null | 结束帧的像素宽高 |
 | `feature` | string / null | 录入、读取、同步、图片提取返回 HF1；验证、独立活体、状态查询不返回特征 |
 | `featureSpaceID` | string | 当前 SDK 的特征空间，跨设备传递时保留 |
 
@@ -268,6 +270,29 @@ setFaceFeature({ faceID: 'user-001', feature: savedFeature, featureSpaceID: save
 `msg` 仅用于显示，业务不要解析提示文字。验证仍判断 `passed`；本机特征管理判断 code 是否为 0。错误排查用 `sdkCode + detail`，无需让页面显示底层长文案。进度通知继续使用 stage/action，不携带终态 code。
 
 `getFaceStatue` 的结果额外包含可选布尔字段 `exists`，其他接口为 null；不会为查询返回 `feature`。
+
+### 验证与活体的结束帧
+
+`verifyFace` 和 `detectLiveness` 在 `success` 的 `FaceResult` 中提供以下字段。通过、未通过及无人脸超时等正常业务终态均可能有结束帧。录入、进度、取消和运行错误不会返回结束帧。
+
+| 字段 | 值 |
+| --- | --- |
+| `frameJpegBase64` | SDK 结束帧整图，标准 JPEG Base64，无 `data:` 前缀 |
+| `frameWidth` / `frameHeight` | JPEG 实际像素宽高，均在 1–720 之间 |
+
+缺图、图片数据格式异常或尺寸无效时，三个字段均为 `null`，回调仍提供本次判定和可用分数。业务继续用 `passed === true` 判断通过。两个 Demo 将整帧等比显示在结果卡右侧，缺图或解码失败时保留判定和分数，开始下一次调用或离页时清除预览。插件只在内存中传递图片，调用方展示时可拼接 Data URL，避免把完整回调结果写入日志。
+
+```js
+verifyFace({
+  faceID: 'user-001',
+  success: result => {
+    const src = result.frameJpegBase64 == null
+      ? ''
+      : 'data:image/jpeg;base64,' + result.frameJpegBase64
+    // 页面将 src 绑定到 <image mode="aspectFit">。
+  }
+})
+```
 
 `onProgress` 可多次回调 `{ faceID, stage, action, stepNumber, stepCount }`。常见 stage 包括 `WAITING_FOR_FACE`、`PERFORM_ACTION`、`HOLD_STILL` 等 SDK 阶段；action 无动作时为 null。进度不触发 complete，不等于识别成功。
 

@@ -1,6 +1,6 @@
 # HelloFaceVerify 三端打包指南
 
-本文面向本仓库的源码版 UTS 插件和示例，核对日期为 2026-11-21。当前工程包括 uni-app Vue2/Vue3 示例、uni-app x uvue 示例及三端插件源码。
+本文面向本仓库的源码版 UTS 插件和示例，核对日期为 2026-11-22。当前工程包括 uni-app Vue2/Vue3 示例、uni-app x uvue 示例及三端插件源码。
 
 ## 是否必须用云服务器打包
 
@@ -44,9 +44,9 @@ python3 scripts/install_sdk.py --platform ios
 python3 scripts/install_sdk.py --platform harmony
 ```
 
-当前锁定 SDK 为 **0.8.14**，提交 `8f417ffac98c003880b6164a8c459426eef23848`。安装新版本并校验成功后，脚本将同目录中旧版 `hiface-版本.aar/har` 移到忽略目录 `.sdk-cache/retired-sdk` 保留备份，避免编译时同时包含两个版本；用户的其他 AAR、License 和数据不做处理。`--check` 不改文件，发现旧版残留时会报错提示先安装。
+当前锁定 SDK 为 **0.8.15**，提交 `53da79b320f872d75209c35ba6351a792023b920`。安装新版本并校验成功后，脚本将同目录中旧版 `hiface-版本.aar/har` 移到忽略目录 `.sdk-cache/retired-sdk` 保留备份，避免编译时同时包含两个版本；用户的其他 AAR、License 和数据不做处理。`--check` 不改文件，发现旧版残留时会报错提示先安装。
 
-SDK 更新后要重建原生基座/HAP，不能仅刷新页面。Android 0.8.14 的后端库为 `libhiface_opencv.so`，与 `libhiface_core.so` 一同打包；校验工具从锁定 AAR 读取完整库清单和字节哈希，不再固定检查旧版 ncnn 库名。新基座的两个 ABI、未压缩模型和 16KB 静态对齐均需通过检查。
+SDK 更新后要重建原生基座/HAP，不能仅刷新页面。Android 0.8.15 的后端库为 `libhiface_opencv.so`，与 `libhiface_core.so` 一同打包；校验工具从锁定 AAR 读取完整库清单和字节哈希，不再固定检查旧版 ncnn 库名。新基座的两个 ABI、未压缩模型和 16KB 静态对齐均需通过检查。
 
 要运行哪个示例：
 
@@ -106,7 +106,7 @@ Vue 默认由 App 进程替换页面资源，相同基座会自动跳过安装�
 本插件的额外要求：
 
 - 最低 Android API 23，ABI 为 `arm64-v8a` / `armeabi-v7a`。
-- `hiface-0.8.14.aar` 位于插件的 `utssdk/app-android/libs`。
+- `hiface-0.8.15.aar` 位于插件的 `utssdk/app-android/libs`。
 - 宿主应用模块必须配置模型不压缩，供原生 SDK 映射读取：
 
 ```groovy
@@ -155,10 +155,10 @@ HBuilderX 官方鸿蒙流程在本机调用 DevEco 工具链完成构建，不�
 
 1. 安装并在 HBuilderX 中配置 DevEco Studio。当前上游 SDK 使用 DevEco Studio 26，最低运行 API 20，ARM64。
 2. 在目标示例中配置自己的 AppID、鸿蒙 Bundle Name 和签名。
-3. 确认插件 `utssdk/app-harmony/libs/hiface-0.8.14.har` 已安装，`config.json` 能解析该依赖；相机权限及原因字符串由插件 `module.json5` 和 `resources` 提供。
+3. 确认插件 `utssdk/app-harmony/libs/hiface-0.8.15.har` 已安装，`config.json` 能解析该依赖；相机权限及原因字符串由插件 `module.json5` 和 `resources` 提供。
 4. 在 HBuilderX 中选择鸿蒙真机运行；正式打包使用“发行 → App-Harmony-本地打包 → 生成安装包”，完成本地编译和签名。
 
-历史 SDK 0.8.11 已完成根 Vue3 示例的完整 HAP 构建、签名、安装及鸿蒙 API 26 真机运行；0.8.14 本轮仅完成完整未签名 Release APP 构建，尚未真机回归。本机匹配的调试签名配置在被 Git 忽略的 `harmony-configs/build-profile.json5`，其他电脑需配置自己的身份及匹配 Profile。独立 uni-app x 完整 App、HarmonyOS 6 实机及真人用例的验收边界见 [验证记录](VALIDATION.md)。两套示例的最低鸿蒙版本均固定为 `6.0.0(20)`，以满足真实 HAR 的 API 20 要求。
+历史 SDK 0.8.11 已完成根 Vue3 示例的完整 HAP 构建、签名、安装及鸿蒙 API 26 真机运行；0.8.14 的历史验证完成了完整未签名 Release APP 构建，尚未真机回归。本机匹配的调试签名配置在被 Git 忽略的 `harmony-configs/build-profile.json5`，其他电脑需配置自己的身份及匹配 Profile。独立 uni-app x 完整 App、HarmonyOS 6 实机及真人用例的验收边界见 [验证记录](VALIDATION.md)。两套示例的最低鸿蒙版本均固定为 `6.0.0(20)`，以满足真实 HAR 的 API 20 要求。
 
 本工程的设备连接、签名匹配、CLI 运行、断点、日志和修改后重建步骤见 [鸿蒙真机运行与调试](HARMONY_DEBUG.md)。
 
@@ -182,4 +182,4 @@ npm run check
 
 ## 新增接口后的联编
 
-`detectLiveness`、`extractFaceFeature`、`getFaceStatue` 包含新增 UTS/原生分支。当前锁定 SDK 0.8.14，沿用现有 License 并核对其有效期；需要用 HBuilderX 原生联编或重建 Android 基座/完整鸿蒙 HAP，iOS 使用兼容 Swift 6.1.2 的 Xcode 完成原生构建。只替换 Vue 页面资源无法给旧基座增加接口。更新原生源码后执行 `android:prepare`、`demo:prepare`，再按本指南检查、构建；保留用户身份、数据和签名。
+`detectLiveness`、`extractFaceFeature`、`getFaceStatue` 包含新增 UTS/原生分支。当前锁定 SDK 0.8.15，核对所用 License 的有效期；需要用 HBuilderX 原生联编或重建 Android 基座/完整鸿蒙 HAP，iOS 使用兼容 Swift 6.1.2 的 Xcode 完成原生构建。只替换 Vue 页面资源无法给旧基座增加接口。更新原生源码后执行 `android:prepare`、`demo:prepare`，再按本指南检查、构建；保留用户身份、数据和签名。

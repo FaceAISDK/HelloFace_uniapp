@@ -1,5 +1,5 @@
 // Compile-only boundary for checking real UIKit/AVFoundation integration with an older Xcode.
-// Signatures follow the locked SDK 0.8.14 interface. Every callable member traps: never link this into an App.
+// Signatures follow the locked SDK interface. Every callable member traps: never link this into an App.
 import Foundation
 import CoreGraphics
 import CoreVideo
@@ -31,6 +31,9 @@ public struct FaceFlowResult: Sendable {
     public var feature: String? { fatalError("Compile only") }
     public var livenessScore: Float? { fatalError("Compile only") }
     public var similarity: Float? { fatalError("Compile only") }
+    public var frameJPEG: Data? { fatalError("Compile only") }
+    public var frameWidth: Int { fatalError("Compile only") }
+    public var frameHeight: Int { fatalError("Compile only") }
     public var passed: Bool { fatalError("Compile only") }
 }
 public struct FaceFlowCallbacks: Sendable {

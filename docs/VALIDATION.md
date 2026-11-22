@@ -1,6 +1,16 @@
 # 验证记录
 
-更新日期：2026-11-21。当前原生 SDK 0.8.14，上游提交 `8f417ffac98c003880b6164a8c459426eef23848`；下方旧版本记录按当时版本保留。
+更新日期：2026-11-22。当前原生 SDK 0.8.15，上游提交 `53da79b320f872d75209c35ba6351a792023b920`。
+
+## 2026-11-22 升级 SDK 与回传结束帧
+
+- 校验公开主分支的 Android AAR、鸿蒙 HAR 和两个 iOS XCFramework，共 40 条文件记录。演示 HF1 对应的模型文件哈希与原提取记录一致。
+- `npm run check` 通过 121 项 JS 和 42 项 Python 检查。Android Vue 和 uni-app x 的 UTS 与 Kotlin 联编通过，iOS 真实 SDK Swift 检查和 Vue 的 UTS/Swift 设备架构框架链接通过，uvue 示例的 Android、iOS、鸿蒙页面编译通过。鸿蒙 Vue Demo 完成未签名 Release APP 构建，HAP 的 HiFace ARM64 库与锁定 HAR 一致。
+- 回归用例覆盖验证与活体的通过、拒绝及超时终态，并检查缺图、尺寸及 Base64 格式异常。两套 Demo 覆盖 320px 窄屏横图、解码失败后保留判定和分数、取消或离页清除预览，以及旧图片事件迟到。布局参考三星真机的原生 HelloFace 结果卡。编译日志保存在 `unpackage/frame-refinements/`。
+- 三星 SM-N920C / Android API 24 安装当前 SDK 调试基座并同步 Vue 页面。验证了独立活体取消和重进、独立活体通过、未录入提示、录入和 1:1 验证通过。通过卡片的真实结束帧为竖图，位于判定和相似度、活体分数的右侧。
+- iPhone X / iOS 16.7.16 使用本机开发签名更新现有 Demo，同步并回读校验沙盒中的两份旧页面资源。XCTest 实测独立活体打开相机、取消后重开、无人脸超时及真实竖向结束帧右侧布局。超时后再打开相机并取消，确认旧图已清除。
+- Mate 60 Pro / HarmonyOS API 26 使用 DevEco 新调试签名安装独立包 `dev.helloface.uniapp.demo.framecheck`，保留原 Demo 及基准。实测独立活体取消、重开、无人脸超时，SDK 回传的结束帧位于判定右侧，重试再取消后预览清空。
+- iPhone X 与 Mate 60 Pro 本次覆盖取消与无人脸超时终态，真人活体与 1:1 通过流程仍待复测。设备验证日志保存在忽略目录 `unpackage/device-validation/`。
 
 ## 2026-11-21 主流程编译复核
 

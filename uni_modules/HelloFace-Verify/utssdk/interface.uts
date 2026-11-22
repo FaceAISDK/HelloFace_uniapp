@@ -31,7 +31,13 @@ export type FaceResult = {
   /** 仅验证返回 SDK 相似度，其他接口或未产生时为 null；不是身份概率。 */
   similarity: number | null,
   /** 验证/独立活体返回 SDK 活体分数，未产生时为 null；不得用分数覆盖 passed。 */
-  livenessScore: number | null
+  livenessScore: number | null,
+  /** verifyFace / detectLiveness 的结束帧整图，标准 JPEG Base64。未产生帧时为 null。 */
+  frameJpegBase64: string | null,
+  /** JPEG 宽度（像素），无图时为 null。 */
+  frameWidth: number | null,
+  /** JPEG 高度（像素），无图时为 null。 */
+  frameHeight: number | null
 }
 /** 可选过程通知；不是终态，不会触发 complete。原生页面已提供操作引导。 */
 export type FaceProgress = {

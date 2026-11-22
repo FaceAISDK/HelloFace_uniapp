@@ -4,7 +4,7 @@
 
 ## 首次准备
 
-1. 安装 HBuilderX 的鸿蒙运行扩展及 DevEco Studio，在 HBuilderX「设置 → 运行配置」中配置 DevEco 路径。本机为 `/Applications/DevEco-Studio.app`，HBuilderX 5.34。插件使用真实 SDK 0.8.14，要求 ARM64、API 20+；不能仅按 uni-app 框架更低的最低 API 配置宿主。
+1. 安装 HBuilderX 的鸿蒙运行扩展及 DevEco Studio，在 HBuilderX「设置 → 运行配置」中配置 DevEco 路径。本机为 `/Applications/DevEco-Studio.app`，HBuilderX 5.34。插件使用真实 SDK 0.8.15，要求 ARM64、API 20+；不能仅按 uni-app 框架更低的最低 API 配置宿主。
 
    两套示例已在 `manifest.json` 的 `app-harmony.distribute` 设置 `"compatibleSdkVersion": "6.0.0(20)"`，HBuilderX 会把它应用到生成工程的各个 product。API 20 对应 HarmonyOS 6.0.0，作为最低版本时不支持鸿蒙 5；较新系统满足最低版本条件，功能仍需真机验收。不要降低真实 SDK HAR 的最低版本声明，也不要只修改会被覆盖的 `unpackage` 文件。这个配置解决 `00306004` / `MergeProfile` 的 API 13 与 20 冲突；签名证书需另行配置。
 2. 在手机开启开发者模式与 USB 调试，通过 USB 连接并在手机确认调试授权。以下命令应列出设备；本次为 Mate 60 Pro / ALN-AL80 / API 26。
